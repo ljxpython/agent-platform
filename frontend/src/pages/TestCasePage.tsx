@@ -86,6 +86,7 @@ const TestCasePage: React.FC = () => {
   // 滚动控制状态
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [userScrolled, setUserScrolled] = useState<boolean>(false);
+  const [lastScrollTop, setLastScrollTop] = useState<number>(0);
 
   // 引用
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -97,9 +98,24 @@ const TestCasePage: React.FC = () => {
 
   // 滚动到底部
   const scrollToBottom = () => {
-    if (autoScroll && !userScrolled) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (autoScroll && !userScrolled && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  // 强制滚动到底部（忽略用户滚动状态）
+  const forceScrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // 重置滚动状态
+  const resetScrollState = () => {
+    console.log('🔄 重置滚动状态');
+    setUserScrolled(false);
+    setAutoScroll(true);
+    setLastScrollTop(0);
   };
 
   // 检测用户是否手动滚动
@@ -108,22 +124,40 @@ const TestCasePage: React.FC = () => {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px 容差
 
-      if (!isAtBottom && !userScrolled) {
+      // 检测用户是否主动向上滚动
+      const isScrollingUp = scrollTop < lastScrollTop;
+      setLastScrollTop(scrollTop);
+
+      // 如果用户主动向上滚动，禁用自动滚动
+      if (isScrollingUp && !userScrolled) {
+        console.log('🔒 用户向上滚动，禁用自动滚动');
         setUserScrolled(true);
         setAutoScroll(false);
-      } else if (isAtBottom && userScrolled) {
+      }
+      // 如果用户滚动到底部，重新启用自动滚动
+      else if (isAtBottom && userScrolled) {
+        console.log('🔓 用户滚动到底部，启用自动滚动');
         setUserScrolled(false);
         setAutoScroll(true);
       }
     }
   };
 
-  // 只在流式输出时自动滚动
+  // 智能滚动控制 - 只在特定条件下自动滚动
   useEffect(() => {
-    if (currentAgent && autoScroll) {
-      scrollToBottom();
+    // 只有在以下情况下才自动滚动：
+    // 1. 有流式输出正在进行 (currentAgent 存在)
+    // 2. 自动滚动开启
+    // 3. 用户没有手动滚动
+    if (currentAgent && autoScroll && !userScrolled) {
+      // 使用 setTimeout 避免频繁滚动
+      const scrollTimer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+
+      return () => clearTimeout(scrollTimer);
     }
-  }, [agentMessages, currentAgent, autoScroll]);
+  }, [agentMessages.length, currentAgent, autoScroll, userScrolled]); // 只监听消息数量变化，而不是整个消息数组
 
   // 初始化对话ID
   useEffect(() => {
@@ -658,8 +692,7 @@ const TestCasePage: React.FC = () => {
     savedTestcaseContentRef.current = ''; // 清空ref中的内容
 
     // 重置滚动状态
-    setAutoScroll(true);
-    setUserScrolled(false);
+    resetScrollState();
 
     console.log('🚀 开始测试用例生成流程，重置所有状态');
     console.log('📊 初始状态 - currentAgent:', '', 'agentMessages:', []);
@@ -746,6 +779,9 @@ const TestCasePage: React.FC = () => {
     setStreamError(null);
     setWaitingForFeedback(false); // 重置等待反馈状态
     // 不清空 currentAgent 和 agentStreamingMap，保留已有的测试用例内容
+
+    // 重置滚动状态，确保用户能看到新的反馈处理过程
+    resetScrollState();
 
     try {
       console.log('🔄 提交反馈:', userFeedback.trim());
@@ -871,8 +907,7 @@ const TestCasePage: React.FC = () => {
     savedTestcaseContentRef.current = ''; // 清空ref中的内容
 
     // 重置滚动状态
-    setAutoScroll(true);
-    setUserScrolled(false);
+    resetScrollState();
 
     antMessage.success('已重新开始，生成新的对话');
     console.log('🎉 对话重置完成，新conversation_id:', newConversationId);
@@ -1318,16 +1353,19 @@ const TestCasePage: React.FC = () => {
                               type="text"
                               size="small"
                               onClick={() => {
+                                console.log('🔄 用户点击回到底部');
                                 setUserScrolled(false);
                                 setAutoScroll(true);
-                                scrollToBottom();
+                                forceScrollToBottom();
                               }}
                               style={{
                                 color: '#1890ff',
-                                border: '1px solid #1890ff'
+                                border: '1px solid #1890ff',
+                                animation: currentAgent ? 'pulse 2s infinite' : 'none'
                               }}
+                              title={currentAgent ? '有新内容正在生成，点击回到底部查看' : '回到底部'}
                             >
-                              回到底部
+                              回到底部 {currentAgent && '🔴'}
                             </Button>
                           )}
                           <Button icon={<DownloadOutlined />} type="text">
@@ -1572,6 +1610,30 @@ const TestCasePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* CSS 样式 */}
+      <style>{`
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(24, 144, 255, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
+          }
+        }
+
+        @keyframes blink {
+          0%, 50% {
+            opacity: 1;
+          }
+          51%, 100% {
+            opacity: 0.3;
+          }
+        }
+      `}</style>
     </PageLayout>
   );
 };
