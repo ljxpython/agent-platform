@@ -907,8 +907,9 @@ class TestCaseGenerationRuntime:
         """
         启动流式测试用例生成 - 简化版本
 
-        直接启动需求分析流程，智能体在处理过程中会将流式内容放入队列
-        API接口直接从队列消费即可
+        根据text_content判断是否为反馈监听模式：
+        - 如果text_content为"FEEDBACK_LISTENING"，则只初始化队列，不启动新的分析流程
+        - 否则启动正常的需求分析流程
 
         Args:
             requirement: 需求分析消息对象
@@ -917,12 +918,25 @@ class TestCaseGenerationRuntime:
         logger.info(
             f"🌊 [流式生成-简化版] 启动流式测试用例生成 | 对话ID: {conversation_id}"
         )
+        logger.info(f"   📝 文本内容: {requirement.text_content}")
 
         try:
             # 初始化消息队列
             await get_message_queue(conversation_id)
 
-            # 启动需求分析流程，智能体会自动将流式内容放入队列
+            # 检查是否为反馈监听模式
+            if requirement.text_content == "FEEDBACK_LISTENING":
+                logger.info(
+                    f"🎧 [流式生成-简化版] 反馈监听模式，只初始化队列 | 对话ID: {conversation_id}"
+                )
+                # 反馈监听模式：只初始化队列，不启动新的分析流程
+                # 智能体处理反馈后会将响应放入队列，前端通过队列消费者接收
+                return
+
+            # 正常模式：启动需求分析流程，智能体会自动将流式内容放入队列
+            logger.info(
+                f"📋 [流式生成-简化版] 正常生成模式，启动需求分析 | 对话ID: {conversation_id}"
+            )
             await self.start_requirement_analysis(requirement)
 
         except Exception as e:
@@ -1365,68 +1379,78 @@ class RequirementAnalysisAgent(RoutedAgent):
             return
 
         try:
-            # 步骤1: 输出用户的原始需求和文档内容
+            # 步骤1: 流式输出用户的原始需求内容
             logger.info(
-                f"📢 [需求分析智能体] 步骤1: 输出用户需求和文档内容 | 对话ID: {conversation_id}"
+                f"📢 [需求分析智能体] 步骤1: 流式输出用户需求内容 | 对话ID: {conversation_id}"
             )
 
-            # 构建用户需求内容展示
-            user_requirements_display = "## 📋 用户需求内容\n\n"
-
-            # 添加文本内容
+            # 1.1 流式输出用户的文本需求 message.text_content
             if message.text_content and message.text_content.strip():
-                user_requirements_display += "### 📝 文本需求\n"
-                user_requirements_display += f"{message.text_content.strip()}\n\n"
                 logger.info(
-                    f"   📝 包含文本需求，长度: {len(message.text_content)} 字符,内容:{user_requirements_display}"
+                    f"   📝 开始流式输出用户文本需求，长度: {len(message.text_content)} 字符"
+                )
+
+                # 构建用户需求消息
+                user_text_message = {
+                    "type": "text_message",
+                    "source": "用户模块",
+                    "content": message.text_content.strip(),
+                    "message_type": "用户需求",
+                    "conversation_id": conversation_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_final": False,
+                }
+
+                # 发送到队列进行流式输出
+                await put_message_to_queue(
+                    conversation_id, json.dumps(user_text_message, ensure_ascii=False)
+                )
+
+                logger.success(
+                    f"   ✅ 用户文本需求已流式输出 | 对话ID: {conversation_id} | 内容: {message.text_content[:100]}..."
                 )
             else:
-                logger.info(f"   📝 无文本需求内容")
+                logger.info(f"   📝 无用户文本需求内容")
 
-            # 从document_service获取上传的文件信息
+            # 1.2 获取并流式输出每个文档解析的内容
             uploaded_files_info = testcase_service.get_uploaded_files_info(
                 conversation_id
             )
-            logger.info(f"文档解析内容如下:{uploaded_files_info} ")
+            uploaded_file_content = testcase_service.get_uploaded_files_content(
+                conversation_id
+            )
 
-            # 添加文件信息
-            if uploaded_files_info:
-                user_requirements_display += "### 📎 上传文档\n"
-                user_requirements_display += (
-                    f"文档总数: {len(uploaded_files_info)} 个\n\n"
-                )
-                for i, file_info in enumerate(uploaded_files_info, 1):
-                    user_requirements_display += f"{i}. **{file_info['filename']}**\n"
-                    user_requirements_display += (
-                        f"   - 文件ID: {file_info['file_id']}\n"
-                    )
-                    user_requirements_display += (
-                        f"   - 文件类型: {file_info['file_type']}\n"
-                    )
-                    user_requirements_display += (
-                        f"   - 文件大小: {file_info['file_size']} bytes\n"
-                    )
-                    user_requirements_display += (
-                        f"   - 上传时间: {file_info['upload_time']}\n\n"
-                    )
+            if uploaded_files_info and uploaded_file_content:
                 logger.info(
-                    f"   📎 从document_service获取文档信息: {len(uploaded_files_info)} 个"
+                    f"   📎 开始流式输出文档解析内容，文档数量: {len(uploaded_files_info)} 个，总内容长度: {len(uploaded_file_content)} 字符"
                 )
-            else:
-                logger.info(f"   📎 无上传文档")
 
-            # 发送用户需求内容到前端 - 暂时注释，留待后续使用
-            # await self.publish_message(
-            #     ResponseMessage(
-            #         source="需求分析智能体",
-            #         content=user_requirements_display,
-            #         message_type="用户需求",
-            #         is_final=False,
-            #     ),
-            #     topic_id=TopicId(type=task_result_topic_type, source=self.id.key),
-            # )
+                # 构建文档解析结果消息
+                document_parse_message = {
+                    "type": "text_message",
+                    "source": "用户模块",
+                    "content": uploaded_file_content,
+                    "message_type": "文档解析结果",
+                    "conversation_id": conversation_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_final": False,
+                }
+
+                # 发送到队列进行流式输出
+                await put_message_to_queue(
+                    conversation_id,
+                    json.dumps(document_parse_message, ensure_ascii=False),
+                )
+
+                logger.success(
+                    f"   ✅ 文档解析内容已流式输出 | 对话ID: {conversation_id} | 文档数量: {len(uploaded_files_info)} | 内容长度: {len(uploaded_file_content)} 字符"
+                )
+                logger.debug(f"   📄 文档内容预览: {uploaded_file_content[:200]}...")
+            else:
+                logger.info(f"   📎 无上传文档或文档解析内容")
+
             logger.success(
-                f"✅ [需求分析智能体] 用户需求内容已准备完成 | 对话ID: {conversation_id}"
+                f"✅ [需求分析智能体] 用户需求和文档内容流式输出完成 | 对话ID: {conversation_id}"
             )
 
             # 步骤2: 准备分析内容
@@ -1827,8 +1851,45 @@ class TestCaseGenerationAgent(RoutedAgent):
                 logger.info(
                     f"💬 [测试用例生成智能体-团队模式] 等待用户反馈 | 对话ID: {conversation_id}"
                 )
+
+                # 流式输出告知前端需要用户反馈
+                logger.info(
+                    f"📢 [测试用例生成智能体-团队模式] 发送用户反馈请求到前端 | 对话ID: {conversation_id}"
+                )
+
+                # 构建用户反馈请求消息
+                feedback_request_message = {
+                    "type": "user_input_request",
+                    "source": "用户模块",
+                    "content": "测试用例已生成完成，请您查看并提供反馈意见。如果满意请回复'同意'，如有修改建议请详细说明。",
+                    "message_type": "用户反馈请求",
+                    "conversation_id": conversation_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_final": False,
+                    "requires_user_input": True,
+                }
+
+                # 发送到队列进行流式输出
+                await put_message_to_queue(
+                    conversation_id,
+                    json.dumps(feedback_request_message, ensure_ascii=False),
+                )
+
+                logger.success(
+                    f"✅ [测试用例生成智能体-团队模式] 用户反馈请求已发送到前端 | 对话ID: {conversation_id}"
+                )
+
                 # 调用 get_feedback_from_queue 获取当前对话的反馈（使用 conversation_id）
-                return await get_feedback_from_queue(conversation_id)
+                logger.info(
+                    f"⏳ [测试用例生成智能体-团队模式] 开始等待用户反馈输入 | 对话ID: {conversation_id}"
+                )
+                feedback = await get_feedback_from_queue(conversation_id)
+
+                logger.success(
+                    f"✅ [测试用例生成智能体-团队模式] 收到用户反馈 | 对话ID: {conversation_id} | 反馈内容: {feedback}"
+                )
+
+                return feedback
 
             user_feedback_agent = UserProxyAgent(
                 name="user_approve",

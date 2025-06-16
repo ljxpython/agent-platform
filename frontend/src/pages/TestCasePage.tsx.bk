@@ -26,7 +26,6 @@ import {
   CheckCircleOutlined,
   DownloadOutlined,
   CopyOutlined,
-  ArrowDownOutlined,
 } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import type { UploadFile } from 'antd';
@@ -79,53 +78,20 @@ const TestCasePage: React.FC = () => {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [agentStreamingMap, setAgentStreamingMap] = useState<Record<string, string>>({});
 
-  // 反馈状态
-  const [waitingForFeedback, setWaitingForFeedback] = useState<boolean>(false);
-
-  // 保存的测试用例内容（用于反馈后恢复）
-  const [savedTestcaseContent, setSavedTestcaseContent] = useState<string>('');
-
-  // 滚动控制状态
-  const [autoScroll, setAutoScroll] = useState<boolean>(true);
-  const [userScrolled, setUserScrolled] = useState<boolean>(false);
-
   // 引用
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const savedTestcaseContentRef = useRef<string>(''); // 使用ref保存测试用例内容
 
   const maxRounds = 3;
 
   // 滚动到底部
   const scrollToBottom = () => {
-    if (autoScroll && !userScrolled) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // 检测用户是否手动滚动
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px 容差
-
-      if (!isAtBottom && !userScrolled) {
-        setUserScrolled(true);
-        setAutoScroll(false);
-      } else if (isAtBottom && userScrolled) {
-        setUserScrolled(false);
-        setAutoScroll(true);
-      }
-    }
-  };
-
-  // 只在流式输出时自动滚动
   useEffect(() => {
-    if (currentAgent && autoScroll) {
-      scrollToBottom();
-    }
-  }, [agentMessages, currentAgent, autoScroll]);
+    scrollToBottom();
+  }, [agentMessages]);
 
   // 初始化对话ID
   useEffect(() => {
@@ -362,76 +328,11 @@ const TestCasePage: React.FC = () => {
                 }
                 setAnalysisProgress(70);
 
-              } else if (data.message_type === '测试用例生成' || data.message_type === '测试用例优化') {
-                // 测试用例生成/优化智能体的完整输出
-                console.log('🎯 测试用例处理完成，显示最终结果');
-                console.log('📊 当前轮次:', roundNumber, '数据来源:', data.source);
-                console.log('📊 agentStreamingMap:', agentStreamingMap);
-                console.log('📊 当前所有消息:', agentMessages.map(msg => ({
-                  id: msg.id,
-                  agentType: msg.agentType,
-                  roundNumber: msg.roundNumber,
-                  contentLength: msg.content.length
-                })));
-
-                // 获取流式内容，优先使用保存的内容
-                let agentStreamContent = agentStreamingMap[data.source || ''] || '';
-                console.log('📊 从agentStreamingMap获取的内容长度:', agentStreamContent.length);
-                console.log('📊 保存的测试用例内容长度:', savedTestcaseContent.length);
-                console.log('📊 保存的测试用例内容预览:', savedTestcaseContent.substring(0, 100) + '...');
-
-                // 如果当前轮次没有流式内容，优先使用ref中保存的内容
-                if (!agentStreamContent && savedTestcaseContentRef.current) {
-                  agentStreamContent = savedTestcaseContentRef.current;
-                  console.log('💾 使用ref中保存的测试用例内容，长度:', agentStreamContent.length);
-                } else if (!agentStreamContent && savedTestcaseContent) {
-                  agentStreamContent = savedTestcaseContent;
-                  console.log('💾 使用state中保存的测试用例内容，长度:', agentStreamContent.length);
-                }
-
-                // 如果还是没有内容，尝试查找现有消息
-                if (!agentStreamContent) {
-                  console.log('🔍 agentStreamingMap中没有内容，查找现有消息...');
-
-                  // 查找现有消息中最新的测试用例内容（包括流式消息）
-                  const testcaseMessages = agentMessages
-                    .filter(msg => msg.agentType === 'testcase_agent')
-                    .sort((a, b) => b.roundNumber - a.roundNumber);
-
-                  console.log('📋 找到的测试用例消息:', testcaseMessages.map(msg => ({
-                    id: msg.id,
-                    roundNumber: msg.roundNumber,
-                    contentLength: msg.content.length,
-                    contentPreview: msg.content.substring(0, 100) + '...'
-                  })));
-
-                  if (testcaseMessages.length > 0) {
-                    agentStreamContent = testcaseMessages[0].content;
-                    console.log('📋 使用现有测试用例内容，长度:', agentStreamContent.length);
-                  }
-                }
-
-                // 如果还是没有内容，尝试从所有智能体的流式内容中查找
-                if (!agentStreamContent) {
-                  console.log('🔍 仍然没有内容，检查所有agentStreamingMap条目...');
-                  Object.keys(agentStreamingMap).forEach(key => {
-                    console.log(`📊 agentStreamingMap[${key}]:`, agentStreamingMap[key].length, '字符');
-                    if (agentStreamingMap[key] && agentStreamingMap[key].length > 100) {
-                      agentStreamContent = agentStreamingMap[key];
-                      console.log('📋 使用agentStreamingMap中的内容:', key, '长度:', agentStreamContent.length);
-                    }
-                  });
-                }
-
-                // 优先使用流式内容，如果没有则使用data.content，但要避免使用用户反馈内容
-                let finalContent = agentStreamContent.trim();
-                if (!finalContent && data.content && data.content !== '同意' && data.content !== '不同意') {
-                  finalContent = data.content;
-                  console.log('📋 使用data.content作为最终内容，长度:', finalContent.length);
-                }
-
-                console.log('📝 最终内容长度:', finalContent.length);
-                console.log('📝 最终内容预览:', finalContent.substring(0, 200) + '...');
+              } else if (data.message_type === '测试用例生成') {
+                // 测试用例生成智能体的完整输出
+                console.log('🎯 测试用例生成完成，显示最终结果');
+                const agentStreamContent = agentStreamingMap[data.source || ''] || '';
+                const finalContent = agentStreamContent.trim() || data.content || '';
 
                 const testcaseMessage: AgentMessageData = {
                   id: `testcase_final_${roundNumber}`,
@@ -443,21 +344,17 @@ const TestCasePage: React.FC = () => {
                 };
 
                 setAgentMessages(prev => {
-                  // 移除当前轮次和之前轮次的流式消息，添加最终消息
-                  const filtered = prev.filter(msg =>
-                    !msg.id.startsWith('testcase_streaming_') &&
-                    !msg.id.startsWith('testcase_final_')
-                  );
+                  // 移除流式消息，添加最终消息
+                  const filtered = prev.filter(msg => msg.id !== `testcase_streaming_${roundNumber}`);
                   return [...filtered, testcaseMessage];
                 });
 
-                // 保留流式内容，不要删除，以备反馈后使用
-                // setAgentStreamingMap(prev => {
-                //   const updated = { ...prev };
-                //   delete updated[data.source || ''];
-                //   return updated;
-                // });
-                console.log('📋 保留agentStreamingMap中的内容以备后续使用');
+                // 清理该智能体的流式内容
+                setAgentStreamingMap(prev => {
+                  const updated = { ...prev };
+                  delete updated[data.source || ''];
+                  return updated;
+                });
 
                 if (currentAgent === '测试用例专家') {
                   setCurrentAgent('');
@@ -467,42 +364,12 @@ const TestCasePage: React.FC = () => {
                 setIsComplete(true);
                 setCurrentStep(2);
                 setAnalysisProgress(100);
-                const messageType = data.message_type === '测试用例优化' ? '测试用例优化完成！' : '测试用例生成完成！';
-                antMessage.success(messageType);
+                antMessage.success('测试用例生成完成！');
               }
 
             } else if (data.type === 'user_input_request') {
               // 处理用户反馈请求
               console.log('💬 收到用户反馈请求:', data.content);
-
-              // 在进入反馈阶段前，确保测试用例内容已保存
-              console.log('🔍 检查agentStreamingMap:', agentStreamingMap);
-              console.log('🔍 agentStreamingMap的所有值:', Object.values(agentStreamingMap));
-              console.log('🔍 ref中保存的内容长度:', savedTestcaseContentRef.current.length);
-              console.log('🔍 state中保存的内容长度:', savedTestcaseContent.length);
-
-              // 如果ref中没有内容，尝试从其他地方获取
-              if (!savedTestcaseContentRef.current) {
-                const currentTestcaseContent = Object.values(agentStreamingMap).find(content => content.length > 100) || '';
-                console.log('🔍 从agentStreamingMap找到的测试用例内容长度:', currentTestcaseContent.length);
-
-                if (currentTestcaseContent) {
-                  setSavedTestcaseContent(currentTestcaseContent);
-                  savedTestcaseContentRef.current = currentTestcaseContent;
-                  console.log('💾 保存测试用例内容，长度:', currentTestcaseContent.length);
-                } else {
-                  console.log('⚠️ 没有找到可保存的测试用例内容');
-                  // 尝试从当前消息中查找
-                  const testcaseMsg = agentMessages.find(msg => msg.agentType === 'testcase_agent' && msg.content.length > 100);
-                  if (testcaseMsg) {
-                    setSavedTestcaseContent(testcaseMsg.content);
-                    savedTestcaseContentRef.current = testcaseMsg.content;
-                    console.log('💾 从消息中保存测试用例内容，长度:', testcaseMsg.content.length);
-                  }
-                }
-              } else {
-                console.log('✅ ref中已有保存的测试用例内容，长度:', savedTestcaseContentRef.current.length);
-              }
 
               const feedbackRequestMessage: AgentMessageData = {
                 id: `feedback_request_${Date.now()}_${Math.random()}`,
@@ -513,93 +380,83 @@ const TestCasePage: React.FC = () => {
                 roundNumber: roundNumber
               };
 
-              // 只添加新消息，不覆盖已有消息
               setAgentMessages(prev => [...prev, feedbackRequestMessage]);
-
-              // 进入反馈阶段，重置loading状态以允许用户输入
-              setCurrentStep(2);
-              setLoading(false); // 重要：重置loading状态
-              setCurrentAgent(''); // 清空当前智能体状态
-              setWaitingForFeedback(true); // 标记正在等待用户反馈
-              setIsComplete(false); // 保持未完成状态，以显示反馈区域
+              setCurrentStep(2); // 进入反馈阶段
               antMessage.info('请查看生成的测试用例并提供反馈');
 
             } else if (data.type === 'streaming_chunk') {
               // 处理流式输出块
               console.log('🔥 处理streaming_chunk:', data.source, '内容:', data.content);
 
-              // 更新当前智能体的流式内容（累积）
-              setAgentStreamingMap(prev => {
-                const newContent = (prev[data.source || ''] || '') + (data.content || '');
-                const updatedMap = {...prev, [data.source || '']: newContent};
+              // 更新当前智能体的流式内容
+              setAgentStreamingMap(prev => ({
+                ...prev,
+                [data.source || '']: (prev[data.source || ''] || '') + (data.content || '')
+              }));
 
-                // 根据智能体来源创建或更新流式消息
-                if (data.source === '需求分析智能体') {
-                  setCurrentAgent('需求分析师');
-                  setAnalysisProgress(60);
+              // 根据智能体来源创建或更新流式消息
+              if (data.source === '需求分析智能体') {
+                setCurrentAgent('需求分析师');
+                setAnalysisProgress(60);
+                console.log('📊 需求分析智能体流式输出:', data.content);
 
-                  setAgentMessages(prevMessages => {
-                    const streamingMessage: AgentMessageData = {
-                      id: `requirement_streaming_${roundNumber}`,
-                      content: newContent,  // 使用累积内容
-                      agentType: 'requirement_agent',
-                      agentName: '需求分析师',
-                      timestamp: data.timestamp || new Date().toISOString(),
-                      roundNumber: roundNumber
-                    };
+                // 使用回调函数来确保获取最新的 agentStreamingMap
+                setAgentMessages(prev => {
+                  // 获取最新的累积内容
+                  const currentContent = agentStreamingMap[data.source || ''] || '';
+                  const newContent = currentContent + (data.content || '');
 
-                    const existingIndex = prevMessages.findIndex(msg =>
-                      msg.id === `requirement_streaming_${roundNumber}`
-                    );
+                  const streamingMessage: AgentMessageData = {
+                    id: `requirement_streaming_${roundNumber}`,
+                    content: newContent,
+                    agentType: 'requirement_agent',
+                    agentName: '需求分析师',
+                    timestamp: data.timestamp || new Date().toISOString(),
+                    roundNumber: roundNumber
+                  };
 
-                    if (existingIndex >= 0) {
-                      const updated = [...prevMessages];
-                      updated[existingIndex] = streamingMessage;
-                      return updated;
-                    } else {
-                      return [...prevMessages, streamingMessage];
-                    }
-                  });
+                  const existingIndex = prev.findIndex(msg => msg.id === streamingMessage.id);
+                  if (existingIndex >= 0) {
+                    const updated = [...prev];
+                    updated[existingIndex] = streamingMessage;
+                    return updated;
+                  } else {
+                    return [...prev, streamingMessage];
+                  }
+                });
 
-                } else if (data.source === '测试用例生成智能体' || data.source === '测试用例优化智能体') {
-                  setCurrentAgent('测试用例专家');
-                  setAnalysisProgress(80);
+              } else if (data.source === '测试用例生成智能体') {
+                setCurrentAgent('测试用例专家');
+                setAnalysisProgress(80);
+                console.log('📊 测试用例生成智能体流式输出:', data.content);
 
-                  setAgentMessages(prevMessages => {
-                    const streamingMessage: AgentMessageData = {
-                      id: `testcase_streaming_${roundNumber}`,
-                      content: newContent,  // 使用累积内容
-                      agentType: 'testcase_agent',
-                      agentName: '测试用例专家',
-                      timestamp: data.timestamp || new Date().toISOString(),
-                      roundNumber: roundNumber
-                    };
+                // 使用回调函数来确保获取最新的 agentStreamingMap
+                setAgentMessages(prev => {
+                  // 获取最新的累积内容
+                  const currentContent = agentStreamingMap[data.source || ''] || '';
+                  const newContent = currentContent + (data.content || '');
 
-                    console.log('🎯 当前测试用例专家流式内容长度:', newContent.length);
+                  const streamingMessage: AgentMessageData = {
+                    id: `testcase_streaming_${roundNumber}`,
+                    content: newContent,
+                    agentType: 'testcase_agent',
+                    agentName: '测试用例专家',
+                    timestamp: data.timestamp || new Date().toISOString(),
+                    roundNumber: roundNumber
+                  };
 
-                    // 实时保存测试用例内容
-                    if (newContent.length > 100) {
-                      setSavedTestcaseContent(newContent);
-                      savedTestcaseContentRef.current = newContent; // 同时保存到ref
-                      console.log('💾 实时保存测试用例内容，长度:', newContent.length);
-                    }
+                  console.log('🎯 当前测试用例专家流式内容长度:', newContent.length);
 
-                    const existingIndex = prevMessages.findIndex(msg =>
-                      msg.id === `testcase_streaming_${roundNumber}`
-                    );
-
-                    if (existingIndex >= 0) {
-                      const updated = [...prevMessages];
-                      updated[existingIndex] = streamingMessage;
-                      return updated;
-                    } else {
-                      return [...prevMessages, streamingMessage];
-                    }
-                  });
-                }
-
-                return updatedMap;
-              });
+                  const existingIndex = prev.findIndex(msg => msg.id === streamingMessage.id);
+                  if (existingIndex >= 0) {
+                    const updated = [...prev];
+                    updated[existingIndex] = streamingMessage;
+                    return updated;
+                  } else {
+                    return [...prev, streamingMessage];
+                  }
+                });
+              }
 
             } else if (data.type === 'task_result') {
               // 任务完成
@@ -655,13 +512,6 @@ const TestCasePage: React.FC = () => {
     setAgentMessages([]);
     setAgentStreamingMap({});
     setIsComplete(false);
-    setWaitingForFeedback(false); // 重置等待反馈状态
-    setSavedTestcaseContent(''); // 清空保存的测试用例内容
-    savedTestcaseContentRef.current = ''; // 清空ref中的内容
-
-    // 重置滚动状态
-    setAutoScroll(true);
-    setUserScrolled(false);
 
     console.log('🚀 开始测试用例生成流程，重置所有状态');
     console.log('📊 初始状态 - currentAgent:', '', 'agentMessages:', []);
@@ -746,69 +596,27 @@ const TestCasePage: React.FC = () => {
 
     setLoading(true);
     setStreamError(null);
-    setWaitingForFeedback(false); // 重置等待反馈状态
-    // 不清空 currentAgent 和 agentStreamingMap，保留已有的测试用例内容
+    setCurrentAgent('');
+    setAgentStreamingMap({});
 
     try {
       console.log('🔄 提交反馈:', userFeedback.trim());
-      console.log('🔍 提交反馈时保存的测试用例内容长度:', savedTestcaseContent.length);
 
-      // 添加用户反馈消息到消息列表
-      const feedbackMessage: AgentMessageData = {
-        id: `user_feedback_${Date.now()}_${Math.random()}`,
-        content: `## 💬 用户反馈\n\n${userFeedback.trim()}`,
-        agentType: 'user_proxy',
-        agentName: '用户代理',
-        timestamp: new Date().toISOString(),
-        roundNumber: roundNumber
-      };
-
-      setAgentMessages(prev => [...prev, feedbackMessage]);
-
-      // 提交反馈到简单接口
-      const feedbackResponse = await fetch(`/api/testcase/feedback?conversation_id=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(userFeedback.trim())}`, {
+      // 使用简单的GET接口提交反馈
+      const response = await fetch(`/api/testcase/feedback?conversation_id=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(userFeedback.trim())}`, {
         method: 'GET',
       });
 
-      if (!feedbackResponse.ok) {
-        throw new Error(`反馈提交失败: ${feedbackResponse.status}`);
+      if (!response.ok) {
+        throw new Error(`反馈请求失败: ${response.status}`);
       }
 
-      // 清空用户反馈输入，但先保存当前轮次用于后续请求
-      const currentRound = roundNumber;
+      const result = await response.json();
+      console.log('反馈提交结果:', result);
+
       setUserFeedback('');
       setRoundNumber(prev => prev + 1);
-      antMessage.success('反馈提交成功，正在处理...');
-
-      // 启动一个新的流式连接来监听智能体的反馈响应
-      // 使用特殊标记表示这是反馈后的监听请求
-      const streamingData = {
-        conversation_id: conversationId,
-        text_content: "FEEDBACK_LISTENING", // 特殊标记，表示这是反馈后的流式监听
-        round_number: currentRound + 1, // 使用新的轮次
-        enable_streaming: true
-      };
-
-      const streamingResponse = await fetch('/api/testcase/generate/streaming', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(streamingData),
-      });
-
-      if (!streamingResponse.ok) {
-        throw new Error(`流式监听失败: ${streamingResponse.status}`);
-      }
-
-      const reader = streamingResponse.body?.getReader();
-      if (!reader) {
-        throw new Error('无法获取流式响应');
-      }
-
-      // 处理流式响应
-      await processSSEStream(reader);
-
+      antMessage.success('反馈提交成功！');
     } catch (error: any) {
       console.error('提交反馈失败:', error);
       antMessage.error(`提交反馈失败: ${error.message || '请重试'}`);
@@ -868,13 +676,6 @@ const TestCasePage: React.FC = () => {
     setAgentStreamingMap({});
     setLoading(false);
     setStreamError(null);
-    setWaitingForFeedback(false); // 重置等待反馈状态
-    setSavedTestcaseContent(''); // 清空保存的测试用例内容
-    savedTestcaseContentRef.current = ''; // 清空ref中的内容
-
-    // 重置滚动状态
-    setAutoScroll(true);
-    setUserScrolled(false);
 
     antMessage.success('已重新开始，生成新的对话');
     console.log('🎉 对话重置完成，新conversation_id:', newConversationId);
@@ -1313,25 +1114,6 @@ const TestCasePage: React.FC = () => {
 
                       {agentMessages.length > 0 && (
                         <Space>
-                          {/* 滚动控制按钮 */}
-                          {userScrolled && (
-                            <Button
-                              icon={<ArrowDownOutlined />}
-                              type="text"
-                              size="small"
-                              onClick={() => {
-                                setUserScrolled(false);
-                                setAutoScroll(true);
-                                scrollToBottom();
-                              }}
-                              style={{
-                                color: '#1890ff',
-                                border: '1px solid #1890ff'
-                              }}
-                            >
-                              回到底部
-                            </Button>
-                          )}
                           <Button icon={<DownloadOutlined />} type="text">
                             导出
                           </Button>
@@ -1343,16 +1125,8 @@ const TestCasePage: React.FC = () => {
                     </div>
 
                     {/* 内容区域 */}
-                    <div
-                      ref={scrollContainerRef}
-                      onScroll={handleScroll}
-                      style={{
-                        maxHeight: '60vh',
-                        overflowY: 'auto',
-                        paddingRight: 8
-                      }}
-                    >
-                      {/* AI生成的消息列表 - 显示所有消息 */}
+                    <div>
+                      {/* AI生成的消息列表 - 只显示用户、需求分析、用例生成，去重处理 */}
                       <div style={{ marginBottom: 24 }}>
                         {agentMessages
                           .filter(msg =>
@@ -1360,16 +1134,31 @@ const TestCasePage: React.FC = () => {
                             msg.agentType === 'requirement_agent' ||
                             msg.agentType === 'testcase_agent'
                           )
-                          .map((msg) => {
+                          .reduce((uniqueMessages, msg) => {
+                            // 去重逻辑：同一轮次同一类型的消息只保留最新的一条
+                            const existingIndex = uniqueMessages.findIndex(
+                              existing =>
+                                existing.agentType === msg.agentType &&
+                                existing.roundNumber === msg.roundNumber
+                            );
+
+                            if (existingIndex >= 0) {
+                              // 如果找到相同类型和轮次的消息，替换为最新的
+                              uniqueMessages[existingIndex] = msg;
+                            } else {
+                              // 如果没有找到，添加新消息
+                              uniqueMessages.push(msg);
+                            }
+
+                            return uniqueMessages;
+                          }, [] as AgentMessageData[])
+                          .map((msg, index) => {
                             // 判断是否为流式消息
                             const isStreaming = msg.id.includes('_streaming_') &&
-                              (msg.id.startsWith('requirement_streaming_') || msg.id.startsWith('testcase_streaming_'));
-
-                            // 判断是否为反馈请求消息
-                            const isFeedbackRequest = msg.id.includes('feedback_request');
+                              (msg.id === `requirement_streaming_${roundNumber}` || msg.id === `testcase_streaming_${roundNumber}`);
 
                             return (
-                              <div key={msg.id} style={{ marginBottom: 24 }}>
+                              <div key={`${msg.agentType}_${msg.roundNumber}_${msg.id}`} style={{ marginBottom: 24 }}>
                                 <div style={{
                                   display: 'flex',
                                   alignItems: 'center',
@@ -1391,10 +1180,6 @@ const TestCasePage: React.FC = () => {
                                   {isStreaming ? (
                                     <Tag color="processing" style={{ marginLeft: 'auto' }}>
                                       正在输出...
-                                    </Tag>
-                                  ) : isFeedbackRequest ? (
-                                    <Tag color="orange" style={{ marginLeft: 'auto' }}>
-                                      等待反馈
                                     </Tag>
                                   ) : (
                                     <Tag
@@ -1444,7 +1229,7 @@ const TestCasePage: React.FC = () => {
                       </div>
 
                       {/* 用户反馈区域 */}
-                      {(agentMessages.some(msg => msg.agentType === 'testcase_agent') && waitingForFeedback && roundNumber <= maxRounds) && (
+                      {agentMessages.some(msg => msg.agentType === 'testcase_agent') && !isComplete && roundNumber < maxRounds && (
                         <div style={{
                           background: '#fff7e6',
                           padding: 20,
@@ -1454,11 +1239,6 @@ const TestCasePage: React.FC = () => {
                         }}>
                           <div style={{ marginBottom: 12 }}>
                             <Text strong>反馈意见 (第 {roundNumber}/{maxRounds} 轮)</Text>
-                            {loading && (
-                              <Text style={{ marginLeft: 8, color: '#1890ff', fontSize: 12 }}>
-                                正在处理反馈...
-                              </Text>
-                            )}
                           </div>
                           <TextArea
                             value={userFeedback}
@@ -1466,13 +1246,13 @@ const TestCasePage: React.FC = () => {
                               console.log('用户反馈输入:', e.target.value);
                               setUserFeedback(e.target.value);
                             }}
-                            placeholder="请提出您的修改意见，或输入'同意'确认当前测试用例..."
+                            placeholder="请提出您的修改意见..."
                             rows={3}
-                            disabled={loading}
-                            autoFocus={!loading}
+                            disabled={false}
+                            autoFocus={true}
                             style={{
                               marginBottom: 12,
-                              backgroundColor: loading ? '#f5f5f5' : 'white',
+                              backgroundColor: 'white',
                               border: '1px solid #d9d9d9'
                             }}
                           />
@@ -1483,15 +1263,15 @@ const TestCasePage: React.FC = () => {
                               console.log('提交反馈按钮点击，反馈内容:', userFeedback);
                               submitFeedback();
                             }}
-                            loading={loading}
-                            disabled={!userFeedback.trim() || loading}
+                            loading={false}
+                            disabled={!userFeedback.trim()}
                             style={{
                               background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
                               border: 'none',
                               borderRadius: 6
                             }}
                           >
-                            {loading ? '处理中...' : '提交反馈'}
+                            提交反馈
                           </Button>
                         </div>
                       )}
