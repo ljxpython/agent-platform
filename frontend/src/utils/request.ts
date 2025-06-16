@@ -382,5 +382,4 @@ class RequestManager {
 // 创建全局请求实例
 export const request = new RequestManager();
 
-// 导出类型
-export type { RequestConfig, ApiResponse, SSEEvent, SSEConfig };
+// 类型已在文件开头导出，无需重复导出

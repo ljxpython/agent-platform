@@ -28,7 +28,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxSize = 10
 }) => {
   const [fileList, setFileList] = useState<ExtendedUploadFile[]>([]);
-  const [uploading, setUploading] = useState<boolean>(false);
+  // const [uploading, setUploading] = useState<boolean>(false);
 
   // 处理文件选择（不自动上传，只选择文件）
   const handleFileSelect = (options: any) => {

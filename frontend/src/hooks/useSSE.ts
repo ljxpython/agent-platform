@@ -49,7 +49,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
 
   const connectionIdRef = useRef<string>(`sse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const reconnectAttemptsRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
 
   /**
    * 连接SSE
@@ -112,7 +112,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
   const disconnect = useCallback(() => {
     // 清除重连定时器
     if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
+      window.clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
 
@@ -148,7 +148,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
     reconnectAttemptsRef.current += 1;
     console.log(`安排第 ${reconnectAttemptsRef.current} 次重连，${reconnectInterval}ms 后执行`);
 
-    reconnectTimeoutRef.current = setTimeout(() => {
+    reconnectTimeoutRef.current = window.setTimeout(() => {
       if (!isConnected) {
         connect();
       }
@@ -210,7 +210,7 @@ export const useSSERequest = (url: string) => {
       setError(null);
       setData([]);
     },
-    onError: (error) => {
+    onError: (_error) => {
       setLoading(false);
       setError('连接错误');
     },

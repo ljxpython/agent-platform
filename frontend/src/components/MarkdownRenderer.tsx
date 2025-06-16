@@ -3,10 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Typography } from 'antd';
+// import { Typography } from 'antd';
 import 'highlight.js/styles/github.css'; // 代码高亮样式
 
-const { Text } = Typography;
+// const { Text } = Typography;
 
 interface MarkdownRendererProps {
   content: string;
@@ -87,7 +87,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           ),
 
           // 自定义代码块样式
-          code: ({ inline, className, children, ...props }) => {
+          code: ({ className, children, ...props }: any) => {
+            const inline = !className;
             if (inline) {
               return (
                 <code

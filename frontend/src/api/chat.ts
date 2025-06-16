@@ -69,7 +69,7 @@ export const useChatSSE = () => {
     isConnected,
     isConnecting,
     error,
-    connect,
+    // connect,
     disconnect,
     connectionId,
   } = useSSE({

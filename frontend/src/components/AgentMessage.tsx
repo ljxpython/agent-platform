@@ -26,7 +26,7 @@ interface AgentMessageProps {
 
 const AgentMessage: React.FC<AgentMessageProps> = ({
   agentType,
-  agentName,
+  // agentName,
   content,
   timestamp,
   roundNumber,
@@ -264,7 +264,7 @@ const AgentMessage: React.FC<AgentMessageProps> = ({
         </Collapse>
       </Card>
 
-      <style jsx>{`
+      <style>{`
         .agent-message-container .ant-collapse-content-box {
           padding: 0 !important;
         }

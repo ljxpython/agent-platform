@@ -45,12 +45,12 @@ const RequestExample: React.FC = () => {
    */
   const handleNormalRequest = async () => {
     try {
-      const data: TestCaseRequest = {
-        text_content: textContent,
-        round_number: 1,
-      };
+      // const data: TestCaseRequest = {
+      //   text_content: textContent,
+      //   round_number: 1,
+      // };
 
-      const response = await TestCaseAPI.generate(data);
+      const response = await TestCaseAPI.test();
       console.log('普通请求响应:', response);
       alert(`请求成功: ${response.message}`);
     } catch (error) {
@@ -170,7 +170,7 @@ const RequestExample: React.FC = () => {
                   key={index}
                   size="small"
                   style={{ marginBottom: '8px' }}
-                  title={`${message.agent_name} (${message.source})`}
+                  title={`${message.source}`}
                 >
                   <Paragraph>
                     <Text code>{message.content}</Text>

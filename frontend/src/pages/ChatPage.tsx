@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Space, Typography, message as antMessage, Avatar, Tooltip, Dropdown } from 'antd';
+import { Button, Typography, message as antMessage, Dropdown } from 'antd';
 import {
   ClearOutlined,
   SettingOutlined,
-  RobotOutlined,
   StarOutlined,
   ShareAltOutlined,
   MoreOutlined,

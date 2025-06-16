@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Typography, Space, Tooltip } from 'antd';
+import { Layout, Menu, Typography } from 'antd';
 import {
   HomeOutlined,
   MessageOutlined,
   FileTextOutlined,
   RobotOutlined,
   SettingOutlined,
-  QuestionCircleOutlined
 } from '@ant-design/icons';
 import TopNavigation from './TopNavigation';
 import SidebarToggleButton from './FloatingToggleButton';
@@ -43,7 +42,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     },
     {
       key: 'divider1',
-      type: 'divider',
+      type: 'divider' as const,
     },
     {
       key: 'ai-modules',
@@ -64,7 +63,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     },
     {
       key: 'divider2',
-      type: 'divider',
+      type: 'divider' as const,
     },
     {
       key: 'settings',

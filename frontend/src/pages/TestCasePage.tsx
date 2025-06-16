@@ -8,7 +8,6 @@ import {
   Input,
   Progress,
   Tag,
-  Divider,
 } from 'antd';
 import {
   ClearOutlined,
@@ -32,7 +31,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { UploadFile } from 'antd';
 
 import FileUpload from '@/components/FileUpload';
-import AgentMessage from '@/components/AgentMessage';
 import PageLayout from '@/components/PageLayout';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 

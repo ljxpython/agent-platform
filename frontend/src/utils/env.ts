@@ -14,7 +14,7 @@ export function isBrowser(): boolean {
  * 检查是否在Node.js环境
  */
 export function isNode(): boolean {
-  return typeof process !== 'undefined' && process.versions && process.versions.node;
+  return typeof process !== 'undefined' && process.versions && !!process.versions.node;
 }
 
 /**
@@ -139,7 +139,7 @@ export function getApiBaseUrl(): string {
 
   // 在浏览器环境中，根据当前URL推断API地址
   if (isBrowser()) {
-    const { protocol, hostname, port } = window.location;
+    const { protocol, hostname } = window.location;
 
     if (isDevelopment()) {
       // 开发环境，假设后端运行在8000端口

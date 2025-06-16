@@ -48,18 +48,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
       backgroundColor: 'transparent'
     }}>
       {/* Gemini 风格的输入框 */}
-      <div style={{
-        position: 'relative',
-        backgroundColor: 'white',
-        borderRadius: '24px',
-        border: '1px solid #e5e7eb',
-        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
-        transition: 'all 0.2s ease',
-        ':focus-within': {
-          borderColor: '#667eea',
-          boxShadow: '0 4px 20px rgba(102, 126, 234, 0.15)'
-        }
-      }}>
+      <div
+        className="chat-input-container"
+        style={{
+          position: 'relative',
+          backgroundColor: 'white',
+          borderRadius: '24px',
+          border: '1px solid #e5e7eb',
+          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+          transition: 'all 0.2s ease',
+        }}
+      >
         {/* 附件按钮 */}
         <div style={{
           position: 'absolute',
@@ -186,6 +185,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
       }}>
         AI 测试助手可能会显示不准确的信息，请结合实际情况验证测试方案的可行性。
       </div>
+
+      {/* CSS 样式 */}
+      <style>{`
+        .chat-input-container:focus-within {
+          border-color: #667eea !important;
+          box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15) !important;
+        }
+      `}</style>
     </div>
   );
 };
