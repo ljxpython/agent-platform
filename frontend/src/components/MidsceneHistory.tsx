@@ -124,7 +124,7 @@ const MidsceneHistory: React.FC<MidsceneHistoryProps> = ({ visible, onClose }) =
         params.append('end_date', dateRange[1].format('YYYY-MM-DD'));
       }
 
-      const response = await fetch(`/api/midscene/admin/sessions?${params}`);
+      const response = await fetch(`/api/v1/midscene/admin/sessions?${params}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -143,7 +143,7 @@ const MidsceneHistory: React.FC<MidsceneHistoryProps> = ({ visible, onClose }) =
   const fetchSessionDetail = async (sessionId: string) => {
     setDetailLoading(true);
     try {
-      const response = await fetch(`/api/midscene/admin/sessions/${sessionId}`);
+      const response = await fetch(`/api/v1/midscene/admin/sessions/${sessionId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -161,7 +161,7 @@ const MidsceneHistory: React.FC<MidsceneHistoryProps> = ({ visible, onClose }) =
 
   const deleteSession = async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/midscene/admin/sessions/${sessionId}`, {
+      const response = await fetch(`/api/v1/midscene/admin/sessions/${sessionId}`, {
         method: 'DELETE',
       });
 

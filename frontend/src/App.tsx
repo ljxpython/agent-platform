@@ -9,6 +9,10 @@ import UITestScriptPage from '@/pages/UITestScriptPage';
 import ScrollTestPage from '@/pages/ScrollTestPage';
 import LoginPage from '@/pages/LoginPage';
 import UserProfilePage from '@/pages/UserProfilePage';
+import UserManagePage from '@/pages/system/UserManagePage';
+import RoleManagePage from '@/pages/system/RoleManagePage';
+import DepartmentManagePage from '@/pages/system/DepartmentManagePage';
+import ApiManagePage from '@/pages/system/ApiManagePage';
 import { isAuthenticated } from '@/services/auth';
 
 // 认证保护组件
@@ -53,6 +57,10 @@ const AppContent: React.FC = () => {
           <Route path="/ui-test-script" element={<UITestScriptPage />} />
           <Route path="/scroll-test" element={<ScrollTestPage />} />
           <Route path="/profile" element={<UserProfilePage />} />
+          <Route path="/system/users" element={<UserManagePage />} />
+          <Route path="/system/roles" element={<RoleManagePage />} />
+          <Route path="/system/departments" element={<DepartmentManagePage />} />
+          <Route path="/system/apis" element={<ApiManagePage />} />
         </Routes>
       </SideNavigation>
     </ProtectedRoute>

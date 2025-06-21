@@ -48,7 +48,7 @@ export class MidsceneAPI {
    * 测试 Midscene API 连接
    */
   static async test(): Promise<MidsceneTestResponse> {
-    const response = await request.get<MidsceneTestResponse>('/api/midscene/test');
+    const response = await request.get<MidsceneTestResponse>('/api/v1/midscene/test');
     return response.data;
   }
 
@@ -60,7 +60,7 @@ export class MidsceneAPI {
     formData.append('file', file);
     formData.append('session_id', sessionId);
 
-    const response = await request.post<MidsceneUploadResponse>('/api/midscene/upload', formData, {
+    const response = await request.post<MidsceneUploadResponse>('/api/v1/midscene/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -85,7 +85,7 @@ export class MidsceneAPI {
       formData.append('files', file);
     });
 
-    const response = await fetch('/api/midscene/generate/streaming', {
+    const response = await fetch('/api/v1/midscene/generate/streaming', {
       method: 'POST',
       body: formData,
     });
@@ -105,7 +105,7 @@ export class MidsceneAPI {
     userRequirement: string,
     imagePaths: string[]
   ): Promise<MidsceneAnalysisResponse> {
-    const response = await request.post<MidsceneAnalysisResponse>('/api/midscene/analyze', {
+    const response = await request.post<MidsceneAnalysisResponse>('/api/v1/midscene/analyze', {
       session_id: sessionId,
       user_requirement: userRequirement,
       image_paths: imagePaths,
@@ -117,7 +117,7 @@ export class MidsceneAPI {
    * 获取流式输出
    */
   static async getStream(sessionId: string): Promise<Response> {
-    const response = await fetch(`/api/midscene/stream/${sessionId}`, {
+    const response = await fetch(`/api/v1/midscene/stream/${sessionId}`, {
       method: 'GET',
       headers: {
         'Accept': 'text/event-stream',
@@ -136,7 +136,7 @@ export class MidsceneAPI {
    * 清理会话
    */
   static async cleanupSession(sessionId: string): Promise<{ success: boolean; message: string }> {
-    const response = await request.delete<{ success: boolean; message: string }>(`/api/midscene/session/${sessionId}`);
+    const response = await request.delete<{ success: boolean; message: string }>(`/api/v1/midscene/session/${sessionId}`);
     return response.data;
   }
 }

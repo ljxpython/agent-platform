@@ -264,7 +264,7 @@ const TestCasePage: React.FC = () => {
       formData.append('file', file);
       formData.append('conversation_id', conversationId);
 
-      const response = await fetch('/api/testcase/upload', {
+      const response = await fetch('/api/v1/testcase/upload', {
         method: 'POST',
         body: formData,
       });
@@ -727,7 +727,7 @@ const TestCasePage: React.FC = () => {
       console.log('🚀 开始生成测试用例:', requestData);
 
       // 发送请求
-      const response = await fetch('/api/testcase/generate/streaming', {
+      const response = await fetch('/api/v1/testcase/generate/streaming', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -800,7 +800,7 @@ const TestCasePage: React.FC = () => {
       setAgentMessages(prev => [...prev, feedbackMessage]);
 
       // 提交反馈到简单接口
-      const feedbackResponse = await fetch(`/api/testcase/feedback?conversation_id=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(userFeedback.trim())}`, {
+      const feedbackResponse = await fetch(`/api/v1/testcase/feedback?conversation_id=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(userFeedback.trim())}`, {
         method: 'GET',
       });
 
@@ -823,7 +823,7 @@ const TestCasePage: React.FC = () => {
         enable_streaming: true
       };
 
-      const streamingResponse = await fetch('/api/testcase/generate/streaming', {
+      const streamingResponse = await fetch('/api/v1/testcase/generate/streaming', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -870,7 +870,7 @@ const TestCasePage: React.FC = () => {
     if (conversationId) {
       try {
         console.log('🗑️ 清除后端历史记录:', conversationId);
-        const response = await fetch(`/api/testcase/conversation/${conversationId}`, {
+        const response = await fetch(`/api/v1/testcase/conversation/${conversationId}`, {
           method: 'DELETE',
         });
 

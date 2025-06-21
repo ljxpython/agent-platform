@@ -5,11 +5,11 @@
 const CONFIG = {
     // API配置
     API: {
-        BASE_URL: 'http://localhost:8001',
+        BASE_URL: 'http://localhost:8000',  // 更新为新的后端端口
         ENDPOINTS: {
-            UPLOAD_AND_ANALYZE: '/api/upload_and_analyze',
-            UPLOAD_SINGLE: '/api/upload_single_and_analyze',
-            STREAM_RESULTS: '/api/stream_results',
+            UPLOAD_AND_ANALYZE: '/api/v1/midscene/upload_and_analyze',  // 更新为版本化API
+            UPLOAD_SINGLE: '/api/v1/midscene/upload_single_and_analyze',
+            STREAM_RESULTS: '/api/v1/midscene/stream_results',
             ROOT: '/'
         },
         TIMEOUT: 300000, // 5分钟超时

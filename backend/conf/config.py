@@ -20,9 +20,9 @@ settings = Dynaconf(
 
 # 添加应用默认配置
 if not hasattr(settings, "APP_TITLE"):
-    settings.APP_TITLE = "AI Chat API"
+    settings.APP_TITLE = "AI测试实验室"
 if not hasattr(settings, "APP_DESCRIPTION"):
-    settings.APP_DESCRIPTION = "基于 AutoGen 的智能聊天 API"
+    settings.APP_DESCRIPTION = "基于 AutoGen 的智能测试平台"
 if not hasattr(settings, "VERSION"):
     settings.VERSION = "1.0.0"
 

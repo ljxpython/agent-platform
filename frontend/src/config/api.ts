@@ -68,42 +68,58 @@ export function setApiConfig(config: Partial<ApiConfig>): void {
 }
 
 /**
- * API端点配置
+ * API端点配置 - 适配新的版本化API结构
  */
 export const API_ENDPOINTS = {
-  // 认证相关
+  // 认证相关 - v1版本
   AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    LOGOUT: '/auth/logout',
-    REFRESH: '/auth/refresh',
-    PROFILE: '/auth/profile',
+    LOGIN: '/api/v1/auth/login',
+    REGISTER: '/api/v1/auth/register',
+    LOGOUT: '/api/v1/auth/logout',
+    REFRESH: '/api/v1/auth/refresh',
+    PROFILE: '/api/v1/auth/me',
+    UPDATE_PROFILE: '/api/v1/auth/me',
+    CHANGE_PASSWORD: '/api/v1/auth/change-password',
   },
 
-  // 聊天相关
+  // 聊天相关 - v1版本
   CHAT: {
-    SEND: '/chat/send',
-    STREAM: '/chat/stream',
-    HISTORY: '/chat/history',
-    CONVERSATIONS: '/chat/conversations',
-    DELETE_CONVERSATION: '/chat/conversations/{id}',
+    SEND: '/api/v1/chat/',
+    STREAM: '/api/v1/chat/stream',
+    HISTORY: '/api/v1/chat/history',
+    CONVERSATIONS: '/api/v1/chat/conversations',
+    DELETE_CONVERSATION: '/api/v1/chat/conversation/{id}',
+    STATS: '/api/v1/chat/stats',
+    CLEANUP: '/api/v1/chat/cleanup',
   },
 
-  // 测试用例相关
+  // 测试用例相关 - v1版本
   TESTCASE: {
-    GENERATE: '/api/testcase/generate',
-    GENERATE_STREAMING: '/api/testcase/generate/streaming',
-    FEEDBACK_STREAMING: '/api/testcase/feedback/streaming',
-    HISTORY: '/api/testcase/history',
-    TEST: '/api/testcase/test',
-    EXPORT: '/testcase/export',
+    UPLOAD: '/api/v1/testcase/upload',
+    GENERATE_STREAMING: '/api/v1/testcase/generate/streaming',
+    FEEDBACK: '/api/v1/testcase/feedback',
+    HISTORY: '/api/v1/testcase/history/{id}',
+    DELETE_CONVERSATION: '/api/v1/testcase/conversation/{id}',
+    TEST: '/api/v1/testcase/test',
+    EXPORT: '/api/v1/testcase/export',
   },
 
-  // 文件相关
+  // Midscene相关 - v1版本
+  MIDSCENE: {
+    UPLOAD: '/api/v1/midscene/upload',
+    GENERATE_STREAMING: '/api/v1/midscene/generate/streaming',
+    ANALYZE: '/api/v1/midscene/analyze',
+    STREAM: '/api/v1/midscene/stream/{id}',
+    DELETE_SESSION: '/api/v1/midscene/session/{id}',
+    UPLOAD_AND_ANALYZE: '/api/v1/midscene/upload_and_analyze',
+    TEST: '/api/v1/midscene/test',
+  },
+
+  // 文件相关（保持原有路径，如果有的话）
   FILE: {
-    UPLOAD: '/file/upload',
-    DOWNLOAD: '/file/download/{id}',
-    DELETE: '/file/delete/{id}',
+    UPLOAD: '/api/v1/file/upload',
+    DOWNLOAD: '/api/v1/file/download/{id}',
+    DELETE: '/api/v1/file/delete/{id}',
   },
 } as const;
 

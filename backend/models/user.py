@@ -5,11 +5,12 @@ from typing import Optional
 from tortoise import fields
 from tortoise.models import Model
 
+from .base import BaseModel, TimestampMixin
 
-class User(Model):
+
+class User(BaseModel, TimestampMixin):
     """用户模型"""
 
-    id = fields.IntField(pk=True)
     username = fields.CharField(max_length=50, unique=True, description="用户名")
     email = fields.CharField(max_length=100, unique=True, null=True, description="邮箱")
     password_hash = fields.CharField(max_length=255, description="密码哈希")
@@ -17,9 +18,15 @@ class User(Model):
     avatar_url = fields.CharField(max_length=255, null=True, description="头像URL")
     is_active = fields.BooleanField(default=True, description="是否激活")
     is_superuser = fields.BooleanField(default=False, description="是否超级用户")
-    created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
-    updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
     last_login = fields.DatetimeField(null=True, description="最后登录时间")
+
+    # 关联字段
+    dept = fields.ForeignKeyField(
+        "models.Department", related_name="users", null=True, description="所属部门"
+    )
+    roles = fields.ManyToManyField(
+        "models.Role", related_name="users", description="用户角色"
+    )
 
     class Meta:
         table = "users"
@@ -67,16 +74,14 @@ class User(Model):
         }
 
 
-class UserSession(Model):
+class UserSession(BaseModel, TimestampMixin):
     """用户会话模型"""
 
-    id = fields.IntField(pk=True)
     user = fields.ForeignKeyField(
         "models.User", related_name="sessions", description="用户"
     )
     token = fields.CharField(max_length=255, unique=True, description="会话令牌")
     expires_at = fields.DatetimeField(description="过期时间")
-    created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     is_active = fields.BooleanField(default=True, description="是否激活")
 
     class Meta:

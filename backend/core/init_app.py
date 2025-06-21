@@ -9,11 +9,7 @@ from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from backend.api.auth import router as auth_router
-from backend.api.chat import router as chat_router
-from backend.api.midscene import router as midscene_router
-from backend.api.midscene_admin import router as midscene_admin_router
-from backend.api.testcase import router as testcase_router
+from backend.api import api_router
 
 
 async def init_data():
@@ -112,35 +108,19 @@ def register_exceptions(app: FastAPI):
     logger.debug("异常处理器注册完成")
 
 
-def register_routers(app: FastAPI, prefix: str = ""):
+def register_routers(app: FastAPI, prefix: str = "/api"):
     """Register application routers"""
     logger.info("注册应用路由...")
 
-    # 注册认证路由
-    app.include_router(auth_router)
-    logger.debug("认证路由注册完成")
-
-    # 注册聊天路由
-    app.include_router(chat_router)
-    logger.debug("聊天路由注册完成")
-
-    # 注册测试用例路由
-    app.include_router(testcase_router)
-    logger.debug("测试用例路由注册完成")
-
-    # 注册Midscene路由
-    app.include_router(midscene_router)
-    logger.debug("Midscene路由注册完成")
-
-    # 注册Midscene管理路由
-    app.include_router(midscene_admin_router)
-    logger.debug("Midscene管理路由注册完成")
+    # 注册API路由
+    app.include_router(api_router, prefix=prefix)
+    logger.debug("API路由注册完成")
 
     # 注册基础路由
     @app.get("/")
     async def root():
         logger.debug("根路径被访问")
-        return {"message": "AI Chat API is running!"}
+        return {"message": "AI测试实验室 API is running!"}
 
     @app.get("/health")
     async def health_check():

@@ -260,7 +260,7 @@ const UITestScriptPage: React.FC = () => {
       formData.append('user_id', userId);
       formData.append('user_requirement', userRequirement);
 
-      const response = await fetch('/api/midscene/upload_and_analyze', {
+      const response = await fetch('/api/v1/midscene/upload_and_analyze', {
         method: 'POST',
         body: formData
       });

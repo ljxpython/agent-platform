@@ -264,7 +264,7 @@ const UITestExecutePage: React.FC = () => {
     });
 
     try {
-      const response = await fetch('/api/midscene/upload_and_analyze', {
+      const response = await fetch('/api/v1/midscene/upload_and_analyze', {
         method: 'POST',
         body: formData
       });

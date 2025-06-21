@@ -45,7 +45,7 @@ export interface TestCaseStreamChunk {
   timestamp?: string;
 }
 
-const API_BASE_URL = '/api/testcase';
+const API_BASE_URL = '/api/v1/testcase';
 
 /**
  * 上传文件

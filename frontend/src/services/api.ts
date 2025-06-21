@@ -2,7 +2,7 @@ import axios from 'axios';
 import { ChatRequest, ChatResponse } from '@/types/chat';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/v1',
   timeout: 30000,
 });
 
@@ -30,18 +30,18 @@ api.interceptors.response.use(
 export const chatApi = {
   // 普通聊天
   chat: async (request: ChatRequest): Promise<ChatResponse> => {
-    const response = await api.post('/chat/', request);
+    const response = await api.post('/v1/chat/', request);
     return response.data;
   },
 
   // 流式聊天
   chatStream: (request: ChatRequest): EventSource => {
-    const url = new URL('/api/chat/stream', window.location.origin);
+    const url = new URL('/api/v1/chat/stream', window.location.origin);
 
     const eventSource = new EventSource(url.toString());
 
     // 发送请求数据
-    fetch('/api/chat/stream', {
+    fetch('/api/v1/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -54,7 +54,7 @@ export const chatApi = {
 
   // 清除对话
   clearConversation: async (conversationId: string) => {
-    const response = await api.delete(`/chat/conversation/${conversationId}`);
+    const response = await api.delete(`/v1/chat/conversation/${conversationId}`);
     return response.data;
   },
 };

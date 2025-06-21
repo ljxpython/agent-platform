@@ -1,6 +1,6 @@
 // import { message } from 'antd';
 
-const API_BASE_URL = '/api/auth';
+const API_BASE_URL = '/api/v1/auth';
 
 // 用户信息接口
 export interface User {

@@ -82,7 +82,7 @@ const ChatPage: React.FC = () => {
 
     try {
       // 使用流式API
-      const response = await fetch('/api/chat/stream', {
+      const response = await fetch('/api/v1/chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

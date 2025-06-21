@@ -11,6 +11,9 @@ import {
   ApiOutlined,
   DashboardOutlined,
   CodeOutlined,
+  UserOutlined,
+  TeamOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import TopNavigation from './TopNavigation';
 import SidebarToggleButton from './FloatingToggleButton';
@@ -39,6 +42,10 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     if (path === '/ui-test-script') return 'ui-test-script';
     if (path === '/api-testing') return 'api-testing';
     if (path === '/performance-testing') return 'performance-testing';
+    if (path === '/system/users') return 'system-users';
+    if (path === '/system/roles') return 'system-roles';
+    if (path === '/system/departments') return 'system-departments';
+    if (path === '/system/apis') return 'system-apis';
     return 'home';
   };
 
@@ -103,9 +110,31 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
       type: 'divider' as const,
     },
     {
-      key: 'settings',
+      key: 'system-management',
       icon: <SettingOutlined />,
-      label: collapsed ? null : '设置',
+      label: collapsed ? null : '系统管理',
+      children: [
+        {
+          key: 'system-users',
+          icon: <UserOutlined />,
+          label: '用户管理',
+        },
+        {
+          key: 'system-roles',
+          icon: <TeamOutlined />,
+          label: '角色管理',
+        },
+        {
+          key: 'system-departments',
+          icon: <ApartmentOutlined />,
+          label: '部门管理',
+        },
+        {
+          key: 'system-apis',
+          icon: <ApiOutlined />,
+          label: 'API管理',
+        },
+      ],
     },
   ];
 
@@ -134,8 +163,17 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
         // 未来功能，暂时不跳转
         console.log('性能测试功能开发中');
         break;
-      case 'settings':
-        console.log('设置页面');
+      case 'system-users':
+        navigate('/system/users');
+        break;
+      case 'system-roles':
+        navigate('/system/roles');
+        break;
+      case 'system-departments':
+        navigate('/system/departments');
+        break;
+      case 'system-apis':
+        navigate('/system/apis');
         break;
       default:
         break;

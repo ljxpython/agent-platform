@@ -23,6 +23,9 @@ TORTOISE_ORM = {
                 "backend.models.chat",
                 "backend.models.testcase",
                 "backend.models.midscene",
+                "backend.models.role",
+                "backend.models.department",
+                "backend.models.api",
                 "aerich.models",
             ],
             "default_connection": "default",
@@ -84,7 +87,10 @@ async def init_data():
 async def create_default_user():
     """创建默认用户"""
     try:
+        from backend.models.department import Department
+        from backend.models.role import Role
         from backend.models.user import User
+        from backend.utils.password import hash_password
 
         # 检查是否已存在默认用户
         existing_user = await User.get_or_none(username="test")
@@ -92,21 +98,45 @@ async def create_default_user():
             logger.info("默认用户已存在")
             return
 
+        # 创建默认部门
+        default_dept = await Department.get_or_none(name="AI测试部")
+        if not default_dept:
+            default_dept = await Department.create(
+                name="AI测试部",
+                description="AI测试实验室默认部门",
+                sort_order=0,
+                is_active=True,
+            )
+            logger.info("默认部门创建成功: AI测试部")
+
+        # 创建默认角色
+        admin_role = await Role.get_or_none(name="管理员")
+        if not admin_role:
+            admin_role = await Role.create(
+                name="管理员", description="系统管理员角色", is_active=True
+            )
+            logger.info("默认角色创建成功: 管理员")
+
         # 创建默认用户
-        default_user = User(
+        default_user = await User.create(
             username="test",
             email="test@example.com",
             full_name="测试用户",
+            password_hash=hash_password("test"),
             is_active=True,
             is_superuser=True,
+            dept=default_dept,
         )
-        default_user.set_password("test")
-        await default_user.save()
+
+        # 分配角色
+        await default_user.roles.add(admin_role)
 
         logger.success("默认用户创建成功:")
         logger.info("  用户名: test")
         logger.info("  密码: test")
         logger.info("  邮箱: test@example.com")
+        logger.info("  部门: AI测试部")
+        logger.info("  角色: 管理员")
 
     except Exception as e:
         logger.error(f"创建默认用户失败: {e}")

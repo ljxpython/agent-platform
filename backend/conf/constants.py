@@ -16,6 +16,9 @@ backend_path = root_path / "backend"
 frontend_path = root_path / "frontend"
 # 日志目录
 log_path = root_path / "logs"
+
+# 时间格式
+DATETIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 # 例子目录
 examples_path = root_path / "examples"
 
