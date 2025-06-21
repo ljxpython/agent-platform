@@ -7,6 +7,10 @@ import {
   FileTextOutlined,
   RobotOutlined,
   SettingOutlined,
+  BugOutlined,
+  ApiOutlined,
+  DashboardOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import TopNavigation from './TopNavigation';
 import SidebarToggleButton from './FloatingToggleButton';
@@ -23,7 +27,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const [openKeys, setOpenKeys] = useState(['ai-modules']); // 默认展开AI模块
+  const [openKeys, setOpenKeys] = useState(['ai-assist']); // 默认展开AI助力模块
 
   // 根据当前路径确定选中的菜单项
   const getSelectedKey = () => {
@@ -31,6 +35,10 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     if (path === '/') return 'home';
     if (path === '/chat') return 'chat';
     if (path === '/testcase') return 'testcase';
+    if (path === '/midscene') return 'midscene';
+    if (path === '/ui-test-script') return 'ui-test-script';
+    if (path === '/api-testing') return 'api-testing';
+    if (path === '/performance-testing') return 'performance-testing';
     return 'home';
   };
 
@@ -45,14 +53,14 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
       type: 'divider' as const,
     },
     {
-      key: 'ai-modules',
+      key: 'ai-assist',
       icon: <RobotOutlined />,
-      label: collapsed ? null : 'AI 模块',
+      label: collapsed ? null : 'AI助力',
       children: [
         {
           key: 'chat',
           icon: <MessageOutlined />,
-          label: 'AI 对话',
+          label: 'AI对话',
         },
         {
           key: 'testcase',
@@ -60,6 +68,35 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
           label: '测试用例生成',
         },
       ],
+    },
+    {
+      key: 'ui-testing',
+      icon: <BugOutlined />,
+      label: collapsed ? null : 'UI测试',
+      children: [
+        {
+          key: 'midscene',
+          icon: <RobotOutlined />,
+          label: 'Midscene智能系统介绍',
+        },
+        {
+          key: 'ui-test-script',
+          icon: <CodeOutlined />,
+          label: 'UI测试脚本生成',
+        },
+      ],
+    },
+    {
+      key: 'api-testing',
+      icon: <ApiOutlined />,
+      label: collapsed ? null : '接口测试',
+      disabled: true,
+    },
+    {
+      key: 'performance-testing',
+      icon: <DashboardOutlined />,
+      label: collapsed ? null : '性能测试',
+      disabled: true,
     },
     {
       key: 'divider2',
@@ -82,6 +119,20 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
         break;
       case 'testcase':
         navigate('/testcase');
+        break;
+      case 'midscene':
+        navigate('/midscene');
+        break;
+      case 'ui-test-script':
+        navigate('/ui-test-script');
+        break;
+      case 'api-testing':
+        // 未来功能，暂时不跳转
+        console.log('接口测试功能开发中');
+        break;
+      case 'performance-testing':
+        // 未来功能，暂时不跳转
+        console.log('性能测试功能开发中');
         break;
       case 'settings':
         console.log('设置页面');

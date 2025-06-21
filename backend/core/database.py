@@ -22,6 +22,7 @@ TORTOISE_ORM = {
                 "backend.models.user",
                 "backend.models.chat",
                 "backend.models.testcase",
+                "backend.models.midscene",
                 "aerich.models",
             ],
             "default_connection": "default",

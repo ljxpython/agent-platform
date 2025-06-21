@@ -4,6 +4,8 @@ import SideNavigation from '@/components/SideNavigation';
 import HomePage from '@/pages/HomePage';
 import ChatPage from '@/pages/ChatPage';
 import TestCasePage from '@/pages/TestCasePage';
+import MidscenePage from '@/pages/MidscenePage';
+import UITestScriptPage from '@/pages/UITestScriptPage';
 import ScrollTestPage from '@/pages/ScrollTestPage';
 import LoginPage from '@/pages/LoginPage';
 import UserProfilePage from '@/pages/UserProfilePage';
@@ -47,6 +49,8 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/testcase" element={<TestCasePage />} />
+          <Route path="/midscene" element={<MidscenePage />} />
+          <Route path="/ui-test-script" element={<UITestScriptPage />} />
           <Route path="/scroll-test" element={<ScrollTestPage />} />
           <Route path="/profile" element={<UserProfilePage />} />
         </Routes>

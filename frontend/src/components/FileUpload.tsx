@@ -202,9 +202,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
             color: 'white',
             borderBottom: '1px solid rgba(255,255,255,0.2)'
           }}
-          bodyStyle={{
-            background: 'rgba(255,255,255,0.95)',
-            borderRadius: '0 0 12px 12px'
+          styles={{
+            body: {
+              background: 'rgba(255,255,255,0.95)',
+              borderRadius: '0 0 12px 12px'
+            }
           }}
         >
           <Space direction="vertical" style={{ width: '100%' }}>

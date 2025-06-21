@@ -7,7 +7,9 @@ import {
   RobotOutlined,
   ArrowRightOutlined,
   BulbOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  CodeOutlined,
+  CameraOutlined
 } from '@ant-design/icons';
 
 const { Content } = Layout;
@@ -46,6 +48,21 @@ const HomePage: React.FC = () => {
       gradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
       path: '/testcase',
       status: '已完成'
+    },
+    {
+      key: 'midscene',
+      title: 'Midscene智能UI脚本生成',
+      description: '四智能体协作，基于UI截图智能生成Midscene.js自动化测试脚本',
+      icon: <CameraOutlined style={{ fontSize: 48, color: '#722ed1' }} />,
+      features: [
+        'UI截图分析',
+        '智能体协作',
+        'YAML脚本输出',
+        'Playwright脚本'
+      ],
+      gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+      path: '/midscene',
+      status: '已完成'
     }
   ];
 
@@ -80,18 +97,38 @@ const HomePage: React.FC = () => {
                   color: 'rgba(255,255,255,0.9)',
                   fontSize: 18,
                   margin: 0,
-                  maxWidth: 600
+                  maxWidth: 800
                 }}
               >
-                集成多个AI驱动的测试功能模块，提升测试效率，智能化测试流程
+                集成三大AI驱动的测试功能模块：智能对话、测试用例生成、UI脚本生成
               </Paragraph>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '40px',
+                marginTop: 20,
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.8)' }}>
+                  <MessageOutlined style={{ marginRight: 8, fontSize: 16 }} />
+                  <span>AI对话</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.8)' }}>
+                  <FileTextOutlined style={{ marginRight: 8, fontSize: 16 }} />
+                  <span>测试用例生成</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.8)' }}>
+                  <CodeOutlined style={{ marginRight: 8, fontSize: 16 }} />
+                  <span>UI脚本生成</span>
+                </div>
+              </div>
             </Space>
           </div>
 
           {/* 功能模块卡片 */}
-          <Row gutter={[32, 32]} justify="center">
+          <Row gutter={[24, 24]} justify="center">
             {modules.map((module) => (
-              <Col xs={24} lg={12} key={module.key}>
+              <Col xs={24} sm={24} md={12} lg={8} key={module.key}>
                 <Card
                   hoverable
                   style={{
@@ -105,7 +142,7 @@ const HomePage: React.FC = () => {
                     cursor: 'pointer',
                     transition: 'all 0.3s ease'
                   }}
-                  bodyStyle={{ padding: 0 }}
+                  styles={{ body: { padding: 0 } }}
                   onClick={() => handleModuleClick(module.path)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-8px)';
@@ -224,9 +261,49 @@ const HomePage: React.FC = () => {
 
           {/* 底部信息 */}
           <div style={{ textAlign: 'center', marginTop: 60 }}>
-            <Paragraph style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-              基于 AutoGen 0.5.7 + FastAPI + React 构建的智能测试平台
-            </Paragraph>
+            <Space direction="vertical" size="middle">
+              <Paragraph style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16, margin: 0 }}>
+                🤖 基于 AutoGen 0.5.7 多智能体框架构建
+              </Paragraph>
+              <Paragraph style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, margin: 0 }}>
+                FastAPI + React + Ant Design Pro | 流式输出 | 智能协作 | 专业测试
+              </Paragraph>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '20px',
+                marginTop: 20,
+                flexWrap: 'wrap'
+              }}>
+                <div style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  padding: '8px 16px',
+                  borderRadius: 20,
+                  color: 'rgba(255,255,255,0.9)',
+                  fontSize: 12
+                }}>
+                  💬 实时对话
+                </div>
+                <div style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  padding: '8px 16px',
+                  borderRadius: 20,
+                  color: 'rgba(255,255,255,0.9)',
+                  fontSize: 12
+                }}>
+                  📝 智能测试用例
+                </div>
+                <div style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  padding: '8px 16px',
+                  borderRadius: 20,
+                  color: 'rgba(255,255,255,0.9)',
+                  fontSize: 12
+                }}>
+                  🎯 UI自动化脚本
+                </div>
+              </div>
+            </Space>
           </div>
         </div>
       </Content>

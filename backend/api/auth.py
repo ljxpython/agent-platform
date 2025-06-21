@@ -111,7 +111,7 @@ async def change_password(
 
 
 @router.post("/logout", summary="用户登出")
-async def logout(current_user: User = Depends(get_current_active_user)):
+async def logout():
     """用户登出（客户端需要删除本地token）"""
-    logger.info(f"用户登出: {current_user.username}")
+    logger.info("用户登出请求")
     return {"message": "登出成功"}

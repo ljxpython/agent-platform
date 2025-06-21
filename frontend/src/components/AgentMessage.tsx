@@ -16,7 +16,7 @@ const { Text, Title } = Typography;
 const { Panel } = Collapse;
 
 interface AgentMessageProps {
-  agentType: 'requirement_agent' | 'testcase_agent' | 'user_proxy';
+  agentType: 'requirement_agent' | 'testcase_agent' | 'user_proxy' | 'ui_analyst' | 'interaction_analyst' | 'midscene_generator' | 'script_generator' | 'system';
   agentName: string;
   content: string;
   timestamp: string;
@@ -59,6 +59,46 @@ const AgentMessage: React.FC<AgentMessageProps> = ({
           bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           icon: <UserOutlined />,
           description: '处理用户反馈和交互'
+        };
+      case 'ui_analyst':
+        return {
+          name: 'UI分析智能体',
+          color: '#f59e0b',
+          bgColor: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+          icon: <RobotOutlined />,
+          description: '分析UI截图中的元素和布局'
+        };
+      case 'interaction_analyst':
+        return {
+          name: '交互分析智能体',
+          color: '#10b981',
+          bgColor: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          icon: <RobotOutlined />,
+          description: '设计用户交互流程和操作路径'
+        };
+      case 'midscene_generator':
+        return {
+          name: 'Midscene用例生成智能体',
+          color: '#8b5cf6',
+          bgColor: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+          icon: <RobotOutlined />,
+          description: '生成Midscene.js测试用例'
+        };
+      case 'script_generator':
+        return {
+          name: '脚本生成智能体',
+          color: '#ef4444',
+          bgColor: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+          icon: <RobotOutlined />,
+          description: '生成YAML和Playwright脚本'
+        };
+      case 'system':
+        return {
+          name: '系统',
+          color: '#6b7280',
+          bgColor: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+          icon: <RobotOutlined />,
+          description: '系统消息'
         };
       default:
         return {

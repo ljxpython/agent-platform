@@ -61,7 +61,7 @@ const LoginPage: React.FC = () => {
           borderRadius: 16,
           border: 'none'
         }}
-        bodyStyle={{ padding: '40px 32px' }}
+        styles={{ body: { padding: '40px 32px' } }}
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           {/* Logo和标题 */}

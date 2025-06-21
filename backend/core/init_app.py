@@ -11,6 +11,8 @@ from loguru import logger
 
 from backend.api.auth import router as auth_router
 from backend.api.chat import router as chat_router
+from backend.api.midscene import router as midscene_router
+from backend.api.midscene_admin import router as midscene_admin_router
 from backend.api.testcase import router as testcase_router
 
 
@@ -125,6 +127,14 @@ def register_routers(app: FastAPI, prefix: str = ""):
     # 注册测试用例路由
     app.include_router(testcase_router)
     logger.debug("测试用例路由注册完成")
+
+    # 注册Midscene路由
+    app.include_router(midscene_router)
+    logger.debug("Midscene路由注册完成")
+
+    # 注册Midscene管理路由
+    app.include_router(midscene_admin_router)
+    logger.debug("Midscene管理路由注册完成")
 
     # 注册基础路由
     @app.get("/")

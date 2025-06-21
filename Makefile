@@ -457,3 +457,31 @@ test-coverage:
 	@poetry run pytest tests/ --cov=backend --cov-report=html --cov-report=term
 	@echo "✅ 测试覆盖率报告生成完成"
 	@echo "📊 查看详细报告: open htmlcov/index.html"
+
+# Midscene 相关命令
+midscene-migrate:
+	@echo "🤖 运行 Midscene 数据库迁移..."
+	@poetry run aerich upgrade
+	@echo "✅ Midscene 数据库迁移完成"
+
+midscene-init:
+	@echo "🤖 初始化 Midscene 系统..."
+	@$(MAKE) midscene-migrate
+	@poetry run python -c "from backend.services.midscene_service import midscene_service; import asyncio; asyncio.run(midscene_service.update_daily_statistics())"
+	@echo "✅ Midscene 系统初始化完成"
+
+midscene-clean:
+	@echo "🧹 清理 Midscene 上传文件..."
+	@rm -rf uploads/midscene/
+	@mkdir -p uploads/midscene/
+	@echo "✅ Midscene 文件清理完成"
+
+midscene-stats:
+	@echo "📊 更新 Midscene 统计数据..."
+	@poetry run python -c "from backend.services.midscene_service import midscene_service; import asyncio; asyncio.run(midscene_service.update_daily_statistics())"
+	@echo "✅ Midscene 统计数据更新完成"
+
+midscene-test:
+	@echo "🧪 测试 Midscene API..."
+	@curl -s http://localhost:8000/api/midscene/test | python -m json.tool || echo "❌ Midscene API 测试失败"
+	@echo "✅ Midscene API 测试完成"
