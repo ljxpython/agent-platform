@@ -4,7 +4,7 @@
 
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from tortoise.expressions import Q
 
 from backend.controllers.system_controller import (
@@ -29,6 +29,7 @@ from backend.schemas.system import (
     UserResponse,
     UserUpdate,
 )
+from backend.services.permission_service import permission_service
 
 # 创建路由
 system_router = APIRouter()
@@ -441,8 +442,21 @@ async def delete_api(api_id: int):
 
 
 @system_router.post("/apis/sync", summary="同步API列表")
-async def sync_apis():
-    """同步API列表"""
-    # 这里可以从FastAPI应用中自动获取所有API
-    # 暂时返回成功，实际实现需要遍历FastAPI的路由
-    return Success(msg="API同步成功")
+async def sync_apis(request: Request):
+    """从FastAPI应用同步API列表"""
+    try:
+        # 获取FastAPI应用实例
+        app = request.app
+
+        # 同步API
+        result = await permission_service.sync_apis_from_app(app)
+
+        # 初始化默认权限
+        await permission_service.init_default_permissions()
+
+        return Success(
+            data=result,
+            msg=f"API同步成功，新增 {result['synced_count']} 个，更新 {result['updated_count']} 个",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"API同步失败: {str(e)}")

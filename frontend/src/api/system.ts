@@ -169,8 +169,10 @@ export interface ApiListParams {
 export class SystemAPI {
   // 用户管理
   static async getUserList(params: UserListParams = {}) {
+    console.log('🌐 [SystemAPI] 发送用户列表请求:', params);
     const response = await request.get('/v1/system/users', { params });
-    return response.data;
+    console.log('📨 [SystemAPI] 用户列表原始响应:', response);
+    return response;
   }
 
   static async getUser(id: number) {
@@ -200,8 +202,10 @@ export class SystemAPI {
 
   // 角色管理
   static async getRoleList(params: RoleListParams = {}) {
+    console.log('🌐 [SystemAPI] 发送角色列表请求:', params);
     const response = await request.get('/v1/system/roles', { params });
-    return response.data;
+    console.log('📨 [SystemAPI] 角色列表原始响应:', response);
+    return response;
   }
 
   static async getRole(id: number) {
@@ -236,8 +240,10 @@ export class SystemAPI {
   }
 
   static async getDepartmentTree() {
+    console.log('🌐 [SystemAPI] 发送部门树请求');
     const response = await request.get('/v1/system/departments/tree');
-    return response.data;
+    console.log('📨 [SystemAPI] 部门树原始响应:', response);
+    return response;
   }
 
   static async getDepartment(id: number) {

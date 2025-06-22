@@ -61,7 +61,7 @@ async def init_db():
         raise
 
 
-async def init_data():
+async def init_data(app=None):
     """初始化应用数据 - 从init_app.py迁移过来"""
     logger.info("开始初始化应用数据...")
 
@@ -70,13 +70,26 @@ async def init_data():
         logger.debug("初始化数据库连接...")
         await init_db()
 
-        # 预热缓存
-        logger.debug("预热应用缓存...")
-        # 这里可以添加缓存预热逻辑
+        # 创建默认用户
+        logger.debug("创建默认用户...")
+        await create_default_user()
 
-        # 检查外部服务连接
-        logger.debug("检查外部服务连接...")
-        # 这里可以添加外部服务检查逻辑
+        # 如果提供了app实例，同步API权限
+        if app:
+            try:
+                from backend.services.permission_service import permission_service
+
+                logger.info("开始同步API权限...")
+                result = await permission_service.sync_apis_from_app(app)
+                logger.info(
+                    f"API权限同步完成: 新增 {result['synced_count']} 个，更新 {result['updated_count']} 个"
+                )
+
+                # 初始化默认权限
+                await permission_service.init_default_permissions()
+                logger.info("默认权限初始化完成")
+            except Exception as e:
+                logger.warning(f"API权限同步失败，将在运行时手动同步: {e}")
 
         logger.success("🚀 应用数据初始化完成")
     except Exception as e:

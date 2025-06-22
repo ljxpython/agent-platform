@@ -3,6 +3,11 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from backend.core.dependency import (
+    AdminPermissionControl,
+    AuthControl,
+    PermissionControl,
+)
 from backend.core.security import decode_access_token
 from backend.models.user import User
 from backend.services.auth_service import auth_service
@@ -91,3 +96,13 @@ async def get_optional_current_user(
 
     except Exception:
         return None
+
+
+# 新的权限管理依赖注入（推荐使用）
+get_current_user_new = Depends(AuthControl.is_authed)
+require_permission = Depends(PermissionControl.has_permission)
+require_admin = Depends(AdminPermissionControl.is_admin)
+
+# 向后兼容的别名
+get_current_active_user_new = get_current_user_new
+get_current_superuser_new = require_admin

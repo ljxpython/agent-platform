@@ -12,7 +12,7 @@ from loguru import logger
 from backend.api import api_router
 
 
-async def init_data():
+async def init_data(app=None):
     """Initialize application data"""
     logger.info("开始初始化应用数据...")
 
@@ -20,7 +20,7 @@ async def init_data():
         # 使用database.py中的统一初始化函数
         from backend.core.database import init_data as db_init_data
 
-        await db_init_data()
+        await db_init_data(app)
 
         logger.success("🚀 应用数据初始化完成")
     except Exception as e:

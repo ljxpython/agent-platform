@@ -53,6 +53,13 @@ const UserManagePage: React.FC = () => {
 
   // 加载用户列表
   const loadUsers = async () => {
+    console.log('🔄 [UserManagePage] 开始加载用户列表');
+    console.log('📋 [UserManagePage] 请求参数:', {
+      page: pagination.current,
+      page_size: pagination.pageSize,
+      ...searchParams,
+    });
+
     setLoading(true);
     try {
       const response = await SystemAPI.getUserList({
@@ -60,29 +67,80 @@ const UserManagePage: React.FC = () => {
         page_size: pagination.pageSize,
         ...searchParams,
       });
-      setUsers(response.data);
+
+      console.log('✅ [UserManagePage] API响应成功:', response);
+      console.log('📊 [UserManagePage] 响应数据结构:', {
+        code: response.code,
+        msg: response.msg,
+        dataType: typeof response.data,
+        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+        total: response.total,
+        page: response.page,
+        page_size: response.page_size
+      });
+
+      if (Array.isArray(response.data)) {
+        console.log('👥 [UserManagePage] 用户数据:', response.data);
+        setUsers(response.data);
+      } else {
+        console.error('❌ [UserManagePage] 响应数据不是数组:', response.data);
+        setUsers([]);
+      }
+
       setPagination(prev => ({
         ...prev,
-        total: response.total,
+        total: response.total || 0,
       }));
+
+      console.log('📈 [UserManagePage] 分页信息更新:', {
+        current: pagination.current,
+        pageSize: pagination.pageSize,
+        total: response.total || 0
+      });
+
     } catch (error) {
+      console.error('❌ [UserManagePage] 加载用户列表失败:', error);
       message.error('加载用户列表失败');
+      setUsers([]);
     } finally {
       setLoading(false);
+      console.log('🏁 [UserManagePage] 用户列表加载完成');
     }
   };
 
   // 加载角色和部门数据
   const loadRolesAndDepartments = async () => {
+    console.log('🔄 [UserManagePage] 开始加载角色和部门数据');
     try {
       const [rolesResponse, deptsResponse] = await Promise.all([
         SystemAPI.getRoleList({ page_size: 1000 }),
         SystemAPI.getDepartmentTree(),
       ]);
-      setRoles(rolesResponse.data);
-      setDepartments(deptsResponse.data);
+
+      console.log('✅ [UserManagePage] 角色数据响应:', rolesResponse);
+      console.log('✅ [UserManagePage] 部门数据响应:', deptsResponse);
+
+      if (Array.isArray(rolesResponse.data)) {
+        console.log('👔 [UserManagePage] 设置角色数据:', rolesResponse.data);
+        setRoles(rolesResponse.data);
+      } else {
+        console.error('❌ [UserManagePage] 角色数据不是数组:', rolesResponse.data);
+        setRoles([]);
+      }
+
+      if (Array.isArray(deptsResponse.data)) {
+        console.log('🏢 [UserManagePage] 设置部门数据:', deptsResponse.data);
+        setDepartments(deptsResponse.data);
+      } else {
+        console.error('❌ [UserManagePage] 部门数据不是数组:', deptsResponse.data);
+        setDepartments([]);
+      }
+
     } catch (error) {
+      console.error('❌ [UserManagePage] 加载基础数据失败:', error);
       message.error('加载基础数据失败');
+      setRoles([]);
+      setDepartments([]);
     }
   };
 

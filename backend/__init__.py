@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 
     # 启动时执行
     logger.info("🚀 应用启动中...")
-    await init_data()
+    await init_data(app)
     logger.success("✅ 应用启动完成")
 
     yield

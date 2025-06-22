@@ -4,6 +4,8 @@ API v1 版本路由
 
 from fastapi import APIRouter
 
+from backend.core.dependency import DependAdmin, DependPermission
+
 from .auth import auth_router
 from .chat import chat_router
 from .midscene import midscene_router
@@ -18,6 +20,9 @@ v1_router.include_router(auth_router, prefix="/auth", tags=["认证"])
 v1_router.include_router(chat_router, prefix="/chat", tags=["AI对话"])
 v1_router.include_router(testcase_router, prefix="/testcase", tags=["测试用例生成"])
 v1_router.include_router(midscene_router, prefix="/midscene", tags=["Midscene智能体"])
-v1_router.include_router(system_router, prefix="/system", tags=["系统管理"])
+# 系统管理需要管理员权限
+v1_router.include_router(
+    system_router, prefix="/system", tags=["系统管理"], dependencies=[DependAdmin]
+)
 
 __all__ = ["v1_router"]

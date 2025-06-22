@@ -1,9 +1,10 @@
-import hashlib
 from datetime import datetime
 from typing import Optional
 
 from tortoise import fields
 from tortoise.models import Model
+
+from backend.utils.password import get_password_hash, verify_password
 
 from .base import BaseModel, TimestampMixin
 
@@ -35,23 +36,13 @@ class User(BaseModel, TimestampMixin):
     def __str__(self):
         return f"User(id={self.id}, username={self.username})"
 
-    @classmethod
-    def verify_password(cls, plain_password: str, hashed_password: str) -> bool:
-        """验证密码"""
-        return cls.get_password_hash(plain_password) == hashed_password
-
-    @classmethod
-    def get_password_hash(cls, password: str) -> str:
-        """获取密码哈希"""
-        return hashlib.sha256(password.encode()).hexdigest()
-
     def check_password(self, password: str) -> bool:
         """检查密码"""
-        return self.verify_password(password, self.password_hash)
+        return verify_password(password, self.password_hash)
 
     def set_password(self, password: str):
         """设置密码"""
-        self.password_hash = self.get_password_hash(password)
+        self.password_hash = get_password_hash(password)
 
     async def update_last_login(self):
         """更新最后登录时间"""

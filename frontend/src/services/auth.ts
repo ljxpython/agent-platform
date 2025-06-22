@@ -138,7 +138,7 @@ export const changePassword = async (oldPassword: string, newPassword: string): 
 // 用户登出
 export const logout = async (): Promise<void> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    const response = await fetch(`${API_BASE_URL}/logout`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });

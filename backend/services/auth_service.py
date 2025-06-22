@@ -95,7 +95,7 @@ class AuthService:
         # 创建访问令牌
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": user.id, "username": user.username},
+            data={"sub": str(user.id), "username": user.username, "user_id": user.id},
             expires_delta=access_token_expires,
         )
 

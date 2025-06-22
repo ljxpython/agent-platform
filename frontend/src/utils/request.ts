@@ -16,8 +16,12 @@ export interface RequestConfig extends AxiosRequestConfig {
 // 响应数据接口
 export interface ApiResponse<T = any> {
   code: number;
-  message: string;
+  msg?: string;
+  message?: string;
   data: T;
+  total?: number;
+  page?: number;
+  page_size?: number;
   timestamp?: string;
 }
 
@@ -80,18 +84,28 @@ class RequestManager {
       (config) => {
         // 添加认证token
         const token = localStorage.getItem('token');
+        console.log('🔍 [请求拦截器] 检查token:', {
+          hasToken: !!token,
+          tokenLength: token ? token.length : 0,
+          tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
+        });
+
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log('✅ [请求拦截器] 已添加Authorization头');
+        } else {
+          console.warn('⚠️ [请求拦截器] 未找到token，请求可能失败');
         }
 
         // 添加请求ID用于追踪
         config.headers['X-Request-ID'] = this.generateRequestId();
 
-        console.log('发送请求:', {
+        console.log('📤 [请求拦截器] 发送请求:', {
           url: config.url,
           method: config.method,
+          hasAuth: !!config.headers.Authorization,
+          authHeader: config.headers.Authorization ? `${config.headers.Authorization.substring(0, 20)}...` : 'none',
           data: config.data,
-          headers: config.headers,
         });
 
         return config;
@@ -127,12 +141,26 @@ class RequestManager {
         };
       },
       (error) => {
-        console.error('响应拦截器错误:', error);
+        console.error('❌ [响应拦截器] 请求错误:', {
+          url: error.config?.url,
+          method: error.config?.method,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message,
+          hasAuth: !!error.config?.headers?.Authorization
+        });
+
+        // 特殊处理401错误
+        if (error.response?.status === 401) {
+          console.warn('🔐 [响应拦截器] 认证失败，可能需要重新登录');
+          // 可以在这里添加自动跳转到登录页的逻辑
+        }
 
         // 统一错误处理
         const errorResponse = {
           code: error.response?.status || 500,
-          message: error.response?.data?.message || error.message || '请求失败',
+          message: error.response?.data?.detail || error.response?.data?.message || error.message || '请求失败',
           data: null,
         };
 
