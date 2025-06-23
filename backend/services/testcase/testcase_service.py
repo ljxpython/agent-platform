@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 from backend.ai_core import get_memory_manager, validate_model_configs
 from backend.ai_core.message_queue import (
     get_message_from_queue,
-    get_streaming_messages_from_queue,
     put_feedback_to_queue,
     put_message_to_queue,
 )
@@ -125,89 +124,6 @@ class TestCaseService:
             await put_message_to_queue(
                 conversation_id, json.dumps(error_message, ensure_ascii=False)
             )
-
-    async def process_user_feedback(self, feedback: FeedbackMessage) -> None:
-        """
-        处理用户反馈
-
-        Args:
-            feedback: 用户反馈消息对象
-        """
-        conversation_id = feedback.conversation_id
-        logger.info(f"💬 [测试用例服务] 处理用户反馈 | 对话ID: {conversation_id}")
-
-        try:
-            # 将反馈放入队列
-            await put_feedback_to_queue(conversation_id, feedback.feedback)
-
-            # 使用运行时处理反馈
-            feedback_data = {
-                "conversation_id": conversation_id,
-                "feedback": feedback.feedback,
-                "round_number": feedback.round_number,
-                "previous_testcases": feedback.previous_testcases,
-            }
-
-            await self.runtime.process_user_feedback(conversation_id, feedback_data)
-
-            logger.success(
-                f"✅ [测试用例服务] 用户反馈处理完成 | 对话ID: {conversation_id}"
-            )
-
-        except Exception as e:
-            logger.error(
-                f"❌ [测试用例服务] 用户反馈处理失败 | 对话ID: {conversation_id} | 错误: {e}"
-            )
-            raise
-
-    async def get_streaming_messages(
-        self, conversation_id: str
-    ) -> AsyncGenerator[str, None]:
-        """
-        获取流式消息生成器 - 直接使用message_queue的流式接口
-
-        Args:
-            conversation_id: 对话ID
-
-        Yields:
-            str: 流式消息
-        """
-        logger.info(f"📡 [测试用例服务] 开始流式消息传输 | 对话ID: {conversation_id}")
-
-        try:
-            # 直接使用message_queue的流式消息获取方法
-            async for message in get_streaming_messages_from_queue(conversation_id):
-                yield message
-
-        except Exception as e:
-            logger.error(
-                f"❌ [测试用例服务] 流式消息传输失败 | 对话ID: {conversation_id} | 错误: {e}"
-            )
-            error_message = json.dumps(
-                {
-                    "type": "error",
-                    "source": "system",
-                    "content": f"流式传输失败: {str(e)}",
-                    "conversation_id": conversation_id,
-                    "timestamp": datetime.now().isoformat(),
-                },
-                ensure_ascii=False,
-            )
-            yield f"data: {error_message}\n\n"
-
-    async def get_conversation_history(
-        self, conversation_id: str
-    ) -> List[Dict[str, Any]]:
-        """
-        获取对话历史
-
-        Args:
-            conversation_id: 对话ID
-
-        Returns:
-            List[Dict]: 历史消息列表
-        """
-        return await self.memory_manager.get_conversation_history(conversation_id)
 
     async def cleanup_conversation(self, conversation_id: str) -> None:
         """

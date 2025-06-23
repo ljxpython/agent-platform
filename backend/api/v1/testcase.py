@@ -196,10 +196,9 @@ async def generate_testcase_streaming(request: StreamingGenerateRequest):
 @testcase_router.get("/feedback")
 async def submit_feedback_simple(conversation_id: str, message: str):
     """
-    简单用户反馈接口 - 参考examples/topic1.py模式
+    简单用户反馈接口 - 直接使用message_queue
 
     功能：接收用户反馈并放入队列，立即返回确认
-    - 类比examples/topic1.py中的简单feedback接口
     - 直接调用put_feedback_to_queue放入队列
     - 立即返回确认消息，不处理流式响应
 
@@ -215,11 +214,10 @@ async def submit_feedback_simple(conversation_id: str, message: str):
     logger.info(f"   💭 反馈内容: {message}")
     logger.info(f"   🌐 请求方法: GET /api/testcase/feedback (简单模式)")
 
-    # 使用新的服务接口处理反馈
-    feedback = FeedbackMessage(
-        feedback=message, conversation_id=conversation_id, round_number=1
-    )
-    asyncio.create_task(testcase_service.process_user_feedback(feedback))
+    # 直接使用message_queue中的函数
+    from backend.ai_core.message_queue import put_feedback_to_queue
+
+    await put_feedback_to_queue(conversation_id, message)
 
     logger.success(f"✅ [API-简单反馈] 反馈已放入队列 | 对话ID: {conversation_id}")
     return {"message": "ok"}
@@ -240,7 +238,7 @@ async def submit_feedback_simple(conversation_id: str, message: str):
 @testcase_router.get("/history/{conversation_id}")
 async def get_conversation_history(conversation_id: str):
     """
-    获取对话历史接口
+    获取对话历史接口 - 直接使用memory模块
 
     功能：获取指定对话的完整历史记录和消息列表
 
@@ -255,9 +253,11 @@ async def get_conversation_history(conversation_id: str):
     logger.info(f"   🌐 请求方法: GET /api/testcase/history/{conversation_id}")
 
     try:
-        # 获取对话历史
+        # 直接使用memory模块中的函数
+        from backend.ai_core.memory import get_conversation_history as get_history
+
         logger.info(f"📖 [API-历史接口] 获取对话历史 | 对话ID: {conversation_id}")
-        history = await testcase_service.get_conversation_history(conversation_id)
+        history = await get_history(conversation_id)
         logger.info(f"   📊 历史记录数量: {len(history)}")
 
         # 构造响应数据

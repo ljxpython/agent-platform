@@ -45,6 +45,15 @@
 - [代码重构总结](./development/CODE_REFACTORING_SUMMARY.md) - 代码优化记录
 - [日志系统](./development/LOGGING_GUIDE.md) - 日志配置和使用
 - [Markdown渲染器](./development/MARKDOWN_RENDERER.md) - 前端Markdown支持
+- **[AI核心框架开发指南](./development/AI_CORE_FRAMEWORK_GUIDE.md)** - 智能体系统开发完整指南
+
+### 🧠 AI核心框架详细文档
+- [AI核心框架文档中心](../backend/ai_core/docs/README.md) - 框架文档导航中心
+- [开发指南](../backend/ai_core/docs/AI_CORE_DEVELOPMENT_GUIDE.md) - 框架概述和核心组件
+- [测试用例服务实现案例](../backend/ai_core/docs/TESTCASE_SERVICE_EXAMPLE.md) - 完整业务实现示例
+- [SSE流式输出与用户反馈指南](../backend/ai_core/docs/SSE_AND_FEEDBACK_GUIDE.md) - 前后端交互技术
+- [AutoGen运行时与业务封装指南](../backend/ai_core/docs/AUTOGEN_RUNTIME_GUIDE.md) - 运行时深入解析
+- [框架集成与最佳实践指南](../backend/ai_core/docs/FRAMEWORK_INTEGRATION_GUIDE.md) - 集成和优化策略
 
 ### 🎨 UI设计
 - [UI设计指南](./ui-design/UI_DESIGN_GUIDE.md) - 设计规范和组件库
@@ -146,16 +155,19 @@
 ## 📊 文档统计
 
 ### 文档数量概览
-- **核心文档**: 架构、开发、设计等核心文档 20+ 个
+- **核心文档**: 架构、开发、设计等核心文档 25+ 个
+- **AI核心框架文档**: 智能体系统开发指南 6 个
 - **修复记录**: 问题修复历史记录 35+ 个
 - **优化记录**: 项目优化改进记录 30+ 个
 - **工作记录**: 开发历程和经验总结 10+ 个
-- **总计**: 95+ 个文档
+- **总计**: 106+ 个文档
 
 ### 文档覆盖范围
 - ✅ 项目概览和快速开始
 - ✅ 系统架构和设计文档
 - ✅ 开发指南和最佳实践
+- ✅ AI核心框架完整开发指南
+- ✅ 智能体系统开发详细案例
 - ✅ 问题修复和优化记录
 - ✅ 故障排除和运维指南
 - ✅ 完整的历史记录和经验总结

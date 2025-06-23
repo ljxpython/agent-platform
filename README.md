@@ -260,14 +260,20 @@ AITestLab/
 │   │   ├── chat.py           # 对话模型
 │   │   ├── testcase.py       # 测试用例模型
 │   │   └── role.py           # 角色权限模型
-│   ├── ai_core/              # AI核心组件（新增）
+│   ├── ai_core/              # AI核心框架（基于AutoGen 0.5.7）
 │   │   ├── __init__.py       # 统一导出接口
 │   │   ├── llm.py           # LLM客户端管理器（支持多模型）
-│   │   ├── agents.py        # 智能体基础类
 │   │   ├── factory.py       # 智能体工厂
-│   │   ├── runtime.py       # 运行时基类
+│   │   ├── runtime.py       # 运行时管理器
 │   │   ├── memory.py        # 内存管理器
-│   │   └── testcase_runtime.py # 测试用例专用运行时
+│   │   ├── message_queue.py  # 消息队列管理
+│   │   └── docs/            # 完整开发文档
+│   │       ├── README.md                           # 文档中心
+│   │       ├── AI_CORE_DEVELOPMENT_GUIDE.md       # 开发指南
+│   │       ├── TESTCASE_SERVICE_EXAMPLE.md        # 实现案例
+│   │       ├── SSE_AND_FEEDBACK_GUIDE.md          # SSE与反馈指南
+│   │       ├── AUTOGEN_RUNTIME_GUIDE.md           # 运行时指南
+│   │       └── FRAMEWORK_INTEGRATION_GUIDE.md     # 集成指南
 │   ├── core/                 # 核心功能模块
 │   │   ├── init_app.py       # 应用初始化
 │   │   ├── database.py       # 数据库配置
@@ -325,6 +331,7 @@ AITestLab/
 |------|------|----------|
 | **[后端架构详解](./docs/architecture/BACKEND_ARCHITECTURE.md)** | 后端技术栈和设计模式详解 | FastAPI工厂模式、分层架构、AI智能体集成、权限管理、数据库设计 |
 | **[前端架构详解](./docs/architecture/FRONTEND_ARCHITECTURE.md)** | 前端技术栈和组件设计详解 | React组件化架构、状态管理、SSE流式处理、性能优化、测试策略 |
+| **[AI核心框架开发指南](./docs/development/AI_CORE_FRAMEWORK_GUIDE.md)** | AI核心框架完整开发指南 | AutoGen运行时、智能体工厂、消息队列、SSE流式输出、用户反馈机制 |
 
 #### 🎯 架构特色
 
@@ -347,7 +354,7 @@ AITestLab/
 **开发者指南**:
 1. **后端开发**: 阅读 [后端架构详解](./docs/architecture/BACKEND_ARCHITECTURE.md) 了解API设计、服务层实现和数据库操作
 2. **前端开发**: 阅读 [前端架构详解](./docs/architecture/FRONTEND_ARCHITECTURE.md) 了解组件设计、状态管理和API集成
-3. **AI集成**: 参考智能体服务实现，了解AutoGen多智能体协作模式
+3. **AI智能体开发**: 阅读 [AI核心框架开发指南](./docs/development/AI_CORE_FRAMEWORK_GUIDE.md) 了解智能体系统开发
 4. **权限扩展**: 参考权限管理系统，了解如何添加新的权限控制
 
 **架构扩展**:
@@ -386,6 +393,15 @@ AITestLab/
 - **三级权限控制**: 仅认证、权限检查、管理员权限
 - **自动权限同步**: 启动时自动同步API权限到数据库
 - **详细权限日志**: 完整的认证和权限操作记录
+
+### 🧠 AI核心框架
+- **AutoGen 0.5.7集成**: 基于Microsoft AutoGen的多智能体协作框架
+- **智能体工厂模式**: 统一的智能体创建和管理机制
+- **消息队列系统**: 支持SSE流式输出和用户反馈的消息队列
+- **内存管理系统**: 对话历史记录和上下文管理
+- **运行时管理**: 完整的智能体生命周期管理
+- **多模型支持**: DeepSeek、Qwen-VL、UI-TARS等多种LLM模型
+- **完整文档体系**: 详细的开发指南和最佳实践
 
 ### 🚀 规划中的功能模块
 ```

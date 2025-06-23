@@ -29,6 +29,15 @@ from llama_index.core import Document, SimpleDirectoryReader
 from loguru import logger
 from pydantic import BaseModel
 
+from backend.ai_core.factory import create_assistant_agent
+
+# 直接导入AI核心框架的便捷函数
+from backend.ai_core.memory import create_buffered_context
+from backend.ai_core.memory import get_agent_memory as get_user_memory_for_agent
+from backend.ai_core.memory import save_to_memory
+
+# 直接导入底层的便捷函数，无需上层封装
+from backend.ai_core.message_queue import get_feedback_from_queue, put_message_to_queue
 from backend.models.chat import FileUpload
 from backend.services.document import document_service
 
@@ -58,17 +67,6 @@ class FinalizationMessage(BaseModel):
 
     conversation_id: str
     content: str
-
-
-from backend.ai_core.factory import create_assistant_agent
-
-# 直接导入AI核心框架的便捷函数
-from backend.ai_core.memory import create_buffered_context
-from backend.ai_core.memory import get_agent_memory as get_user_memory_for_agent
-from backend.ai_core.memory import save_to_memory
-
-# 直接导入底层的便捷函数，无需上层封装
-from backend.ai_core.message_queue import get_feedback_from_queue, put_message_to_queue
 
 
 @type_subscription(topic_type="requirement_analysis")

@@ -20,8 +20,6 @@ from backend.services.testcase.agents import (
     TestCaseOptimizationAgent,
 )
 
-# from backend.services.testcase.message_collector import MessageCollector
-
 
 class TestCaseRuntime(BaseRuntime):
     """测试用例生成专用运行时"""
@@ -150,83 +148,6 @@ class TestCaseRuntime(BaseRuntime):
         except Exception as e:
             logger.error(
                 f"❌ [测试用例运行时] 需求分析启动失败 | 对话ID: {conversation_id} | 错误: {e}"
-            )
-            raise
-
-    async def process_user_feedback(
-        self, conversation_id: str, feedback_data: Dict[str, Any]
-    ) -> None:
-        """
-        处理用户反馈
-
-        Args:
-            conversation_id: 对话ID
-            feedback_data: 反馈数据
-        """
-        logger.info(f"💬 [测试用例运行时] 处理用户反馈 | 对话ID: {conversation_id}")
-
-        try:
-            # 保存反馈到内存
-            await self.save_to_memory(
-                conversation_id,
-                {
-                    "type": "user_feedback",
-                    "content": feedback_data,
-                    "stage": "feedback_processing",
-                },
-            )
-
-            # 分析反馈类型
-            feedback_content = feedback_data.get("feedback", "")
-            is_approval = (
-                "同意" in feedback_content or "APPROVE" in feedback_content.upper()
-            )
-
-            runtime = self.get_runtime(conversation_id)
-            if not runtime:
-                raise RuntimeError(f"运行时不存在: {conversation_id}")
-
-            if is_approval:
-                # 用户同意，进入最终化阶段
-                await self.update_state(conversation_id, "finalization", "processing")
-
-                finalization_msg = FinalizationMessage(
-                    conversation_id=conversation_id,
-                    content=feedback_data.get("previous_testcases", ""),
-                )
-
-                await runtime.publish_message(
-                    finalization_msg,
-                    topic_id=DefaultTopicId(
-                        type=self.topic_types["testcase_finalization"]
-                    ),
-                )
-                logger.info(
-                    f"👍 [测试用例运行时] 用户同意，启动最终化流程 | 对话ID: {conversation_id}"
-                )
-            else:
-                # 用户提供优化意见，进入优化阶段
-                await self.update_state(conversation_id, "optimization", "processing")
-
-                optimization_msg = OptimizationMessage(
-                    conversation_id=conversation_id,
-                    feedback=feedback_data.get("feedback", ""),
-                    previous_testcases=feedback_data.get("previous_testcases", ""),
-                )
-
-                await runtime.publish_message(
-                    optimization_msg,
-                    topic_id=DefaultTopicId(
-                        type=self.topic_types["testcase_optimization"]
-                    ),
-                )
-                logger.info(
-                    f"🔧 [测试用例运行时] 用户提供意见，启动优化流程 | 对话ID: {conversation_id}"
-                )
-
-        except Exception as e:
-            logger.error(
-                f"❌ [测试用例运行时] 用户反馈处理失败 | 对话ID: {conversation_id} | 错误: {e}"
             )
             raise
 
