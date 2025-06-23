@@ -8,10 +8,9 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
-from autogen_core import SingleThreadedAgentRuntime, TypeSubscription
+from autogen_core import RoutedAgent, SingleThreadedAgentRuntime, TypeSubscription
 from loguru import logger
 
-from backend.ai_core.agents import BaseAgent
 from backend.ai_core.llm import (
     ModelType,
     get_deepseek_client,
@@ -19,6 +18,7 @@ from backend.ai_core.llm import (
     get_qwen_vl_client,
     get_ui_tars_client,
 )
+from backend.ai_core.memory import create_buffered_context, get_agent_memory
 
 
 class AgentType(Enum):
@@ -47,7 +47,7 @@ class AgentFactory:
     def __init__(self):
         """初始化智能体工厂"""
         self._registered_agents: Dict[str, Dict[str, Any]] = {}
-        self._agent_classes: Dict[str, Type[BaseAgent]] = {}
+        self._agent_classes: Dict[str, Type[RoutedAgent]] = {}
         self._agent_configs: Dict[str, Dict[str, Any]] = {}
 
         logger.info("🏭 [智能体工厂] 初始化完成")
@@ -55,7 +55,7 @@ class AgentFactory:
     def register_agent_class(
         self,
         agent_type: AgentType,
-        agent_class: Type[BaseAgent],
+        agent_class: Type[RoutedAgent],
         default_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
@@ -74,20 +74,30 @@ class AgentFactory:
             f"📝 [智能体工厂] 注册智能体类: {agent_type.value} -> {agent_class.__name__}"
         )
 
-    def create_assistant_agent(
+    async def create_assistant_agent(
         self,
         name: str,
         system_message: str,
         model_type: ModelType = ModelType.DEEPSEEK,
+        memory: Optional[List] = None,
+        model_context: Optional[Any] = None,
+        conversation_id: Optional[str] = None,
+        auto_memory: bool = True,
+        auto_context: bool = True,
         **kwargs,
     ) -> Optional[AssistantAgent]:
         """
-        创建AssistantAgent实例（增强版，完整容错机制）
+        创建AssistantAgent实例（增强版，完整容错机制，自动获取memory和model_context）
 
         Args:
             name: 智能体名称
             system_message: 系统提示词
             model_type: 模型类型
+            memory: 内存列表，用于保存对话历史（如果提供则使用，否则根据conversation_id自动获取）
+            model_context: 模型上下文，如BufferedChatCompletionContext（如果提供则使用，否则自动创建）
+            conversation_id: 对话ID，用于自动获取内存
+            auto_memory: 是否自动获取内存（当memory为None且conversation_id存在时）
+            auto_context: 是否自动创建上下文（当model_context为None时）
             **kwargs: 其他参数
 
         Returns:
@@ -136,20 +146,36 @@ class AgentFactory:
 
             logger.debug(f"   ✅ 模型客户端获取成功: {type(model_client).__name__}")
 
+            # 处理memory和model_context参数
+            agent_params = {
+                "name": name.strip(),
+                "model_client": model_client,
+                "system_message": system_message.strip(),
+                "model_client_stream": True,
+            }
+
+            if auto_memory and conversation_id:
+                logger.info(f"⚠ [智能体工厂] 同时提供了memory和conversation_id")
+                user_memory = await get_agent_memory(conversation_id)
+                # logger.info(f"   🧠 自动获取内存成功:{user_memory.content}")
+
+            if auto_context and conversation_id:
+                logger.debug(f"⚠ [智能体工厂] 同时提供了model_context和conversation_id")
+                buffered_context = create_buffered_context(buffer_size=4000)
+
+            agent_params["memory"] = [user_memory]
+            agent_params["model_context"] = buffered_context
+
+            # 合并其他kwargs参数
+            agent_params.update(kwargs)
+
             # 创建AssistantAgent
             logger.debug(f"   🤖 创建AssistantAgent实例")
-            agent = AssistantAgent(
-                name=name.strip(),
-                model_client=model_client,
-                system_message=system_message.strip(),
-                model_client_stream=True,
-                **kwargs,
-            )
+            agent = AssistantAgent(**agent_params)
 
             logger.info(
                 f"🤖 [智能体工厂] 创建AssistantAgent成功: {name} (模型: {model_type.value})"
             )
-            logger.debug(f"   📊 智能体参数: kwargs={list(kwargs.keys())}")
             return agent
 
         except Exception as e:
@@ -206,7 +232,7 @@ class AgentFactory:
         agent_name: Optional[str] = None,
         model_type: ModelType = ModelType.DEEPSEEK,
         **kwargs,
-    ) -> BaseAgent:
+    ) -> RoutedAgent:
         """
         创建自定义智能体实例
 
@@ -344,17 +370,30 @@ def get_agent_factory() -> AgentFactory:
     return _agent_factory
 
 
-# 便捷函数（增强版，完整容错机制）
-def create_assistant_agent(
-    name: str, system_message: str, model_type: ModelType = ModelType.DEEPSEEK, **kwargs
+# 便捷函数（增强版，完整容错机制，自动获取memory和model_context）
+async def create_assistant_agent(
+    name: str,
+    system_message: str,
+    model_type: ModelType = ModelType.DEEPSEEK,
+    memory: Optional[List] = None,
+    model_context: Optional[Any] = None,
+    conversation_id: Optional[str] = None,
+    auto_memory: bool = True,
+    auto_context: bool = True,
+    **kwargs,
 ) -> Optional[AssistantAgent]:
     """
-    创建AssistantAgent的便捷函数（增强版）
+    创建AssistantAgent的便捷函数（增强版，自动获取memory和model_context）
 
     Args:
         name: 智能体名称
         system_message: 系统提示词
         model_type: 模型类型
+        memory: 内存列表，用于保存对话历史（如果提供则使用，否则根据conversation_id自动获取）
+        model_context: 模型上下文，如BufferedChatCompletionContext（如果提供则使用，否则自动创建）
+        conversation_id: 对话ID，用于自动获取内存
+        auto_memory: 是否自动获取内存（当memory为None且conversation_id存在时）
+        auto_context: 是否自动创建上下文（当model_context为None时）
         **kwargs: 其他参数
 
     Returns:
@@ -363,8 +402,16 @@ def create_assistant_agent(
     try:
         logger.debug(f"🚀 [便捷函数] 创建AssistantAgent | 名称: {name}")
         factory = get_agent_factory()
-        agent = factory.create_assistant_agent(
-            name, system_message, model_type, **kwargs
+        agent = await factory.create_assistant_agent(
+            name=name,
+            system_message=system_message,
+            model_type=model_type,
+            memory=memory,
+            model_context=model_context,
+            conversation_id=conversation_id,
+            auto_memory=auto_memory,
+            auto_context=auto_context,
+            **kwargs,
         )
 
         if agent:

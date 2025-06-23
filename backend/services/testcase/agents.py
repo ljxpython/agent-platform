@@ -30,6 +30,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from backend.models.chat import FileUpload
+from backend.services.document import document_service
 
 
 class RequirementAnalysisMessage(BaseModel):
@@ -59,67 +60,15 @@ class FinalizationMessage(BaseModel):
     content: str
 
 
-# 复用testcase_service.py中的队列管理方法
-async def put_message_to_queue(conversation_id: str, message: str):
-    """将消息放入流式队列 - 使用testcase_service的_put_message_to_queue方法"""
-    from backend.services.testcase.testcase_service import testcase_service
-
-    await testcase_service._put_message_to_queue(conversation_id, message)
-
-
-async def get_feedback_from_queue(conversation_id: str) -> str:
-    """从队列获取用户反馈 - 使用testcase_service的队列管理"""
-    try:
-        from backend.services.testcase.testcase_service import testcase_service
-
-        # 获取队列
-        queue = testcase_service._get_message_queue(conversation_id)
-        if queue:
-            # 从反馈队列获取用户反馈
-            feedback = await queue.get_feedback()
-            logger.debug(
-                f"💬 [队列管理] 从队列获取用户反馈 | 对话ID: {conversation_id} | 反馈: {feedback}"
-            )
-            return feedback
-        else:
-            logger.warning(f"⚠️ [队列管理] 队列不存在 | 对话ID: {conversation_id}")
-            return ""
-
-    except Exception as e:
-        logger.error(
-            f"❌ [队列管理] 获取用户反馈失败 | 对话ID: {conversation_id} | 错误: {e}"
-        )
-        return ""
-
+from backend.ai_core.factory import create_assistant_agent
 
 # 直接导入AI核心框架的便捷函数
+from backend.ai_core.memory import create_buffered_context
 from backend.ai_core.memory import get_agent_memory as get_user_memory_for_agent
 from backend.ai_core.memory import save_to_memory
 
-
-def create_buffered_context(
-    buffer_size: int = 4000,
-) -> Optional[BufferedChatCompletionContext]:
-    """创建BufferedChatCompletionContext防止LLM上下文溢出"""
-    try:
-        return BufferedChatCompletionContext(
-            buffer_size=buffer_size, initial_messages=None
-        )
-    except Exception as e:
-        logger.error(f"❌ [Context] 创建BufferedChatCompletionContext失败: {e}")
-        return None
-
-
-def get_testcase_service():
-    from backend.services.testcase.testcase_service import testcase_service
-
-    return testcase_service
-
-
-def get_testcase_runtime():
-    from backend.services.testcase.testcase_service import testcase_service
-
-    return testcase_service.runtime
+# 直接导入底层的便捷函数，无需上层封装
+from backend.ai_core.message_queue import get_feedback_from_queue, put_message_to_queue
 
 
 @type_subscription(topic_type="requirement_analysis")
@@ -127,7 +76,10 @@ class RequirementAnalysisAgent(RoutedAgent):
 
     def __init__(self) -> None:
         super().__init__(description="需求分析智能体")
-        self._prompt = """
+
+    def get_system_prompt(self) -> str:
+        """获取系统提示词"""
+        return """
 你是一位资深的软件需求分析师，拥有超过10年的需求分析和软件测试经验。
 
 你的任务是：
@@ -138,14 +90,6 @@ class RequirementAnalysisAgent(RoutedAgent):
 
 请用专业、清晰的语言输出分析结果，为后续的测试用例生成提供准确的需求基础。
         """
-
-    def _create_assistant_agent(
-        self, name: str = "requirement_analyst"
-    ) -> AssistantAgent:
-        """使用工厂方法创建AssistantAgent"""
-        from backend.ai_core.factory import create_assistant_agent
-
-        return create_assistant_agent(name=name, system_message=self._prompt)
 
     async def get_document_from_files(self, files: List[FileUpload]) -> str:
         """
@@ -341,11 +285,8 @@ class RequirementAnalysisAgent(RoutedAgent):
                 logger.info(f"   📝 无用户文本需求内容")
 
             # 1.2 获取并流式输出每个文档解析的内容
-            testcase_service = get_testcase_service()
-            uploaded_files_info = testcase_service.get_uploaded_files_info(
-                conversation_id
-            )
-            uploaded_file_content = testcase_service.get_uploaded_files_content(
+            uploaded_files_info = document_service.get_session_files(conversation_id)
+            uploaded_file_content = document_service.get_session_content(
                 conversation_id
             )
 
@@ -390,7 +331,7 @@ class RequirementAnalysisAgent(RoutedAgent):
             logger.debug(f"   📄 基础文本内容长度: {len(analysis_content)} 字符")
 
             # 从document_service获取文件内容
-            uploaded_file_content = testcase_service.get_uploaded_files_content(
+            uploaded_file_content = document_service.get_session_content(
                 conversation_id
             )
             document_content_display = ""
@@ -425,64 +366,13 @@ class RequirementAnalysisAgent(RoutedAgent):
                     f"✅ [需求分析智能体] 文档内容已准备完成 | 对话ID: {conversation_id}"
                 )
 
-            # 步骤3: 获取用户历史消息memory - 参考官方文档
-            logger.info(
-                f"🧠 [需求分析智能体] 步骤3a: 获取用户历史消息memory | 对话ID: {conversation_id}"
-            )
-            user_memory = await get_user_memory_for_agent(conversation_id)
-            if user_memory:
-                logger.info(f"   ✅ 用户历史消息已加载，将用于智能体上下文")
-            else:
-                logger.info(f"   📝 无历史消息，智能体将使用空上下文")
-
-            # 步骤3b: 创建BufferedChatCompletionContext防止上下文溢出 - 参考官方文档
-            logger.info(
-                f"🔧 [需求分析智能体] 步骤3b: 创建BufferedChatCompletionContext | 对话ID: {conversation_id}"
-            )
-            buffered_context = create_buffered_context(buffer_size=4000)
-            if buffered_context:
-                logger.info(
-                    f"   ✅ BufferedChatCompletionContext创建成功，max_tokens: 4000"
-                )
-            else:
-                logger.info(
-                    f"   📝 BufferedChatCompletionContext创建失败，将使用默认上下文"
-                )
-
-            # 步骤3c: 创建需求分析智能体实例 - 使用工厂方法
-            logger.info(
-                f"🤖 [需求分析智能体] 步骤3c: 创建AssistantAgent实例 | 对话ID: {conversation_id}"
-            )
-
-            # 使用工厂方法创建AssistantAgent
-            analyst_agent = self._create_assistant_agent("requirement_analyst")
-
-            # 添加memory支持 - 如果有用户历史记忆
-            if user_memory:
-                # 重新创建带memory的智能体
-                from backend.ai_core.factory import create_assistant_agent
-
-                analyst_agent = create_assistant_agent(
-                    name="requirement_analyst",
-                    system_message=self._prompt,
-                    memory=[user_memory],  # AssistantAgent期望memory为列表
-                    model_context=buffered_context if buffered_context else None,
-                )
-                logger.debug(f"   🧠 已添加用户历史消息memory到智能体")
-            elif buffered_context:
-                # 重新创建带context的智能体
-                from backend.ai_core.factory import create_assistant_agent
-
-                analyst_agent = create_assistant_agent(
-                    name="requirement_analyst",
-                    system_message=self._prompt,
-                    model_context=buffered_context,
-                )
-                logger.debug(f"   🔧 已添加BufferedChatCompletionContext到智能体")
-
-            logger.debug(f"   ✅ AssistantAgent创建成功: {analyst_agent.name}")
-            logger.info(
-                f"   📊 智能体配置: memory={'有' if user_memory else '无'}, context={'缓冲' if buffered_context else '默认'}"
+            # 步骤3: 创建需求分析智能体实例 - 直接使用优化后的factory函数
+            analyst_agent = await create_assistant_agent(
+                name="requirement_analyst",
+                system_message=self.get_system_prompt(),
+                conversation_id=conversation_id,
+                auto_memory=True,
+                auto_context=True,
             )
 
             # 步骤4: 发送分析开始标识
@@ -519,12 +409,12 @@ class RequirementAnalysisAgent(RoutedAgent):
 
                 if isinstance(item, ModelClientStreamingChunkEvent):
                     chunk_count += 1
-                    logger.debug(
-                        f"📦 [需求分析智能体] ModelClientStreamingChunkEvent #{chunk_count} | 对话ID: {conversation_id}"
-                    )
-                    logger.debug(
-                        f"   📊 事件属性: content={'有' if item.content else '无'}, content_length={len(item.content) if item.content else 0}"
-                    )
+                    # logger.debug(
+                    #     f"📦 [需求分析智能体] ModelClientStreamingChunkEvent #{chunk_count} | 对话ID: {conversation_id}"
+                    # )
+                    # logger.debug(
+                    #     f"   📊 事件属性: content={'有' if item.content else '无'}, content_length={len(item.content) if item.content else 0}"
+                    # )
 
                     # 将流式块放入队列而不是直接发送
                     if item.content:
@@ -549,23 +439,23 @@ class RequirementAnalysisAgent(RoutedAgent):
                             serialized_message = json.dumps(
                                 queue_message, ensure_ascii=False
                             )
-                            logger.debug(
-                                f"   📄 序列化消息长度: {len(serialized_message)} 字符"
-                            )
-                            logger.debug(
-                                f"   📄 序列化消息内容: {serialized_message[:200]}..."
-                            )
-
-                            # 放入队列
-                            logger.debug(
-                                f"   📤 准备放入队列 | 对话ID: {conversation_id}"
-                            )
+                            # logger.debug(
+                            #     f"   📄 序列化消息长度: {len(serialized_message)} 字符"
+                            # )
+                            # logger.debug(
+                            #     f"   📄 序列化消息内容: {serialized_message[:200]}..."
+                            # )
+                            #
+                            # # 放入队列
+                            # logger.debug(
+                            #     f"   📤 准备放入队列 | 对话ID: {conversation_id}"
+                            # )
                             await put_message_to_queue(
                                 conversation_id, serialized_message
                             )
-                            logger.info(
-                                f"   ✅ 流式块已成功放入队列 | 对话ID: {conversation_id} | 块#{chunk_count} | 内容长度: {len(item.content)}"
-                            )
+                            # logger.info(
+                            #     f"   ✅ 流式块已成功放入队列 | 对话ID: {conversation_id} | 块#{chunk_count} | 内容长度: {len(item.content)}"
+                            # )
 
                         except Exception as queue_e:
                             logger.error(
@@ -770,7 +660,10 @@ class TestCaseGenerationAgent(RoutedAgent):
 
     def __init__(self) -> None:
         super().__init__(description="测试用例生成智能体")
-        self._prompt = """
+
+    def get_system_prompt(self) -> str:
+        """获取系统提示词"""
+        return """
 你是一位资深的软件测试专家，拥有超过15年的测试用例设计和测试执行经验。
 
 你的任务是：
@@ -782,14 +675,6 @@ class TestCaseGenerationAgent(RoutedAgent):
 请生成结构化、专业的测试用例，确保测试覆盖率和质量。
         """
 
-    def _create_assistant_agent(
-        self, name: str = "testcase_generator"
-    ) -> AssistantAgent:
-        """使用工厂方法创建AssistantAgent"""
-        from backend.ai_core.factory import create_assistant_agent
-
-        return create_assistant_agent(name=name, system_message=self._prompt)
-
     @message_handler
     async def handle_testcase_generation(
         self, message: TestCaseGenerationMessage, ctx: MessageContext
@@ -800,34 +685,18 @@ class TestCaseGenerationAgent(RoutedAgent):
         )
 
         try:
-            # 步骤1: 获取用户历史记忆
-            logger.info(
-                f"🧠 [测试用例生成智能体-团队模式] 步骤1: 获取用户历史记忆 | 对话ID: {conversation_id}"
+            # 步骤1: 创建测试用例生成智能体 - 直接使用优化后的factory函数
+            generator_agent = await create_assistant_agent(
+                name="testcase_generator",
+                system_message=self.get_system_prompt(),
+                conversation_id=conversation_id,
+                auto_memory=True,
+                auto_context=True,
             )
-            user_memory = await get_user_memory_for_agent(conversation_id)
-            buffered_context = create_buffered_context(buffer_size=4000)
 
-            # 步骤2: 创建测试用例生成智能体
+            # 步骤2: 创建用户反馈智能体 - 参考您提供的代码
             logger.info(
-                f"🤖 [测试用例生成智能体-团队模式] 步骤2: 创建测试用例生成智能体 | 对话ID: {conversation_id}"
-            )
-            if user_memory or buffered_context:
-                from backend.ai_core.factory import create_assistant_agent
-
-                generator_agent = create_assistant_agent(
-                    name="testcase_generator",
-                    system_message=self._prompt,
-                    memory=[user_memory] if user_memory else None,
-                    model_context=buffered_context if buffered_context else None,
-                )
-            else:
-                generator_agent = self._create_assistant_agent("testcase_generator")
-
-            logger.debug(f"   ✅ 测试用例生成智能体创建成功: {generator_agent.name}")
-
-            # 步骤3: 创建用户反馈智能体 - 参考您提供的代码
-            logger.info(
-                f"👤 [测试用例生成智能体-团队模式] 步骤3: 创建用户反馈智能体 | 对话ID: {conversation_id}"
+                f"👤 [测试用例生成智能体-团队模式] 步骤2: 创建用户反馈智能体 | 对话ID: {conversation_id}"
             )
 
             # 定义符合 UserProxyAgent 要求的 input_func（捕获当前消息的 conversation_id）
@@ -889,9 +758,9 @@ class TestCaseGenerationAgent(RoutedAgent):
             )
             logger.debug(f"   ✅ UserProxyAgent创建成功: {user_feedback_agent.name}")
 
-            # 步骤4: 创建RoundRobinGroupChat团队 - 参考examples/topic1.py
+            # 步骤3: 创建RoundRobinGroupChat团队 - 参考examples/topic1.py
             logger.info(
-                f"🏢 [测试用例生成智能体-团队模式] 步骤4: 创建RoundRobinGroupChat团队 | 对话ID: {conversation_id}"
+                f"🏢 [测试用例生成智能体-团队模式] 步骤3: 创建RoundRobinGroupChat团队 | 对话ID: {conversation_id}"
             )
 
             team = RoundRobinGroupChat(
@@ -900,9 +769,9 @@ class TestCaseGenerationAgent(RoutedAgent):
             )
             logger.debug(f"   ✅ RoundRobinGroupChat团队创建成功，成员数: 2")
 
-            # 步骤5: 执行团队协作流式输出 - 参考examples/topic1.py
+            # 步骤4: 执行团队协作流式输出 - 参考examples/topic1.py
             logger.info(
-                f"⚡ [测试用例生成智能体-团队模式] 步骤5: 开始执行团队协作流式输出 | 对话ID: {conversation_id}"
+                f"⚡ [测试用例生成智能体-团队模式] 步骤4: 开始执行团队协作流式输出 | 对话ID: {conversation_id}"
             )
             generation_task = f"请为以下需求生成测试用例：\n\n{message.content}"
             logger.debug(f"   📋 生成任务: {generation_task}")
@@ -1015,7 +884,10 @@ class TestCaseOptimizationAgent(RoutedAgent):
 
     def __init__(self) -> None:
         super().__init__(description="测试用例优化智能体")
-        self._prompt = """
+
+    def get_system_prompt(self) -> str:
+        """获取系统提示词"""
+        return """
 你是一位资深的测试用例评审专家，拥有超过12年的测试用例优化和质量改进经验。
 
 你的任务是：
@@ -1026,14 +898,6 @@ class TestCaseOptimizationAgent(RoutedAgent):
 
 请根据用户反馈进行专业的测试用例优化，提高测试用例的质量和实用性。
         """
-
-    def _create_assistant_agent(
-        self, name: str = "testcase_optimizer"
-    ) -> AssistantAgent:
-        """使用工厂方法创建AssistantAgent"""
-        from backend.ai_core.factory import create_assistant_agent
-
-        return create_assistant_agent(name=name, system_message=self._prompt)
 
     @message_handler
     async def handle_optimization(
@@ -1048,22 +912,14 @@ class TestCaseOptimizationAgent(RoutedAgent):
                 f"⚡ [测试用例优化智能体] 开始优化测试用例 | 对话ID: {conversation_id}"
             )
 
-            # 获取用户历史记忆
-            user_memory = await get_user_memory_for_agent(conversation_id)
-            buffered_context = create_buffered_context(buffer_size=4000)
-
-            # 使用工厂方法创建AssistantAgent
-            if user_memory or buffered_context:
-                from backend.ai_core.factory import create_assistant_agent
-
-                optimizer_agent = create_assistant_agent(
-                    name="testcase_optimizer",
-                    system_message=self._prompt,
-                    memory=[user_memory] if user_memory else None,
-                    model_context=buffered_context if buffered_context else None,
-                )
-            else:
-                optimizer_agent = self._create_assistant_agent("testcase_optimizer")
+            # 创建测试用例优化智能体 - 直接使用优化后的factory函数
+            optimizer_agent = await create_assistant_agent(
+                name="testcase_optimizer",
+                system_message=self.get_system_prompt(),
+                conversation_id=conversation_id,
+                auto_memory=True,
+                auto_context=True,
+            )
 
             # 优化测试用例
             optimization_task = f"""
@@ -1141,7 +997,10 @@ class TestCaseFinalizationAgent(RoutedAgent):
 
     def __init__(self) -> None:
         super().__init__(description="测试用例最终化智能体")
-        self._prompt = """
+
+    def get_system_prompt(self) -> str:
+        """获取系统提示词"""
+        return """
 你是一位测试用例结构化处理专家，负责将最终确认的测试用例转换为标准格式。
 
 你的任务是：

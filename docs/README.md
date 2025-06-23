@@ -36,6 +36,8 @@
 - [TestCase服务文件方法修复](./architecture/TESTCASE_SERVICE_FILE_METHODS_FIX.md) - 修复智能体访问文件内容的方法缺失问题
 - [智能体流式日志调试增强](./architecture/AGENT_STREAMING_DEBUG_ENHANCEMENT.md) - 增强智能体流式处理的详细日志记录和调试能力
 - [测试用例智能体用户反馈功能实现](./architecture/TESTCASE_AGENT_USER_FEEDBACK_IMPLEMENTATION.md) - 实现测试用例智能体的团队协作和用户反馈机制
+- [消息队列解耦与独立化](./architecture/MESSAGE_QUEUE_DECOUPLING.md) - 将MessageQueue从Runtime解耦，增强流式输出和容错能力
+- [底层健壮性设计](./architecture/BOTTOM_UP_ROBUSTNESS_DESIGN.md) - 实现"底层健壮性，上层直接使用"的设计模式
 
 ### 💻 开发指南
 - [开发环境配置](./development/README.md) - 开发环境详细配置

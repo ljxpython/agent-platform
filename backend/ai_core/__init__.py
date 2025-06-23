@@ -11,7 +11,6 @@ AI核心组件模块
 """
 
 # 智能体基础类
-from .agents import AgentMessage, AgentPerformanceMetrics, BaseAgent, StreamingAgent
 
 # 智能体工厂
 from .factory import (
@@ -52,11 +51,6 @@ __all__ = [
     "get_openai_model_client",  # 向后兼容
     "LLMClientManager",
     "ModelType",
-    # 智能体基础类
-    "AgentMessage",
-    "AgentPerformanceMetrics",
-    "BaseAgent",
-    "StreamingAgent",
     # 智能体工厂
     "AgentType",
     "AgentFactory",

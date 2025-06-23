@@ -5,7 +5,6 @@
 
 import asyncio
 from abc import ABC, abstractmethod
-from asyncio import Queue
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +13,7 @@ from loguru import logger
 
 from backend.ai_core.factory import AgentFactory, AgentType, get_agent_factory
 from backend.ai_core.memory import ConversationMemory, get_memory_manager
+from backend.ai_core.message_queue import MessageQueue
 
 
 class RuntimeState:
@@ -58,57 +58,6 @@ class RuntimeState:
             "round_number": self.round_number,
             "last_update": self.last_update,
             "metadata": self.metadata,
-        }
-
-
-class MessageQueue:
-    """消息队列管理器"""
-
-    def __init__(self, conversation_id: str, max_size: int = 1000):
-        self.conversation_id = conversation_id
-        self.message_queue: Queue = Queue(maxsize=max_size)
-        self.feedback_queue: Queue = Queue()
-        self.created_at = datetime.now().isoformat()
-
-        logger.debug(
-            f"📦 [消息队列] 创建队列 | 对话ID: {conversation_id} | 最大大小: {max_size}"
-        )
-
-    async def put_message(self, message: str) -> None:
-        """放入消息到队列"""
-        await self.message_queue.put(message)
-        logger.debug(
-            f"📤 [消息队列] 消息入队 | 对话ID: {self.conversation_id} | 内容: {message[:100]}..."
-        )
-
-    async def get_message(self) -> str:
-        """从队列获取消息"""
-        message = await self.message_queue.get()
-        logger.debug(
-            f"📥 [消息队列] 消息出队 | 对话ID: {self.conversation_id} | 内容: {message[:100]}..."
-        )
-        return message
-
-    async def put_feedback(self, feedback: str) -> None:
-        """放入用户反馈到队列"""
-        await self.feedback_queue.put(feedback)
-        logger.debug(
-            f"💬 [消息队列] 反馈入队 | 对话ID: {self.conversation_id} | 反馈: {feedback}"
-        )
-
-    async def get_feedback(self) -> str:
-        """从队列获取用户反馈"""
-        feedback = await self.feedback_queue.get()
-        logger.debug(
-            f"💬 [消息队列] 反馈出队 | 对话ID: {self.conversation_id} | 反馈: {feedback}"
-        )
-        return feedback
-
-    def get_queue_sizes(self) -> Dict[str, int]:
-        """获取队列大小"""
-        return {
-            "message_queue_size": self.message_queue.qsize(),
-            "feedback_queue_size": self.feedback_queue.qsize(),
         }
 
 
@@ -526,4 +475,4 @@ class BaseRuntime(ABC):
 
 
 # 导出接口
-__all__ = ["RuntimeState", "MessageQueue", "BaseRuntime"]
+__all__ = ["RuntimeState", "BaseRuntime"]

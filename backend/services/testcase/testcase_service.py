@@ -12,6 +12,12 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from backend.ai_core import get_memory_manager, validate_model_configs
+from backend.ai_core.message_queue import (
+    get_message_from_queue,
+    get_streaming_messages_from_queue,
+    put_feedback_to_queue,
+    put_message_to_queue,
+)
 from backend.services.testcase.testcase_runtime import get_testcase_runtime
 
 
@@ -45,33 +51,6 @@ class TestCaseService:
 
         logger.info("🧪 [测试用例服务] 基于AI核心框架的服务初始化完成")
 
-    def _get_message_queue(self, conversation_id: str):
-        """获取运行时的消息队列"""
-        return self.runtime.get_queue(conversation_id)
-
-    async def _put_message_to_queue(self, conversation_id: str, message: str):
-        """将消息放入运行时队列"""
-        queue = self._get_message_queue(conversation_id)
-        if queue:
-            await queue.put_message(message)
-            logger.debug(f"📤 [队列管理] 消息入队 | 对话ID: {conversation_id}")
-
-    async def _get_message_from_queue(self, conversation_id: str) -> str:
-        """从运行时队列获取消息"""
-        queue = self._get_message_queue(conversation_id)
-        if queue:
-            message = await queue.get_message()
-            logger.debug(f"📥 [队列管理] 消息出队 | 对话ID: {conversation_id}")
-            return message
-        return ""
-
-    async def _put_feedback_to_queue(self, conversation_id: str, feedback: str):
-        """将反馈放入运行时队列"""
-        queue = self._get_message_queue(conversation_id)
-        if queue:
-            await queue.put_feedback(feedback)
-            logger.debug(f"💬 [队列管理] 反馈入队 | 对话ID: {conversation_id}")
-
     async def start_streaming_generation(self, requirement: RequirementMessage) -> None:
         """
         启动流式测试用例生成
@@ -88,7 +67,7 @@ class TestCaseService:
             if not any(configs.values()):
                 error_msg = "没有可用的模型配置"
                 logger.error(f"❌ [测试用例服务] {error_msg}")
-                await self._put_message_to_queue(
+                await put_message_to_queue(
                     conversation_id,
                     json.dumps(
                         {
@@ -143,7 +122,7 @@ class TestCaseService:
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),
             }
-            await self._put_message_to_queue(
+            await put_message_to_queue(
                 conversation_id, json.dumps(error_message, ensure_ascii=False)
             )
 
@@ -159,7 +138,7 @@ class TestCaseService:
 
         try:
             # 将反馈放入队列
-            await self._put_feedback_to_queue(conversation_id, feedback.feedback)
+            await put_feedback_to_queue(conversation_id, feedback.feedback)
 
             # 使用运行时处理反馈
             feedback_data = {
@@ -185,7 +164,7 @@ class TestCaseService:
         self, conversation_id: str
     ) -> AsyncGenerator[str, None]:
         """
-        获取流式消息生成器
+        获取流式消息生成器 - 直接使用message_queue的流式接口
 
         Args:
             conversation_id: 对话ID
@@ -196,36 +175,9 @@ class TestCaseService:
         logger.info(f"📡 [测试用例服务] 开始流式消息传输 | 对话ID: {conversation_id}")
 
         try:
-            while True:
-                try:
-                    # 从队列获取消息，设置超时避免无限等待
-                    message = await asyncio.wait_for(
-                        self._get_message_from_queue(conversation_id), timeout=30.0
-                    )
-
-                    logger.debug(
-                        f"📤 [测试用例服务] 发送流式消息 | 对话ID: {conversation_id}"
-                    )
-                    yield f"data: {message}\n\n"
-
-                    # 检查是否为结束消息
-                    try:
-                        msg_data = json.loads(message)
-                        if msg_data.get("type") == "error" or msg_data.get("is_final"):
-                            logger.info(
-                                f"🏁 [测试用例服务] 流式传输结束 | 对话ID: {conversation_id}"
-                            )
-                            break
-                    except json.JSONDecodeError:
-                        pass
-
-                except asyncio.TimeoutError:
-                    # 发送心跳消息
-                    heartbeat = json.dumps(
-                        {"type": "heartbeat", "timestamp": datetime.now().isoformat()},
-                        ensure_ascii=False,
-                    )
-                    yield f"data: {heartbeat}\n\n"
+            # 直接使用message_queue的流式消息获取方法
+            async for message in get_streaming_messages_from_queue(conversation_id):
+                yield message
 
         except Exception as e:
             logger.error(
@@ -256,67 +208,6 @@ class TestCaseService:
             List[Dict]: 历史消息列表
         """
         return await self.memory_manager.get_conversation_history(conversation_id)
-
-    def get_uploaded_files_info(self, conversation_id: str) -> List[Dict[str, Any]]:
-        """
-        获取上传文件信息
-
-        Args:
-            conversation_id: 对话ID
-
-        Returns:
-            List[Dict]: 文件信息列表
-        """
-        try:
-            logger.debug(
-                f"📄 [测试用例服务] 获取上传文件信息 | 对话ID: {conversation_id}"
-            )
-
-            # 从document_service获取会话文件信息
-            from backend.services.document.document_service import document_service
-
-            files_info = document_service.get_session_files(conversation_id)
-
-            logger.debug(f"   ✅ 获取到 {len(files_info)} 个文件信息")
-            return files_info
-
-        except Exception as e:
-            logger.error(
-                f"❌ [测试用例服务] 获取上传文件信息失败 | 对话ID: {conversation_id} | 错误: {e}"
-            )
-            return []
-
-    def get_uploaded_files_content(self, conversation_id: str) -> str:
-        """
-        获取上传文件的合并内容
-
-        Args:
-            conversation_id: 对话ID
-
-        Returns:
-            str: 合并的文件内容
-        """
-        try:
-            logger.debug(
-                f"📄 [测试用例服务] 获取上传文件内容 | 对话ID: {conversation_id}"
-            )
-
-            # 从document_service获取会话文件内容
-            from backend.services.document.document_service import document_service
-
-            content = document_service.get_session_content(conversation_id)
-
-            logger.debug(f"   ✅ 获取到文件内容，长度: {len(content)} 字符")
-            if content:
-                logger.debug(f"   📄 内容预览: {content[:200]}...")
-
-            return content
-
-        except Exception as e:
-            logger.error(
-                f"❌ [测试用例服务] 获取上传文件内容失败 | 对话ID: {conversation_id} | 错误: {e}"
-            )
-            return ""
 
     async def cleanup_conversation(self, conversation_id: str) -> None:
         """

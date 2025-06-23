@@ -31,27 +31,6 @@ from backend.services.testcase.testcase_service import (
 testcase_router = APIRouter()
 
 
-# 消费者（SSE流生成）- 直接使用TestCaseService的流式接口
-async def testcase_message_generator(conversation_id: str):
-    """
-    测试用例流式消息生成器 - 直接使用TestCaseService
-    """
-    try:
-        # 直接使用TestCaseService的流式消息获取方法
-        async for message in testcase_service.get_streaming_messages(conversation_id):
-            yield message
-    except Exception as e:
-        logger.error(f"❌ [流式消息] 生成失败 | 对话ID: {conversation_id} | 错误: {e}")
-        error_message = {
-            "type": "error",
-            "source": "system",
-            "content": f"流式消息生成失败: {str(e)}",
-            "conversation_id": conversation_id,
-            "timestamp": datetime.now().isoformat(),
-        }
-        yield f"data: {json.dumps(error_message, ensure_ascii=False)}\n\n"
-
-
 class FeedbackRequest(BaseModel):
     """用户反馈请求模型"""
 
@@ -187,12 +166,16 @@ async def generate_testcase_streaming(request: StreamingGenerateRequest):
     logger.info(f"🚀 [API-流式生成-队列模式] 启动后台任务 | 对话ID: {conversation_id}")
     asyncio.create_task(testcase_service.start_streaming_generation(requirement))
 
-    # 返回队列消费者的流式响应 - 参考examples/topic1.py
+    # 返回队列消费者的流式响应 - 直接使用message_queue的SSE函数
     logger.info(
         f"📡 [API-流式生成-队列模式] 返回队列消费者流式响应 | 对话ID: {conversation_id}"
     )
+
+    # 直接使用message_queue的SSE流式函数
+    from backend.ai_core.message_queue import get_streaming_sse_messages_from_queue
+
     return StreamingResponse(
-        testcase_message_generator(conversation_id=conversation_id),
+        get_streaming_sse_messages_from_queue(conversation_id),
         media_type="text/plain",
         headers={
             "Cache-Control": "no-cache",

@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
+from autogen_core.model_context import BufferedChatCompletionContext
 from loguru import logger
 
 
@@ -413,6 +414,19 @@ async def cleanup_memory(conversation_id: str) -> None:
         )
 
 
+def create_buffered_context(
+    buffer_size: int = 4000,
+) -> Optional[BufferedChatCompletionContext]:
+    """创建BufferedChatCompletionContext防止LLM上下文溢出"""
+    try:
+        return BufferedChatCompletionContext(
+            buffer_size=buffer_size, initial_messages=None
+        )
+    except Exception as e:
+        logger.error(f"❌ [Context] 创建BufferedChatCompletionContext失败: {e}")
+        return None
+
+
 # 导出接口
 __all__ = [
     "ConversationMemory",
@@ -423,4 +437,5 @@ __all__ = [
     "get_conversation_history",
     "get_agent_memory",
     "cleanup_memory",
+    "create_buffered_context",
 ]
