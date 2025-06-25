@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 
-from backend.core.crud import CRUDBase
+from backend.api_core.crud import CRUDBase
 from backend.models import Api, Department, Role, User
 from backend.schemas.system import (
     ApiCreate,

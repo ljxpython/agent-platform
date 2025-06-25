@@ -145,8 +145,9 @@ agent = AssistantAgent(
 ```
 
 **重构后**：
+
 ```python
-from backend.core.llm import get_openai_model_client
+from backend.api_core.llm import get_openai_model_client
 
 # 使用
 agent = AssistantAgent(
@@ -180,8 +181,9 @@ await RequirementAnalysisAgent.register(
 ```
 
 **重构后**：
+
 ```python
-from backend.core.llm import get_openai_model_client, validate_model_client
+from backend.api_core.llm import get_openai_model_client, validate_model_client
 
 # 使用
 if not validate_model_client():
@@ -292,8 +294,10 @@ make stop-backend && make start-backend
 ### 1. 在新服务中使用
 
 **标准使用方式**：
+
 ```python
-from backend.core.llm import get_openai_model_client, validate_model_client
+from backend.api_core.llm import get_openai_model_client, validate_model_client
+
 
 class NewService:
     def __init__(self):

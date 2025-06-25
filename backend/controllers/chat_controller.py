@@ -4,7 +4,7 @@
 
 from typing import Optional
 
-from backend.core.crud import CRUDBase
+from backend.api_core.crud import CRUDBase
 from backend.models.chat import ChatMessage
 from backend.schemas.base import Fail, Success
 from backend.services.ai_chat.autogen_service import autogen_service

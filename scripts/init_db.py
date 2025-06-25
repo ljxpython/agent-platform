@@ -16,7 +16,7 @@ sys.path.insert(0, str(project_root))
 from loguru import logger
 from tortoise import Tortoise
 
-from backend.core.database import TORTOISE_ORM, init_data
+from backend.api_core.database import TORTOISE_ORM, init_data
 
 
 async def init_aerich():

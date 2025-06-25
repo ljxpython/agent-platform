@@ -183,17 +183,20 @@ class Api(Model):
 ### 1. 在API路由中使用权限控制
 
 ```python
-from backend.core.dependency import DependAuth, DependPermission, DependAdmin
+from backend.api_core.dependency import DependAuth, DependPermission, DependAdmin
+
 
 # 仅需要认证
 @router.get("/profile", dependencies=[DependAuthOnly])
 async def get_user_profile(current_user: User = DependAuthOnly):
     return {"user": current_user.username}
 
+
 # 需要API权限
 @router.get("/data", dependencies=[DependPermission])
 async def get_business_data():
     return {"data": "sensitive_data"}
+
 
 # 需要管理员权限
 @router.get("/admin/users", dependencies=[DependAdmin])

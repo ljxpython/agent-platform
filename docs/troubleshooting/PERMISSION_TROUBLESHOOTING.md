@@ -310,10 +310,11 @@ window.checkAuthStatus = checkAuthStatus;
 ```python
 # scripts/reset_permissions.py
 import asyncio
-from backend.core.database import init_db
+from backend.api_core.database import init_db
 from backend.services.permission_service import permission_service
 from backend.models.user import User
 from backend.models.role import Role
+
 
 async def reset_permissions():
     """重置权限系统"""
@@ -335,6 +336,7 @@ async def reset_permissions():
     await permission_service.init_default_permissions()
     print("默认权限初始化完成")
 
+
 if __name__ == "__main__":
     asyncio.run(reset_permissions())
 ```
@@ -344,13 +346,15 @@ if __name__ == "__main__":
 ```python
 # scripts/fix_user.py
 import asyncio
-from backend.core.database import init_db, create_default_user
+from backend.api_core.database import init_db, create_default_user
+
 
 async def fix_user_system():
     """修复用户系统"""
     await init_db()
     await create_default_user()
     print("用户系统修复完成")
+
 
 if __name__ == "__main__":
     asyncio.run(fix_user_system())

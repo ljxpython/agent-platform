@@ -4,7 +4,7 @@
 
 from typing import Optional
 
-from backend.core.crud import CRUDBase
+from backend.api_core.crud import CRUDBase
 from backend.models.user import User
 from backend.schemas.base import Fail, Success
 from backend.services.auth.auth_service import AuthService

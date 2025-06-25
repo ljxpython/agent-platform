@@ -338,3 +338,4 @@ uploads
 **/aitestlab.db-shm
 **/aitestlab.db-wal
 **/aitestlab.db
+**/migrations

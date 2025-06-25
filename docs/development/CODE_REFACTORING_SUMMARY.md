@@ -78,6 +78,7 @@ if not data_dir.exists():
 ### 🔄 2. init_app.py 简化
 
 #### 移除重复代码
+
 ```python
 # 重构前
 async def init_data():
@@ -87,7 +88,7 @@ async def init_data():
     try:
         # 初始化数据库
         logger.debug("初始化数据库连接...")
-        from backend.core.database import init_db
+        from backend.api_core.database import init_db
         await init_db()
 
         # 示例：预热缓存
@@ -101,6 +102,7 @@ async def init_data():
         logger.error(f"应用数据初始化失败: {e}")
         raise
 
+
 # 重构后
 async def init_data():
     """Initialize application data"""
@@ -108,7 +110,7 @@ async def init_data():
 
     try:
         # 使用database.py中的统一初始化函数
-        from backend.core.database import init_data as db_init_data
+        from backend.api_core.database import init_data as db_init_data
         await db_init_data()
 
         logger.success("🚀 应用数据初始化完成")
@@ -120,6 +122,7 @@ async def init_data():
 ### 📝 3. init_db.py 脚本优化
 
 #### 简化脚本逻辑
+
 ```python
 # 重构前：包含完整的数据库初始化逻辑
 async def init_database():
@@ -129,12 +132,13 @@ async def init_database():
         db_dir = os.path.dirname(DATABASE_URL.replace("sqlite://", ""))
         # ... 大量重复代码
 
+
 # 重构后：使用database.py中的统一函数
 async def init_database():
     """初始化数据库 - 使用database.py中的统一函数"""
     close_db = None
     try:
-        from backend.core.database import init_data, close_db
+        from backend.api_core.database import init_data, close_db
 
         logger.info("开始初始化数据库...")
         await init_data()

@@ -96,17 +96,21 @@ def validate_model_configs() -> Dict[str, bool]:
 
 ```python
 # 旧的导入方式仍然有效（显示废弃警告）
-from backend.core.llm import get_openai_model_client
+from backend.api_core.llm import get_openai_model_client
 
 # 新的推荐方式
 from backend.ai_core.llm import get_default_client
 ```
 
 ### 迁移路径
+
 ```python
 # 步骤1：更新导入
-- from backend.core.llm import get_openai_model_client
-+ from backend.ai_core.llm import get_default_client
+-
+from backend.api_core.llm import get_openai_model_client
+
++
+from backend.ai_core.llm import get_default_client
 
 # 步骤2：使用新API
 - client = get_openai_model_client()

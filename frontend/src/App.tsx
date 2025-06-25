@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'r
 import SideNavigation from '@/components/SideNavigation';
 import HomePage from '@/pages/HomePage';
 import ChatPage from '@/pages/ChatPage';
+import RAGManagePage from '@/pages/RAGManagePage';
 import TestCasePage from '@/pages/TestCasePage';
 import MidscenePage from '@/pages/MidscenePage';
 import UITestScriptPage from '@/pages/UITestScriptPage';
@@ -13,6 +14,12 @@ import UserManagePage from '@/pages/system/UserManagePage';
 import RoleManagePage from '@/pages/system/RoleManagePage';
 import DepartmentManagePage from '@/pages/system/DepartmentManagePage';
 import ApiManagePage from '@/pages/system/ApiManagePage';
+// RAG管理页面
+import RAGDashboard from '@/pages/rag/RAGDashboard';
+import DocumentManagement from '@/pages/rag/DocumentManagement';
+import VectorManagement from '@/pages/rag/VectorManagement';
+import SystemMonitoring from '@/pages/rag/SystemMonitoring';
+import ConfigManagement from '@/pages/rag/ConfigManagement';
 import { isAuthenticated } from '@/services/auth';
 
 // 认证保护组件
@@ -52,6 +59,7 @@ const AppContent: React.FC = () => {
       <SideNavigation>
         <Routes>
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/rag-manage" element={<RAGManagePage />} />
           <Route path="/testcase" element={<TestCasePage />} />
           <Route path="/midscene" element={<MidscenePage />} />
           <Route path="/ui-test-script" element={<UITestScriptPage />} />
@@ -61,6 +69,13 @@ const AppContent: React.FC = () => {
           <Route path="/system/roles" element={<RoleManagePage />} />
           <Route path="/system/departments" element={<DepartmentManagePage />} />
           <Route path="/system/apis" element={<ApiManagePage />} />
+          {/* RAG管理路由 */}
+          <Route path="/rag" element={<RAGDashboard />} />
+          <Route path="/rag/dashboard" element={<RAGDashboard />} />
+          <Route path="/rag/documents" element={<DocumentManagement />} />
+          <Route path="/rag/vectors" element={<VectorManagement />} />
+          <Route path="/rag/monitoring" element={<SystemMonitoring />} />
+          <Route path="/rag/config" element={<ConfigManagement />} />
         </Routes>
       </SideNavigation>
     </ProtectedRoute>

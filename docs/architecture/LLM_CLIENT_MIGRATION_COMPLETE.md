@@ -16,26 +16,32 @@
 更新了所有使用旧客户端的业务代码：
 
 #### AI对话服务 (`autogen_service.py`)
+
 ```python
 # 更新前
-from backend.core.llm import get_openai_model_client
-model_client=get_openai_model_client()
+from backend.api_core.llm import get_openai_model_client
+
+model_client = get_openai_model_client()
 
 # 更新后
 from backend.ai_core.llm import get_default_client
-model_client=get_default_client()
+
+model_client = get_default_client()
 ```
 
 #### 测试用例服务 (`testcase_service.py`)
+
 ```python
 # 更新前
-from backend.core.llm import get_openai_model_client, validate_model_client
+from backend.api_core.llm import get_openai_model_client, validate_model_client
+
 if not validate_model_client():
     return
 model_client = get_openai_model_client()
 
 # 更新后
 from backend.ai_core.llm import get_default_client, validate_model_configs
+
 configs = validate_model_configs()
 if not any(configs.values()):
     return
@@ -43,9 +49,10 @@ model_client = get_default_client()
 ```
 
 #### UI测试服务 (`midscene_service.py`)
+
 ```python
 # 更新前
-from backend.core.llm import get_openai_model_client as get_model_client
+from backend.api_core.llm import get_openai_model_client as get_model_client
 
 # 更新后
 from backend.ai_core.llm import get_default_client as get_model_client

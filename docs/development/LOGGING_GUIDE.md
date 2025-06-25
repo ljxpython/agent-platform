@@ -93,11 +93,13 @@ except Exception as e:
 ### 4. 使用装饰器
 
 ```python
-from backend.core.logger import log_function_call, log_async_function_call
+from backend.api_core.logger import log_function_call, log_async_function_call
+
 
 @log_function_call
 def some_function(param1, param2):
     return param1 + param2
+
 
 @log_async_function_call
 async def async_function(data):
@@ -209,8 +211,9 @@ grep -o "INFO\|WARNING\|ERROR\|SUCCESS" logs/app.log | sort | uniq -c
 ## ⚙️ 高级配置
 
 ### 自定义日志格式
+
 ```python
-from backend.core.logger import LoggerConfig
+from backend.api_core.logger import LoggerConfig
 
 config = LoggerConfig()
 config.setup_logger(

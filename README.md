@@ -274,12 +274,38 @@ AITestLab/
 │   │       ├── SSE_AND_FEEDBACK_GUIDE.md          # SSE与反馈指南
 │   │       ├── AUTOGEN_RUNTIME_GUIDE.md           # 运行时指南
 │   │       └── FRAMEWORK_INTEGRATION_GUIDE.md     # 集成指南
-│   ├── core/                 # 核心功能模块
-│   │   ├── init_app.py       # 应用初始化
-│   │   ├── database.py       # 数据库配置
+│   ├── rag_core/             # RAG知识库系统
+│   │   ├── __init__.py       # 模块初始化
+│   │   ├── rag_system.py     # RAG系统主类
+│   │   ├── vector_store.py   # 向量数据库接口
+│   │   ├── query_engine.py   # 查询引擎
+│   │   ├── embedding_generator.py # 嵌入向量生成
+│   │   ├── llm_service.py    # LLM服务
+│   │   ├── collection_manager.py # Collection管理
+│   │   ├── data_loader.py    # 数据加载器
+│   │   └── docs/            # RAG开发文档
+│   │       ├── README.md                    # RAG系统概述
+│   │       ├── architecture.md             # 系统架构设计
+│   │       ├── development_guide.md        # 开发规范
+│   │       ├── api_reference.md            # API参考文档
+│   │       ├── configuration.md            # 配置管理
+│   │       ├── troubleshooting.md          # 故障排除
+│   │       └── examples/                   # 示例代码
+│   ├── api_core/             # API核心工具层
+│   │   ├── __init__.py       # 模块初始化
+│   │   ├── crud.py           # CRUD基类
+│   │   ├── response.py       # 响应处理
+│   │   ├── exceptions.py     # 异常定义
+│   │   ├── deps.py           # 依赖注入
 │   │   ├── security.py       # 安全认证
-│   │   ├── dependency.py     # 权限依赖注入
-│   │   └── llm.py           # LLM客户端管理（兼容层）
+│   │   └── database.py       # 数据库配置
+│   ├── docs/                 # 后端开发文档
+│   │   ├── README.md         # 文档导航
+│   │   ├── api/              # API开发相关
+│   │   ├── development/      # 开发规范相关
+│   │   ├── database/         # 数据库相关
+│   │   ├── core/             # 核心架构
+│   │   └── examples/         # 示例代码
 │   ├── conf/                 # 配置管理
 │   └── utils/                # 工具函数
 ├── frontend/                  # 前端应用
@@ -403,20 +429,45 @@ AITestLab/
 - **多模型支持**: DeepSeek、Qwen-VL、UI-TARS等多种LLM模型
 - **完整文档体系**: 详细的开发指南和最佳实践
 
+### 🔍 RAG知识库系统
+- **企业级RAG架构**: 基于LlamaIndex + Milvus + DeepSeek的完整RAG系统
+- **多Collection支持**: 为不同业务场景提供专业知识库
+- **智能检索增强**: 向量检索 + 语义理解的混合检索
+- **实时流式查询**: 支持SSE的实时RAG查询响应
+- **完整开发文档**: 详细的RAG开发规范和使用指南
+
+### 🏗️ 后端框架优化
+- **API核心重构**: 统一的响应处理和异常管理系统
+- **CRUD基类优化**: 高度复用的数据库操作基类
+- **参数校验增强**: 基于Pydantic的完整参数验证体系
+- **SSE协议标准**: 规范化的Server-Sent Events实现
+- **开发文档体系**: 完整的后端开发规范和最佳实践
+
 ### 🚀 规划中的功能模块
 ```
-RAG知识库智能体
 接口测试智能体
 性能测试智能体
 数据库测试智能体
 安全测试智能体
+代码审查智能体
 ```
 
 
 
-## 工程搭建记录
+## 📚 开发文档
 
-[工程搭建记录](docs/work/MYWORK.md)
+### 🔧 后端开发文档
+- **[后端开发规范](backend/docs/)** - 完整的后端开发指南和最佳实践
+- **[API开发规范](backend/docs/api/)** - RESTful API设计和实现标准
+- **[数据库操作指南](backend/docs/database/)** - Tortoise ORM使用和优化
+- **[开发规范文档](backend/docs/development/)** - 代码规范和架构模式
+
+### 🧠 AI核心文档
+- **[AI核心框架](backend/ai_core/docs/)** - AutoGen多智能体开发指南
+- **[RAG知识库系统](backend/rag_core/docs/)** - 企业级RAG系统开发文档
+
+### 📋 项目记录
+- **[工程搭建记录](docs/work/MYWORK.md)** - 项目开发历程和技术演进
 
 
 
@@ -735,18 +786,24 @@ docs/
 - **用户系统**: 注册、登录、权限管理
 - **AI聊天**: 多智能体对话、流式响应
 - **测试用例生成**: 完整的AI驱动测试用例生成流程
+- **Midscene UI脚本生成**: 四智能体协作的UI自动化脚本生成
 - **权限管理**: 企业级RBAC权限控制系统
 - **数据库**: Aerich迁移管理、完整数据模型
+- **RAG知识库系统**: 企业级RAG架构和多Collection支持
+- **后端框架优化**: API核心重构、CRUD基类、参数校验体系
 - **文档**: 完整的文档体系和导航
 - **测试**: 规范的测试结构和工具
 
 #### 🚧 开发中功能
+- **RAG管理界面**: Collection管理、文档上传、查询界面
+- **AI对话RAG集成**: 知识库增强的AI对话功能
 - **用户个人资料**: 头像上传、信息编辑
 - **系统设置**: 配置管理、主题切换
 - **数据统计**: 使用统计、性能监控
-- **API扩展**: 更多AI模型支持
 
 #### 📋 计划功能
+- **接口测试智能体**: API自动化测试生成
+- **性能测试智能体**: 性能测试脚本生成
 - **团队协作**: 多用户协作、权限分级
 - **模板管理**: 自定义测试用例模板
 - **导出功能**: 测试用例导出为多种格式
@@ -768,22 +825,28 @@ docs/
 ├── 后端服务层
 │   ├── FastAPI + Tortoise ORM
 │   ├── AutoGen 多智能体系统
+│   ├── RAG知识库系统 (LlamaIndex + Milvus + DeepSeek)
+│   ├── API核心框架 (CRUD基类 + 响应处理 + 参数校验)
 │   ├── Aerich 数据库迁移
 │   └── JWT 认证授权
 ├── 前端应用层
 │   ├── React 18 + TypeScript
 │   ├── Ant Design Pro UI
-│   ├── 流式数据处理
+│   ├── 流式数据处理 (SSE)
+│   ├── RAG管理界面
 │   └── 响应式设计
 ├── 数据存储层
-│   ├── SQLite 主数据库
+│   ├── PostgreSQL 主数据库
+│   ├── Milvus 向量数据库
+│   ├── Redis 缓存系统
 │   ├── 文件存储系统
-│   └── 缓存机制
+│   └── Ollama 嵌入服务
 └── 工具支撑层
     ├── Poetry 依赖管理
     ├── Makefile 自动化
     ├── pytest 测试框架
-    └── 完整文档体系
+    ├── 完整文档体系
+    └── 开发规范标准
 ```
 
 ### 核心技术亮点
@@ -833,6 +896,26 @@ graph TD
 
 ### 最新优化记录
 
+#### 🧠 RAG知识库系统
+- **企业级架构**: 基于LlamaIndex + Milvus + DeepSeek的完整RAG系统
+- **多Collection支持**: 为不同业务场景提供专业知识库
+- **向量检索**: 高性能的向量相似度搜索
+- **实时流式查询**: 支持SSE的实时RAG查询响应
+- **完整开发文档**: 详细的RAG开发规范和使用指南
+
+#### 🏗️ 后端框架优化
+- **API核心重构**: 将core重命名为api_core，统一API工具层
+- **CRUD基类优化**: 高度复用的数据库操作基类
+- **响应处理统一**: 标准化的API响应格式和错误处理
+- **参数校验增强**: 基于Pydantic的完整参数验证体系
+- **SSE协议标准**: 规范化的Server-Sent Events实现
+
+#### 📚 文档体系重构
+- **后端文档**: 完整的后端开发规范和最佳实践文档
+- **分类整理**: API、开发、数据库、架构等分类文档
+- **示例代码**: 丰富的CRUD和API开发示例
+- **AI友好**: 为AI编程助手优化的文档结构
+
 #### 🎨 UI/UX 优化
 - **登录界面**: 移除测试账户提示，提升专业度
 - **侧边栏**: 移除帮助和滚动测试菜单项
@@ -842,11 +925,6 @@ graph TD
 - **Aerich集成**: 完整的数据库迁移管理
 - **数据模型**: 7个核心业务表设计
 - **自动化**: 一键初始化脚本和默认数据
-
-#### 📚 文档体系
-- **结构重组**: 按功能模块分类整理
-- **导航优化**: 统一的文档索引中心
-- **专项文档**: 数据库、测试、API等专项文档
 
 #### 🧪 测试体系
 - **目录整理**: 测试文件统一移至tests/目录

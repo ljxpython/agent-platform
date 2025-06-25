@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 
-from backend.core.deps import get_current_active_user
+from backend.api_core.deps import get_current_active_user
 from backend.models.auth import (
     LoginResponse,
     PasswordChange,

@@ -14,6 +14,9 @@ import {
   UserOutlined,
   TeamOutlined,
   ApartmentOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import TopNavigation from './TopNavigation';
 import SidebarToggleButton from './FloatingToggleButton';
@@ -37,11 +40,20 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     const path = location.pathname;
     if (path === '/') return 'home';
     if (path === '/chat') return 'chat';
+    if (path === '/rag-manage') return 'rag-manage';
     if (path === '/testcase') return 'testcase';
     if (path === '/midscene') return 'midscene';
     if (path === '/ui-test-script') return 'ui-test-script';
     if (path === '/api-testing') return 'api-testing';
     if (path === '/performance-testing') return 'performance-testing';
+    // RAG管理路由
+    if (path.startsWith('/rag')) {
+      if (path === '/rag' || path === '/rag/dashboard') return 'rag-dashboard';
+      if (path === '/rag/documents') return 'rag-documents';
+      if (path === '/rag/vectors') return 'rag-vectors';
+      if (path === '/rag/monitoring') return 'rag-monitoring';
+      if (path === '/rag/config') return 'rag-config';
+    }
     if (path === '/system/users') return 'system-users';
     if (path === '/system/roles') return 'system-roles';
     if (path === '/system/departments') return 'system-departments';
@@ -70,9 +82,46 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
           label: 'AI对话',
         },
         {
+          key: 'rag-manage',
+          icon: <DatabaseOutlined />,
+          label: 'RAG知识库管理',
+        },
+        {
           key: 'testcase',
           icon: <FileTextOutlined />,
           label: '测试用例生成',
+        },
+      ],
+    },
+    {
+      key: 'rag-management',
+      icon: <DatabaseOutlined />,
+      label: collapsed ? null : 'RAG知识库',
+      children: [
+        {
+          key: 'rag-dashboard',
+          icon: <DashboardOutlined />,
+          label: '管理中心',
+        },
+        {
+          key: 'rag-documents',
+          icon: <FileTextOutlined />,
+          label: '文档管理',
+        },
+        {
+          key: 'rag-vectors',
+          icon: <CloudOutlined />,
+          label: '向量管理',
+        },
+        {
+          key: 'rag-monitoring',
+          icon: <BarChartOutlined />,
+          label: '系统监控',
+        },
+        {
+          key: 'rag-config',
+          icon: <SettingOutlined />,
+          label: '配置管理',
         },
       ],
     },
@@ -146,6 +195,9 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
       case 'chat':
         navigate('/chat');
         break;
+      case 'rag-manage':
+        navigate('/rag-manage');
+        break;
       case 'testcase':
         navigate('/testcase');
         break;
@@ -162,6 +214,22 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
       case 'performance-testing':
         // 未来功能，暂时不跳转
         console.log('性能测试功能开发中');
+        break;
+      // RAG管理路由
+      case 'rag-dashboard':
+        navigate('/rag/dashboard');
+        break;
+      case 'rag-documents':
+        navigate('/rag/documents');
+        break;
+      case 'rag-vectors':
+        navigate('/rag/vectors');
+        break;
+      case 'rag-monitoring':
+        navigate('/rag/monitoring');
+        break;
+      case 'rag-config':
+        navigate('/rag/config');
         break;
       case 'system-users':
         navigate('/system/users');

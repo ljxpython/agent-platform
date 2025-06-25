@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import HTTPException, status
 from loguru import logger
 
-from backend.core.security import (
+from backend.api_core.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     get_password_hash,

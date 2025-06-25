@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Typography, message as antMessage, Dropdown } from 'antd';
+import {
+  Button,
+  Typography,
+  message as antMessage,
+  Dropdown,
+  Select,
+  Upload,
+  Modal,
+  Space,
+  Tag,
+  Divider,
+  Card
+} from 'antd';
 import {
   ClearOutlined,
   SettingOutlined,
@@ -11,6 +23,10 @@ import {
   EditOutlined,
   FileTextOutlined,
   HistoryOutlined,
+  UploadOutlined,
+  DatabaseOutlined,
+  RobotOutlined,
+  BookOutlined,
 } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import ChatMessage from '@/components/ChatMessage';
@@ -22,6 +38,18 @@ import { ChatMessage as ChatMessageType, StreamChunk } from '@/types/chat';
 import { chatApi } from '@/services/api';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
+
+// RAG消息类型
+interface RAGMessage {
+  type: 'rag_result' | 'agent_start' | 'streaming_chunk' | 'complete' | 'error';
+  source: string;
+  content: string;
+  rag_answer?: string;
+  retrieved_count?: number;
+  collection_name?: string;
+  timestamp: string;
+}
 
 const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
@@ -29,22 +57,160 @@ const ChatPage: React.FC = () => {
   const [conversationId, setConversationId] = useState<string>('');
   const [historyVisible, setHistoryVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [selectedCollection, setSelectedCollection] = useState<string>('ai_chat');
+  const [useRAG, setUseRAG] = useState<boolean>(true);
+  const [availableCollections, setAvailableCollections] = useState<string[]>([]);
+  const [ragStatus, setRagStatus] = useState<any>(null);
+  const [isUserScrolling, setIsUserScrolling] = useState<boolean>(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState<boolean>(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef<number>(0);
+  const isAutoScrolling = useRef<boolean>(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 滚动到底部
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldAutoScroll && !isUserScrolling && messagesEndRef.current) {
+      isAutoScrolling.current = true;
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+
+      // 设置一个短暂的延迟来重置自动滚动标志
+      setTimeout(() => {
+        isAutoScrolling.current = false;
+      }, 1000);
+    }
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // 检查是否在底部
+  const isAtBottom = () => {
+    if (!messagesContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    return scrollHeight - scrollTop - clientHeight < 100; // 100px容差
+  };
 
-  // 初始化对话ID
+  // 检测用户是否在滚动
+  const handleScroll = () => {
+    if (!messagesContainerRef.current || isAutoScrolling.current) return;
+
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container.scrollTop;
+
+    // 清除之前的超时
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // 检测滚动方向
+    const isScrollingUp = currentScrollTop < lastScrollTop.current;
+    const isScrollingDown = currentScrollTop > lastScrollTop.current;
+
+    if (isScrollingUp) {
+      // 用户向上滚动，停止自动滚动
+      setIsUserScrolling(true);
+      setShouldAutoScroll(false);
+    } else if (isScrollingDown && isAtBottom()) {
+      // 用户向下滚动到底部，恢复自动滚动
+      setIsUserScrolling(false);
+      setShouldAutoScroll(true);
+    }
+
+    lastScrollTop.current = currentScrollTop;
+
+    // 设置超时来检测滚动停止
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (isAtBottom()) {
+        setIsUserScrolling(false);
+        setShouldAutoScroll(true);
+      }
+    }, 150);
+  };
+
+  // 只在新消息到达且应该自动滚动时才滚动
+  useEffect(() => {
+    if (messages.length > 0 && shouldAutoScroll && !isUserScrolling) {
+      // 使用requestAnimationFrame确保DOM更新后再滚动
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [messages.length, shouldAutoScroll, isUserScrolling]);
+
+  // 添加滚动事件监听
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll, { passive: true });
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+      };
+    }
+  }, []);
+
+  // 初始化对话ID和RAG状态
   useEffect(() => {
     setConversationId(uuidv4());
+    loadRAGCollections();
+    loadRAGStatus();
   }, []);
+
+  // 加载可用的RAG collections
+  const loadRAGCollections = async () => {
+    try {
+      const response = await fetch('/api/v1/chat/collections');
+      const data = await response.json();
+      if (data.success) {
+        setAvailableCollections(data.collections);
+      }
+    } catch (error) {
+      console.error('加载RAG collections失败:', error);
+    }
+  };
+
+  // 加载RAG状态
+  const loadRAGStatus = async () => {
+    try {
+      const response = await fetch('/api/v1/chat/stats');
+      const data = await response.json();
+      setRagStatus(data);
+    } catch (error) {
+      console.error('加载RAG状态失败:', error);
+    }
+  };
+
+  // 文件上传处理
+  const handleFileUpload = async (fileList: any[]) => {
+    if (fileList.length === 0) return;
+
+    const formData = new FormData();
+    fileList.forEach(file => {
+      formData.append('files', file.originFileObj);
+    });
+    formData.append('collection_name', selectedCollection);
+
+    try {
+      const response = await fetch('/api/v1/chat/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        antMessage.success(`文件上传成功！已添加到 ${selectedCollection} 知识库`);
+        setUploadModalVisible(false);
+      } else {
+        antMessage.error('文件上传失败');
+      }
+    } catch (error) {
+      console.error('文件上传失败:', error);
+      antMessage.error('文件上传失败');
+    }
+  };
 
   // 清理 EventSource
   useEffect(() => {
@@ -81,17 +247,26 @@ const ChatPage: React.FC = () => {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      // 使用流式API
-      const response = await fetch('/api/v1/chat/stream', {
+      // 使用RAG增强的流式API
+      const apiUrl = useRAG ? '/api/v1/chat/stream/rag' : '/api/v1/chat/stream';
+      const requestBody = useRAG ? {
+        message: content,
+        conversation_id: conversationId,
+        system_message: '你是一个有用的AI助手，请用中文回答问题。',
+        collection_name: selectedCollection,
+        use_rag: useRAG,
+      } : {
+        message: content,
+        conversation_id: conversationId,
+        system_message: '你是一个有用的AI助手，请用中文回答问题。',
+      };
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: content,
-          conversation_id: conversationId,
-          system_message: '你是一个有用的AI助手，请用中文回答问题。',
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -103,6 +278,7 @@ const ChatPage: React.FC = () => {
 
       if (reader) {
         let buffer = '';
+        let ragInfo = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -117,27 +293,128 @@ const ChatPage: React.FC = () => {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                const chunk: StreamChunk = data;
 
-                if (chunk.content) {
-                  setMessages(prev =>
-                    prev.map(msg =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: msg.content + chunk.content }
-                        : msg
-                    )
-                  );
-                }
+                if (useRAG) {
+                  // 处理RAG增强的消息
+                  const ragMessage: RAGMessage = data;
 
-                if (chunk.is_complete) {
-                  setMessages(prev =>
-                    prev.map(msg =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, isStreaming: false }
-                        : msg
-                    )
-                  );
-                  break;
+                  if (ragMessage.type === 'rag_start') {
+                    // RAG查询开始
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content + '\n' }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'rag_retrieval') {
+                    // RAG检索结果
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content + '\n' }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'rag_answer_start') {
+                    // RAG回答开始
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + '\n' + ragMessage.content + '\n' }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'rag_answer_chunk') {
+                    // RAG回答流式块
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'rag_answer_end') {
+                    // RAG回答结束
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'rag_no_result') {
+                    // RAG无结果
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content + '\n\n' }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'agent_start') {
+                    // 显示Agent开始处理
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content + '\n\n' }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'streaming_chunk') {
+                    // 流式内容
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + ragMessage.content }
+                          : msg
+                      )
+                    );
+                  } else if (ragMessage.type === 'complete') {
+                    // 完成
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, isStreaming: false }
+                          : msg
+                      )
+                    );
+                    break;
+                  } else if (ragMessage.type === 'error') {
+                    // 错误
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + '\n\n' + ragMessage.content, isStreaming: false }
+                          : msg
+                      )
+                    );
+                    break;
+                  }
+                } else {
+                  // 处理普通流式消息
+                  const chunk: StreamChunk = data;
+
+                  if (chunk.content) {
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: msg.content + chunk.content }
+                          : msg
+                      )
+                    );
+                  }
+
+                  if (chunk.is_complete) {
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, isStreaming: false }
+                          : msg
+                      )
+                    );
+                    break;
+                  }
                 }
               } catch (e) {
                 console.error('解析SSE数据失败:', e);
@@ -201,6 +478,22 @@ const ChatPage: React.FC = () => {
 
   const menuItems = [
     {
+      key: 'upload',
+      icon: <UploadOutlined />,
+      label: '上传文件到知识库',
+      onClick: () => setUploadModalVisible(true)
+    },
+    {
+      key: 'collections',
+      icon: <DatabaseOutlined />,
+      label: '知识库管理',
+      onClick: loadRAGCollections
+    },
+    {
+      key: 'divider1',
+      type: 'divider'
+    },
+    {
       key: 'history',
       icon: <HistoryOutlined />,
       label: '对话历史',
@@ -212,6 +505,10 @@ const ChatPage: React.FC = () => {
       label: '清除对话',
       onClick: handleClearChat,
       disabled: messages.length === 0
+    },
+    {
+      key: 'divider2',
+      type: 'divider'
     },
     {
       key: 'share',
@@ -276,23 +573,87 @@ const ChatPage: React.FC = () => {
                 测试助手
               </Title>
               <Text style={{ color: '#8c8c8c', fontSize: 14 }}>
-                自动化测试平台 AI 模块
+                自动化测试平台 AI 模块 {useRAG && `• 知识库: ${selectedCollection}`}
               </Text>
             </div>
           </div>
 
-          <Dropdown menu={{ items: menuItems }} trigger={['click']}>
-            <Button
-              type="text"
-              icon={<MoreOutlined />}
-              style={{
-                color: '#595959',
-                border: '1px solid #d9d9d9',
-                borderRadius: 20
-              }}
-              className="gemini-hover"
-            />
-          </Dropdown>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* RAG控制面板 */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 12px',
+              background: useRAG ? '#f6ffed' : '#fafafa',
+              border: `1px solid ${useRAG ? '#b7eb8f' : '#d9d9d9'}`,
+              borderRadius: 20,
+              transition: 'all 0.3s ease',
+            }}>
+              <DatabaseOutlined
+                style={{
+                  color: useRAG ? '#52c41a' : '#8c8c8c',
+                  fontSize: 14
+                }}
+              />
+              <Select
+                value={selectedCollection}
+                onChange={setSelectedCollection}
+                style={{
+                  width: 100,
+                  fontSize: 12,
+                }}
+                size="small"
+                placeholder="知识库"
+                bordered={false}
+                suffixIcon={null}
+                disabled={!useRAG}
+              >
+                {availableCollections.map(collection => (
+                  <Option key={collection} value={collection}>
+                    <Space size={4}>
+                      <DatabaseOutlined style={{ fontSize: 12 }} />
+                      {collection}
+                    </Space>
+                  </Option>
+                ))}
+              </Select>
+
+              <Divider type="vertical" style={{ margin: '0 4px', height: 16 }} />
+
+              <Button
+                type="text"
+                size="small"
+                icon={<BookOutlined style={{ fontSize: 12 }} />}
+                onClick={() => setUseRAG(!useRAG)}
+                style={{
+                  color: useRAG ? '#52c41a' : '#8c8c8c',
+                  fontSize: 12,
+                  height: 24,
+                  padding: '0 6px',
+                  border: 'none',
+                  background: 'transparent',
+                }}
+              >
+                {useRAG ? '已启用' : '启用'}
+              </Button>
+            </div>
+
+            <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+              <Button
+                type="text"
+                icon={<MoreOutlined />}
+                style={{
+                  color: '#595959',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 20,
+                  width: 32,
+                  height: 32,
+                }}
+                className="gemini-hover"
+              />
+            </Dropdown>
+          </div>
         </div>
 
         {/* 主要内容区域 */}
@@ -406,20 +767,56 @@ const ChatPage: React.FC = () => {
               flexDirection: 'column',
               backgroundColor: 'white',
               borderRadius: '20px 20px 0 0',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              position: 'relative'
             }}>
               {/* 消息列表 */}
-              <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '24px',
-                backgroundColor: 'transparent'
-              }}>
+              <div
+                ref={messagesContainerRef}
+                style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: '24px',
+                  backgroundColor: 'transparent'
+                }}
+              >
                 {messages.map((message) => (
                   <ChatMessage key={message.id} message={message} />
                 ))}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* 滚动控制按钮 */}
+              {!shouldAutoScroll && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: 80,
+                  right: 24,
+                  zIndex: 1000
+                }}>
+                  <Button
+                    type="primary"
+                    shape="circle"
+                    size="small"
+                    icon={<div style={{ fontSize: 12 }}>↓</div>}
+                    onClick={() => {
+                      setIsUserScrolling(false);
+                      setShouldAutoScroll(true);
+                      isAutoScrolling.current = true;
+                      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                      setTimeout(() => {
+                        isAutoScrolling.current = false;
+                      }, 1000);
+                    }}
+                    style={{
+                      backgroundColor: '#1890ff',
+                      borderColor: '#1890ff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    }}
+                    title="回到底部"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -454,6 +851,79 @@ const ChatPage: React.FC = () => {
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
       />
+
+      {/* 文件上传模态框 */}
+      <Modal
+        title="上传文件到知识库"
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        <div style={{ padding: '20px 0' }}>
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <div>
+              <Text strong>选择知识库：</Text>
+              <Select
+                value={selectedCollection}
+                onChange={setSelectedCollection}
+                style={{ width: '100%', marginTop: 8 }}
+                placeholder="选择要上传到的知识库"
+              >
+                {availableCollections.map(collection => (
+                  <Option key={collection} value={collection}>
+                    <Space>
+                      <DatabaseOutlined />
+                      {collection}
+                    </Space>
+                  </Option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <Text strong>上传文件：</Text>
+              <Upload.Dragger
+                multiple
+                beforeUpload={() => false}
+                onChange={({ fileList }) => {
+                  if (fileList.length > 0) {
+                    handleFileUpload(fileList);
+                  }
+                }}
+                style={{ marginTop: 8 }}
+              >
+                <p className="ant-upload-drag-icon">
+                  <UploadOutlined style={{ fontSize: 48, color: '#1890ff' }} />
+                </p>
+                <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
+                <p className="ant-upload-hint">
+                  支持单个或批量上传。文件将被添加到选定的知识库中，用于增强AI回答的准确性。
+                </p>
+              </Upload.Dragger>
+            </div>
+
+            {ragStatus && (
+              <Card size="small" title="知识库状态">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div>
+                    <Tag color={ragStatus.rag_available ? 'green' : 'red'}>
+                      {ragStatus.rag_available ? '知识库可用' : '知识库不可用'}
+                    </Tag>
+                  </div>
+                  {ragStatus.rag_available && (
+                    <div>
+                      <Text type="secondary">
+                        可用知识库: {ragStatus.rag_collections?.join(', ') || '无'}
+                      </Text>
+                    </div>
+                  )}
+                </Space>
+              </Card>
+            )}
+          </Space>
+        </div>
+      </Modal>
       </div>
     </PageLayout>
   );

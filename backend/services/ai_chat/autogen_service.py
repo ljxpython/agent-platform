@@ -1,8 +1,11 @@
 import asyncio
+import json
 import os
 import sys
 import uuid
-from typing import AsyncGenerator, Optional
+from datetime import datetime
+from pathlib import Path
+from typing import AsyncGenerator, Dict, List, Optional
 
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import ModelClientStreamingChunkEvent
@@ -14,6 +17,11 @@ sys.path.append(project_root)
 
 # 使用 AI 核心模块的配置
 from backend.ai_core.llm import get_default_client
+from backend.ai_core.message_queue import (
+    MessageQueueManager,
+    get_streaming_sse_messages_from_queue,
+)
+from backend.services.rag.rag_service import get_rag_service
 
 
 class AutoGenService:
@@ -23,7 +31,7 @@ class AutoGenService:
         self, max_agents: int = 100, cleanup_interval: int = 3600, agent_ttl: int = 7200
     ):
         """
-        初始化 AutoGen 服务
+        初始化 AutoGen 服务，集成RAG知识库功能
 
         Args:
             max_agents: 最大 Agent 数量
@@ -35,8 +43,10 @@ class AutoGenService:
         self.cleanup_interval = cleanup_interval
         self.agent_ttl = agent_ttl
         self._last_cleanup = asyncio.get_event_loop().time()
+        self.rag_service = None  # RAG服务实例，延迟初始化
+        self.message_queue_manager = MessageQueueManager()  # 消息队列管理器
         logger.info(
-            f"AutoGen 服务初始化 | 最大Agent数: {max_agents} | TTL: {agent_ttl}s"
+            f"AutoGen 服务初始化 | 最大Agent数: {max_agents} | TTL: {agent_ttl}s | 支持RAG知识库"
         )
 
     def create_agent(
@@ -125,29 +135,254 @@ class AutoGenService:
 
         self._last_cleanup = current_time
 
-    async def chat_stream(
+    async def _ensure_rag_service(self):
+        """确保RAG服务已初始化"""
+        if self.rag_service is None:
+            try:
+                self.rag_service = await get_rag_service()
+                logger.info("RAG服务初始化成功")
+            except Exception as e:
+                logger.error(f"RAG服务初始化失败: {e}")
+                self.rag_service = None
+
+    async def add_file_to_rag(
+        self, file_path: str, collection_name: str = "ai_chat"
+    ) -> Dict:
+        """
+        添加文件到RAG知识库
+
+        Args:
+            file_path: 文件路径
+            collection_name: collection名称
+
+        Returns:
+            Dict: 添加结果
+        """
+        await self._ensure_rag_service()
+        if self.rag_service is None:
+            return {"success": False, "message": "RAG服务不可用"}
+
+        try:
+            result = await self.rag_service.add_file(file_path, collection_name)
+            logger.info(f"文件添加到RAG成功: {file_path} -> {collection_name}")
+            return result
+        except Exception as e:
+            logger.error(f"文件添加到RAG失败: {e}")
+            return {"success": False, "message": str(e)}
+
+    async def add_text_to_rag(
+        self,
+        text: str,
+        collection_name: str = "ai_chat",
+        metadata: Optional[Dict] = None,
+    ) -> Dict:
+        """
+        添加文本到RAG知识库
+
+        Args:
+            text: 文本内容
+            collection_name: collection名称
+            metadata: 元数据
+
+        Returns:
+            Dict: 添加结果
+        """
+        await self._ensure_rag_service()
+        if self.rag_service is None:
+            return {"success": False, "message": "RAG服务不可用"}
+
+        try:
+            result = await self.rag_service.add_text(text, collection_name, metadata)
+            logger.info(f"文本添加到RAG成功: {collection_name}")
+            return result
+        except Exception as e:
+            logger.error(f"文本添加到RAG失败: {e}")
+            return {"success": False, "message": str(e)}
+
+    async def query_rag(
+        self, question: str, collection_name: str = "ai_chat"
+    ) -> Optional[Dict]:
+        """
+        查询RAG知识库
+
+        Args:
+            question: 查询问题
+            collection_name: collection名称
+
+        Returns:
+            Optional[Dict]: 查询结果
+        """
+        await self._ensure_rag_service()
+        if self.rag_service is None:
+            return None
+
+        try:
+            result = await self.rag_service.query(question, collection_name)
+            if result.get("success"):
+                logger.info(f"RAG查询成功: {collection_name}")
+                return result
+            else:
+                logger.warning(f"RAG查询失败: {result.get('message')}")
+                return None
+        except Exception as e:
+            logger.error(f"RAG查询异常: {e}")
+            return None
+
+    async def get_rag_collections(self) -> List[str]:
+        """获取可用的RAG collections"""
+        await self._ensure_rag_service()
+        if self.rag_service is None:
+            return []
+
+        try:
+            return self.rag_service.list_collections()
+        except Exception as e:
+            logger.error(f"获取RAG collections失败: {e}")
+            return []
+
+    async def chat_stream_with_rag(
         self,
         message: str,
         conversation_id: Optional[str] = None,
         system_message: str = "你是一个有用的AI助手",
+        collection_name: str = "ai_chat",
+        use_rag: bool = True,
     ) -> AsyncGenerator[str, None]:
-        """流式聊天"""
+        """
+        流式聊天，支持RAG知识库增强
+
+        Args:
+            message: 用户消息
+            conversation_id: 对话ID
+            system_message: 系统消息
+            collection_name: RAG collection名称
+            use_rag: 是否使用RAG增强
+
+        Yields:
+            str: 流式响应内容
+        """
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
 
         logger.info(
-            f"开始流式聊天 | 对话ID: {conversation_id} | 消息: {message[:100]}..."
+            f"开始RAG增强流式聊天 | 对话ID: {conversation_id} | 消息: {message[:100]}... | 使用RAG: {use_rag} | Collection: {collection_name}"
         )
 
         # 执行自动清理
         self._auto_cleanup()
 
-        agent = self.create_agent(conversation_id, system_message)
-
         try:
+            enhanced_message = message
+            rag_context = ""
+
+            # 如果启用RAG，先查询知识库
+            if use_rag:
+                # 发送RAG查询开始信息
+                rag_start_message = {
+                    "type": "rag_start",
+                    "source": "RAG知识库",
+                    "content": f"🔍 正在查询 {collection_name} 知识库...",
+                    "collection_name": collection_name,
+                    "timestamp": datetime.now().isoformat(),
+                }
+                yield f"data: {json.dumps(rag_start_message, ensure_ascii=False)}\n\n"
+
+                logger.info(f"🔍 查询RAG知识库 | Collection: {collection_name}")
+                rag_result = await self.query_rag(message, collection_name)
+
+                if rag_result and rag_result.get("success"):
+                    rag_context = rag_result.get("answer", "")
+                    retrieved_nodes = rag_result.get("retrieved_nodes", [])
+
+                    logger.info(
+                        f"✅ RAG查询成功 | 检索到 {len(retrieved_nodes)} 个相关文档"
+                    )
+
+                    # 发送检索结果信息
+                    retrieval_message = {
+                        "type": "rag_retrieval",
+                        "source": "RAG知识库",
+                        "content": f"📄 检索到 {len(retrieved_nodes)} 个相关文档",
+                        "retrieved_count": len(retrieved_nodes),
+                        "collection_name": collection_name,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    yield f"data: {json.dumps(retrieval_message, ensure_ascii=False)}\n\n"
+
+                    # 构建增强的提示
+                    if rag_context:
+                        enhanced_message = f"""基于以下知识库信息回答用户问题：
+
+知识库信息：
+{rag_context}
+
+用户问题：{message}
+
+请结合知识库信息和你的知识来回答用户问题。如果知识库信息不足以回答问题，请说明并提供你的最佳建议。"""
+
+                        # 流式发送RAG回答内容
+                        rag_answer_start = {
+                            "type": "rag_answer_start",
+                            "source": "RAG知识库",
+                            "content": "💡 知识库回答：",
+                            "collection_name": collection_name,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        yield f"data: {json.dumps(rag_answer_start, ensure_ascii=False)}\n\n"
+
+                        # 将RAG回答分块流式输出
+                        chunk_size = 50  # 每块字符数
+                        for i in range(0, len(rag_context), chunk_size):
+                            chunk = rag_context[i : i + chunk_size]
+                            rag_chunk_message = {
+                                "type": "rag_answer_chunk",
+                                "source": "RAG知识库",
+                                "content": chunk,
+                                "collection_name": collection_name,
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                            yield f"data: {json.dumps(rag_chunk_message, ensure_ascii=False)}\n\n"
+                            # 添加小延迟模拟流式效果
+                            await asyncio.sleep(0.05)
+
+                        # RAG回答结束
+                        rag_answer_end = {
+                            "type": "rag_answer_end",
+                            "source": "RAG知识库",
+                            "content": "\n\n---\n",
+                            "collection_name": collection_name,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        yield f"data: {json.dumps(rag_answer_end, ensure_ascii=False)}\n\n"
+
+                else:
+                    logger.info("❌ RAG查询无结果，使用原始消息")
+                    # 发送RAG查询无结果的信息
+                    no_rag_message = {
+                        "type": "rag_no_result",
+                        "source": "RAG知识库",
+                        "content": f"📚 在 {collection_name} 知识库中未找到相关信息，将基于通用知识回答",
+                        "collection_name": collection_name,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    yield f"data: {json.dumps(no_rag_message, ensure_ascii=False)}\n\n"
+
+            # 创建Agent
+            agent = self.create_agent(conversation_id, system_message)
+
+            # 发送Agent开始处理的信息
+            agent_start_message = {
+                "type": "agent_start",
+                "source": "AI智能体",
+                "content": "🤖 AI智能体开始处理您的问题...",
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            yield f"data: {json.dumps(agent_start_message, ensure_ascii=False)}\n\n"
+
             # 获取流式响应
             logger.debug(f"调用 Agent 流式响应 | 对话ID: {conversation_id}")
-            result = agent.run_stream(task=message)
+            result = agent.run_stream(task=enhanced_message)
 
             chunk_count = 0
             async for item in result:
@@ -157,15 +392,62 @@ class AutoGenService:
                         logger.debug(
                             f"收到流式数据块 {chunk_count} | 对话ID: {conversation_id} | 内容: {item.content[:50]}..."
                         )
-                        yield item.content
+
+                        # 发送流式内容
+                        chunk_message = {
+                            "type": "streaming_chunk",
+                            "source": "AI智能体",
+                            "content": item.content,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+
+                        yield f"data: {json.dumps(chunk_message, ensure_ascii=False)}\n\n"
+
+            # 发送完成信号
+            complete_message = {
+                "type": "complete",
+                "source": "AI智能体",
+                "content": "✅ 回答完成",
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            yield f"data: {json.dumps(complete_message, ensure_ascii=False)}\n\n"
 
             logger.success(
-                f"流式聊天完成 | 对话ID: {conversation_id} | 总块数: {chunk_count}"
+                f"RAG增强流式聊天完成 | 对话ID: {conversation_id} | 总块数: {chunk_count} | 使用RAG: {use_rag}"
             )
 
         except Exception as e:
-            logger.error(f"流式聊天失败 | 对话ID: {conversation_id} | 错误: {e}")
-            yield f"错误: {str(e)}"
+            logger.error(f"RAG增强流式聊天失败 | 对话ID: {conversation_id} | 错误: {e}")
+            error_message = {
+                "type": "error",
+                "source": "系统",
+                "content": f"❌ 处理失败: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            yield f"data: {json.dumps(error_message, ensure_ascii=False)}\n\n"
+
+    async def chat_stream(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        system_message: str = "你是一个有用的AI助手",
+    ) -> AsyncGenerator[str, None]:
+        """流式聊天（兼容旧接口）"""
+        async for chunk in self.chat_stream_with_rag(
+            message=message,
+            conversation_id=conversation_id,
+            system_message=system_message,
+            use_rag=False,  # 默认不使用RAG，保持兼容性
+        ):
+            # 提取content字段，保持旧接口兼容性
+            try:
+                data = json.loads(chunk.replace("data: ", "").strip())
+                if data.get("type") == "streaming_chunk":
+                    yield data.get("content", "")
+            except:
+                continue
 
     async def chat(
         self,
@@ -207,8 +489,8 @@ class AutoGenService:
         else:
             logger.warning(f"尝试清除不存在的对话 | 对话ID: {conversation_id}")
 
-    def get_agent_stats(self) -> dict:
-        """获取 Agent 统计信息"""
+    async def get_agent_stats(self) -> dict:
+        """获取 Agent 统计信息，包括RAG状态"""
         current_time = asyncio.get_event_loop().time()
         active_count = 0
         expired_count = 0
@@ -219,6 +501,24 @@ class AutoGenService:
             else:
                 expired_count += 1
 
+        # 获取RAG统计信息
+        rag_stats = {}
+        try:
+            await self._ensure_rag_service()
+            if self.rag_service:
+                rag_system_stats = await self.rag_service.get_system_stats()
+                rag_collections = await self.get_rag_collections()
+                rag_stats = {
+                    "rag_available": True,
+                    "rag_collections": rag_collections,
+                    "rag_system_stats": rag_system_stats,
+                }
+            else:
+                rag_stats = {"rag_available": False}
+        except Exception as e:
+            logger.error(f"获取RAG统计信息失败: {e}")
+            rag_stats = {"rag_available": False, "rag_error": str(e)}
+
         return {
             "total_agents": len(self.agents),
             "active_agents": active_count,
@@ -226,6 +526,7 @@ class AutoGenService:
             "max_agents": self.max_agents,
             "agent_ttl": self.agent_ttl,
             "cleanup_interval": self.cleanup_interval,
+            **rag_stats,
         }
 
     def force_cleanup(self):

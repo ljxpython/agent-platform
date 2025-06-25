@@ -6,15 +6,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.core.config_validator import validate_settings
-from backend.core.exceptions import SettingNotFound
-from backend.core.init_app import (
+from backend.api_core.config_validator import validate_settings
+from backend.api_core.exceptions import SettingNotFound
+from backend.api_core.init_app import (
     init_data,
     make_middlewares,
     register_exceptions,
     register_routers,
 )
-from backend.core.logger import setup_logging
+from backend.api_core.logger import setup_logging
 
 try:
     import os
