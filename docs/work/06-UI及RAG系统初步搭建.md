@@ -260,4 +260,142 @@ backend/ai_core层,backend/rag_core层在其目录下已经有详细介绍了
 目前RAG里面其实就包含了和llm对话返回内容的部分,但是chat的服务还会调用Autogen的对话,再次问一遍,这个功能以后优化
 
 目前RAG知识库不是流式输出,且内容输出不是使用的消息队列的方式,这个都放到面在优化
+
+文本上传未来使用mino当前上传到本地,解析后,放入数据库中保存
+
+流式输出的地方优化
+```
+
+
+
+
+
+## 问题优化
+
+想了想,还是把基建搭好吧,防止以后推到重来
+
+### 问题1
+
+先说上面第一个问题,AI生成的代码我看了,那其实AI在输出结果是又调用了一次大模型,让大模型加工
+
+代码如下:![image-20250625234750764](./assets/image-20250625234750764.png)
+
+
+
+这部分让Autogen实现的assitant来完成即可,是一样的
+
+其次,RAG的流程
+
+入库:  文件清晰 -> 文件解析 ->   文件分块 ->  向量化 ->  存储到向量数据库中
+
+出库:  用户的需求 -> 向量化  -> 语义检索,全文检索,混合检索 -> 召回 -> 一起给到大模型 -> 大模型加工出结果
+
+大概就是如上的过程
+
+那么我希望出库的时候把召回的内容是什么也打印出来到前端
+
+和AI进行对话
+
+```
+1.  sse流式输出的使用消息队列的方式实现,消息队列复用backend/ai_core/message_queue.py中的代码
+服务层的代码可以查看backend/services/testcase/agents.py中的队列消息使用
+尽可能的复用backend/ai_core/message_queue.py代码中已有的功能
+ sse流式输出的使用消息队列的方式实现,消息队列复用 backend/ai_core/message_queue.py中的代码
+
+2.  backend/services/ai_chat/autogen_service.py代码中,下面这段内容
+ # 构建增强的提示
+                    if rag_context:
+                        enhanced_message = f"""基于以下知识库信息回答用户问题：
+
+知识库信息：
+{rag_context}
+
+用户问题：{message}
+
+请结合知识库信息和你的知识来回答用户问题。如果知识库信息不足以回答问题，请说明并提供你的最佳建议。"""
+
+                        # 流式发送RAG回答内容
+                        rag_answer_start = {
+                            "type": "rag_answer_start",
+                            "source": "RAG知识库",
+                            "content": "💡 知识库回答：",
+                            "collection_name": collection_name,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        yield f"data: {json.dumps(rag_answer_start, ensure_ascii=False)}\n\n"
+
+                        # 将RAG回答分块流式输出
+                        chunk_size = 50  # 每块字符数
+                        for i in range(0, len(rag_context), chunk_size):
+                            chunk = rag_context[i : i + chunk_size]
+                            rag_chunk_message = {
+                                "type": "rag_answer_chunk",
+                                "source": "RAG知识库",
+                                "content": chunk,
+                                "collection_name": collection_name,
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                            yield f"data: {json.dumps(rag_chunk_message, ensure_ascii=False)}\n\n"
+                            # 添加小延迟模拟流式效果
+                            await asyncio.sleep(0.05)
+
+                        # RAG回答结束
+                        rag_answer_end = {
+                            "type": "rag_answer_end",
+                            "source": "RAG知识库",
+                            "content": "\n\n---\n",
+                            "collection_name": collection_name,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        yield f"data: {json.dumps(rag_answer_end, ensure_ascii=False)}\n\n"
+
+                else:
+                    logger.info("❌ RAG查询无结果，使用原始消息")
+                    # 发送RAG查询无结果的信息
+                    no_rag_message = {
+                        "type": "rag_no_result",
+                        "source": "RAG知识库",
+                        "content": f"📚 在 {collection_name} 知识库中未找到相关信息，将基于通用知识回答",
+                        "collection_name": collection_name,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    yield f"data: {json.dumps(no_rag_message, ensure_ascii=False)}\n\n"
+                    放到由Autogen创建的智能体中实现:  # 创建Agent
+            agent = self.create_agent(conversation_id, system_message)
+```
+
+
+
+```
+1. chat_stream_with_rag 函数中的逻辑不正确,用户的需求 -> 向量化  -> 语义检索,全文检索,混合检索 -> 召回 -> 一起给到大模型 -> 大模型加工出结果
+也就是说,大模型这里给的不是llama_index中模型,而是Autogen中的assistant
+2. 召回的内容也全部流式输出,让前端展示
+3. API层/stream/rag接口未使用消息队列的方式处理sse消息,参照backend/api/v1/testcase.py中/generate/streaming的逻辑实现
+4. 前端进行适配
+```
+
+
+
+```
+1. 后端报错2025-06-26 01:10:47 | ERROR    | backend.services.ai_chat.autogen_service:get_rag_collections:125 | 获取RAG集合失败: 'RAGService' object has no attribute 'get_collections'
+2.前端警告: chunk-BOEZ7BP5.js?v=e99c2e18:1190 Warning: [antd: Select] `bordered` is deprecated. Please use `variant` instead.
+3. /stream/rag  接口的流式输出没有输出
+请修复上述问题
+```
+
+
+
+
+
+
+
+
+
+### 问题2
+
+```
+上传文件的逻辑需要优化
+首先,上传的文件,先解析记录md5,之后解析后将内容存储到MySQL或者数据库中
+后面再次有文件传入,先查询一次数据库,如果值存在,则使用已有的值,可以服用document中的逻辑
+
 ```

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from datetime import datetime
@@ -8,8 +9,8 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
-from sse_starlette.sse import EventSourceResponse
 
+from backend.ai_core.message_queue import get_streaming_sse_messages_from_queue
 from backend.models.chat import ChatRequest, ChatResponse, StreamChunk
 from backend.services.ai_chat.autogen_service import autogen_service
 
@@ -35,53 +36,96 @@ class FileUploadRequest(BaseModel):
 
 @chat_router.post("/stream/rag")
 async def chat_stream_rag(request: RAGChatRequest):
-    """RAG增强流式聊天接口"""
+    """
+    RAG增强流式聊天接口 - 队列模式，参考testcase.py
+
+    功能：启动RAG增强聊天处理，返回流式输出
+    流程：用户输入 → RAG检索 → AutoGen Assistant → 队列消费者 → 流式SSE返回
+
+    采用队列模式：
+    1. 启动后台任务处理RAG和Agent流程
+    2. 返回队列消费者的流式响应
+    3. RAG和Agent将消息放入队列，消费者从队列取出并流式返回
+
+    Args:
+        request: RAG聊天请求对象
+
+    Returns:
+        StreamingResponse: SSE流式响应，实时返回RAG和Agent处理结果
+    """
+    # 生成或使用提供的对话ID
     conversation_id = request.conversation_id or str(uuid.uuid4())
-    logger.info(
-        f"收到RAG增强流式聊天请求 | 对话ID: {conversation_id} | 消息: {request.message[:50]}... | Collection: {request.collection_name} | 使用RAG: {request.use_rag}"
-    )
+
+    logger.info(f"🚀 [API-RAG流式聊天-队列模式] 收到RAG增强流式聊天请求")
+    logger.info(f"   📋 对话ID: {conversation_id}")
+    logger.info(f"   📝 消息: {request.message[:100]}...")
+    logger.info(f"   📚 Collection: {request.collection_name}")
+    logger.info(f"   🔍 使用RAG: {request.use_rag}")
+    logger.info(f"   🌐 请求方法: POST /api/chat/stream/rag (队列模式)")
 
     try:
+        # 启动后台任务处理RAG和Agent流程 - 参考testcase.py
+        logger.info(
+            f"🚀 [API-RAG流式聊天-队列模式] 启动后台任务 | 对话ID: {conversation_id}"
+        )
 
-        async def generate():
+        # 创建后台任务处理RAG增强聊天
+        async def process_rag_chat():
             try:
-                logger.debug(f"开始生成RAG增强流式响应 | 对话ID: {conversation_id}")
-
-                async for chunk in autogen_service.chat_stream_with_rag(
+                # 调用autogen_service的start_rag_chat_stream方法
+                # 该方法将消息放入队列，不返回流式内容
+                await autogen_service.start_rag_chat_stream(
                     message=request.message,
                     conversation_id=conversation_id,
                     system_message=request.system_message,
                     collection_name=request.collection_name,
                     use_rag=request.use_rag,
-                ):
-                    yield chunk
-
-                logger.success(f"RAG增强流式响应完成 | 对话ID: {conversation_id}")
+                )
 
             except Exception as e:
                 logger.error(
-                    f"RAG增强流式响应生成失败 | 对话ID: {conversation_id} | 错误: {e}"
+                    f"❌ [API-RAG流式聊天-队列模式] 后台任务失败 | 对话ID: {conversation_id} | 错误: {e}"
                 )
-                error_message = {
-                    "type": "error",
-                    "source": "系统",
-                    "content": f"❌ 处理失败: {str(e)}",
-                    "timestamp": datetime.now().isoformat(),
-                }
-                yield f"data: {json.dumps(error_message, ensure_ascii=False)}\n\n"
+                # 发送错误信息到队列
+                import json
+
+                from backend.ai_core.message_queue import put_message_to_queue
+
+                error_message = json.dumps(
+                    {
+                        "type": "error",
+                        "source": "系统",
+                        "content": f"❌ 处理失败: {str(e)}",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    ensure_ascii=False,
+                )
+                await put_message_to_queue(conversation_id, error_message)
+                await put_message_to_queue(conversation_id, "CLOSE")
+
+        asyncio.create_task(process_rag_chat())
+
+        # 返回队列消费者的流式响应 - 直接使用message_queue的SSE函数
+        logger.info(
+            f"📡 [API-RAG流式聊天-队列模式] 返回队列消费者流式响应 | 对话ID: {conversation_id}"
+        )
 
         return StreamingResponse(
-            generate(),
-            media_type="text/event-stream",
+            get_streaming_sse_messages_from_queue(conversation_id),
+            media_type="text/plain",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "Content-Type": "text/event-stream",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
             },
         )
 
     except Exception as e:
-        logger.error(f"RAG增强流式聊天接口异常 | 对话ID: {conversation_id} | 错误: {e}")
+        logger.error(
+            f"❌ [API-RAG流式聊天-队列模式] 接口异常 | 对话ID: {conversation_id} | 错误: {e}"
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 

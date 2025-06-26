@@ -605,7 +605,7 @@ const ChatPage: React.FC = () => {
                 }}
                 size="small"
                 placeholder="知识库"
-                bordered={false}
+                variant="borderless"
                 suffixIcon={null}
                 disabled={!useRAG}
               >
