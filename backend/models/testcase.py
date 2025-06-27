@@ -25,6 +25,14 @@ class TestCaseConversation(Model):
     round_number = fields.IntField(default=1, description="当前轮次")
     max_rounds = fields.IntField(default=3, description="最大轮次")
 
+    # 项目关联
+    project = fields.ForeignKeyField(
+        "models.Project",
+        related_name="testcase_conversations",
+        null=True,
+        description="所属项目",
+    )
+
     # 输入内容
     text_content = fields.TextField(null=True, description="文本内容")
     files_info = fields.JSONField(null=True, description="文件信息")
@@ -197,6 +205,14 @@ class TestCaseTemplate(Model):
     name = fields.CharField(max_length=200, description="模板名称")
     description = fields.TextField(null=True, description="模板描述")
     category = fields.CharField(max_length=100, description="模板分类")
+
+    # 项目关联
+    project = fields.ForeignKeyField(
+        "models.Project",
+        related_name="testcase_templates",
+        null=True,
+        description="所属项目",
+    )
 
     # 模板内容
     template_content = fields.TextField(description="模板内容")

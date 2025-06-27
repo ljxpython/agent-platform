@@ -13,11 +13,19 @@ class RAGCollection(Model):
     """RAG Collection模型"""
 
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100, unique=True, description="Collection名称")
+    name = fields.CharField(max_length=100, description="Collection名称")
     display_name = fields.CharField(max_length=200, description="显示名称")
     description = fields.TextField(description="描述")
     business_type = fields.CharField(
         max_length=50, default="general", description="业务类型"
+    )
+
+    # 项目关联
+    project = fields.ForeignKeyField(
+        "models.Project",
+        related_name="rag_collections",
+        null=True,
+        description="所属项目",
     )
 
     # 配置信息
@@ -42,6 +50,7 @@ class RAGCollection(Model):
     class Meta:
         table = "rag_collections"
         table_description = "RAG知识库Collections"
+        unique_together = (("name", "project"),)
 
     def __str__(self):
         return f"RAGCollection({self.name})"

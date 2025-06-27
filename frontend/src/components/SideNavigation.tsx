@@ -17,6 +17,9 @@ import {
   DatabaseOutlined,
   CloudOutlined,
   BarChartOutlined,
+  CameraOutlined,
+  SearchOutlined,
+  ProjectOutlined,
 } from '@ant-design/icons';
 import TopNavigation from './TopNavigation';
 import SidebarToggleButton from './FloatingToggleButton';
@@ -44,6 +47,8 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     if (path === '/testcase') return 'testcase';
     if (path === '/midscene') return 'midscene';
     if (path === '/ui-test-script') return 'ui-test-script';
+    if (path === '/ui-image-upload') return 'ui-image-upload';
+    if (path === '/ui-testing-rag') return 'ui-testing-rag';
     if (path === '/api-testing') return 'api-testing';
     if (path === '/performance-testing') return 'performance-testing';
     // RAG管理路由
@@ -59,6 +64,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
     if (path === '/system/roles') return 'system-roles';
     if (path === '/system/departments') return 'system-departments';
     if (path === '/system/apis') return 'system-apis';
+    if (path === '/system/projects') return 'system-projects';
     return 'home';
   };
 
@@ -142,6 +148,16 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
           icon: <CodeOutlined />,
           label: 'UI测试脚本生成',
         },
+        {
+          key: 'ui-image-upload',
+          icon: <CameraOutlined />,
+          label: 'UI界面分析',
+        },
+        {
+          key: 'ui-testing-rag',
+          icon: <SearchOutlined />,
+          label: 'UI测试智能助手',
+        },
       ],
     },
     {
@@ -185,6 +201,11 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
           icon: <ApiOutlined />,
           label: 'API管理',
         },
+        {
+          key: 'system-projects',
+          icon: <ProjectOutlined />,
+          label: '项目管理',
+        },
       ],
     },
   ];
@@ -206,6 +227,12 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
         break;
       case 'ui-test-script':
         navigate('/ui-test-script');
+        break;
+      case 'ui-image-upload':
+        navigate('/ui-image-upload');
+        break;
+      case 'ui-testing-rag':
+        navigate('/ui-testing-rag');
         break;
       case 'api-testing':
         // 未来功能，暂时不跳转
@@ -246,6 +273,9 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
       case 'system-apis':
         navigate('/system/apis');
         break;
+      case 'system-projects':
+        navigate('/system/projects');
+        break;
       default:
         break;
     }
@@ -275,41 +305,47 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ children }) => {
           height: 'calc(100vh - 64px)',
           zIndex: 1000,
           borderRight: '1px solid #f0f0f0',
-          overflow: 'auto',
+          overflow: 'hidden',
           userSelect: 'none',
           WebkitUserSelect: 'none',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         {/* 顶部间距 */}
-        <div style={{ height: 16 }} />
+        <div style={{ height: 16, flexShrink: 0 }} />
 
-
-
-        {/* 导航菜单 */}
-        <Menu
-          theme="light"
-          mode="inline"
-          selectedKeys={[getSelectedKey()]}
-          openKeys={collapsed ? [] : openKeys}
-          onOpenChange={setOpenKeys}
-          onClick={handleMenuClick}
+        {/* 导航菜单容器 */}
+        <div
           style={{
-            background: 'transparent',
-            border: 'none',
-            fontSize: 14,
-            padding: '0 8px',
+            flex: 1,
+            overflow: 'auto',
+            paddingBottom: collapsed ? 0 : 80, // 为底部信息预留空间
           }}
-          items={menuItems}
-        />
+        >
+          <Menu
+            theme="light"
+            mode="inline"
+            selectedKeys={[getSelectedKey()]}
+            openKeys={collapsed ? [] : openKeys}
+            onOpenChange={setOpenKeys}
+            onClick={handleMenuClick}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontSize: 14,
+              padding: '0 8px',
+            }}
+            items={menuItems}
+          />
+        </div>
 
         {/* 底部信息 */}
         {!collapsed && (
           <div
             style={{
-              position: 'absolute',
-              bottom: 16,
-              left: 16,
-              right: 16,
+              flexShrink: 0,
+              margin: '8px 16px 16px 16px',
               padding: 12,
               background: '#fafafa',
               borderRadius: 6,

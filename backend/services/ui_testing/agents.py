@@ -35,6 +35,10 @@ from backend.ai_core.factory import create_assistant_agent
 from backend.ai_core.memory import save_to_memory
 from backend.ai_core.message_queue import put_message_to_queue
 
+# 使用RAG核心框架
+from backend.rag_core.rag_system import RAGSystem
+from backend.services.rag.rag_service import RAGService, get_rag_service
+
 # ==================== 消息模型定义 ====================
 
 
@@ -199,18 +203,17 @@ class UIAnalysisAgent(RoutedAgent):
             logger.info(f"✅ 图片文件验证通过: {image_path.name}")
 
             # 发送开始分析消息
+            start_message = {
+                "type": "agent_start",
+                "source": "UI分析智能体",
+                "content": "正在分析界面截图中的UI元素...",
+                "step": "开始分析UI元素",
+                "conversation_id": conversation_id,
+                "timestamp": datetime.now().isoformat(),
+            }
             await put_message_to_queue(
                 conversation_id,
-                json.dumps(
-                    {
-                        "type": "agent_start",
-                        "agent": "UI分析智能体",
-                        "step": "开始分析UI元素",
-                        "content": "正在分析界面截图中的UI元素...",
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    ensure_ascii=False,
-                ),
+                json.dumps(start_message, ensure_ascii=False),
             )
 
             # 构建分析问题
@@ -245,18 +248,18 @@ class UIAnalysisAgent(RoutedAgent):
                     ui_analysis_result += chunk_content
                     chunk_count += 1
 
-                    # 发送流式内容
+                    # 构建队列消息
+                    queue_message = {
+                        "type": "streaming_chunk",
+                        "source": "UI分析智能体",
+                        "content": chunk_content,
+                        "message_type": "streaming",
+                        "conversation_id": conversation_id,
+                        "timestamp": datetime.now().isoformat(),
+                    }
                     await put_message_to_queue(
                         conversation_id,
-                        json.dumps(
-                            {
-                                "type": "stream_chunk",
-                                "agent": "UI分析智能体",
-                                "content": chunk_content,
-                                "timestamp": datetime.now().isoformat(),
-                            },
-                            ensure_ascii=False,
-                        ),
+                        json.dumps(queue_message, ensure_ascii=False),
                     )
 
                 elif isinstance(item, TextMessage):
@@ -279,37 +282,48 @@ class UIAnalysisAgent(RoutedAgent):
                 },
             )
 
-            # 发送完成消息
-            await put_message_to_queue(
+            # 将UI分析结果存入RAG知识库
+            await self._save_ui_analysis_to_rag(
+                ui_analysis_result,
+                message.image_path,
+                message.user_requirement,
                 conversation_id,
-                json.dumps(
-                    {
-                        "type": "agent_complete",
-                        "agent": "UI分析智能体",
-                        "step": "UI元素分析完成",
-                        "content": ui_analysis_result,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    ensure_ascii=False,
-                ),
             )
 
-            # 发送给交互分析智能体
-            interaction_message = InteractionAnalysisMessage(
+            # 发送完成消息
+            complete_message = {
+                "type": "agent_complete",
+                "source": "UI分析智能体",
+                "content": ui_analysis_result,
+                "step": "UI元素分析完成并存入知识库",
+                "conversation_id": conversation_id,
+                "timestamp": datetime.now().isoformat(),
+            }
+            await put_message_to_queue(
+                conversation_id,
+                json.dumps(complete_message, ensure_ascii=False),
+            )
+
+            # 直接发送给Midscene生成智能体，跳过交互分析
+            midscene_message = MidsceneGenerationMessage(
                 conversation_id=conversation_id,
-                ui_elements=ui_analysis_result,
+                ui_analysis=ui_analysis_result,
+                interaction_analysis="",  # 将通过RAG查询获取
                 user_requirement=message.user_requirement,
             )
 
             await self.publish_message(
-                message=interaction_message,
-                topic_id=TopicId(type="interaction_analysis", source=self.id.key),
+                message=midscene_message,
+                topic_id=TopicId(type="midscene_generation", source=self.id.key),
             )
 
             processing_time = time.time() - start_time
             logger.success(
                 f"🎉 UI分析完成 | 对话ID: {conversation_id} | 耗时: {processing_time:.2f}秒"
             )
+
+            # 发送关闭信号
+            await put_message_to_queue(conversation_id, "CLOSE")
 
         except Exception as e:
             processing_time = time.time() - start_time
@@ -320,19 +334,97 @@ class UIAnalysisAgent(RoutedAgent):
             logger.error(f"📍 错误堆栈: {traceback.format_exc()}")
 
             # 发送错误消息
+            error_message = {
+                "type": "agent_error",
+                "source": "UI分析智能体",
+                "content": f"分析失败: {str(e)}",
+                "step": "UI元素分析失败",
+                "conversation_id": conversation_id,
+                "timestamp": datetime.now().isoformat(),
+            }
             await put_message_to_queue(
                 conversation_id,
-                json.dumps(
-                    {
-                        "type": "agent_error",
-                        "agent": "UI分析智能体",
-                        "step": "UI元素分析失败",
-                        "content": f"分析失败: {str(e)}",
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    ensure_ascii=False,
-                ),
+                json.dumps(error_message, ensure_ascii=False),
             )
+
+            # 发送关闭信号
+            await put_message_to_queue(conversation_id, "CLOSE")
+
+    async def _save_ui_analysis_to_rag(
+        self,
+        ui_analysis_result: str,
+        image_path: str,
+        user_requirement: str,
+        conversation_id: str,
+    ) -> None:
+        """将UI分析结果保存到RAG知识库"""
+        try:
+            logger.info(
+                f"💾 [UI分析智能体] 保存分析结果到RAG知识库 | 对话ID: {conversation_id}"
+            )
+
+            # 构建要存储的文档内容
+            document_content = f"""
+# UI界面分析报告
+
+## 图片信息
+- 图片路径: {image_path}
+- 分析时间: {datetime.now().isoformat()}
+- 对话ID: {conversation_id}
+
+## 用户需求
+{user_requirement}
+
+## UI元素分析结果
+{ui_analysis_result}
+
+## 标签
+- 类型: UI分析
+- 来源: UIAnalysisAgent
+- 业务场景: UI自动化测试
+"""
+
+            # 使用RAG服务保存文档
+            rag_service = await get_rag_service()
+            await rag_service.initialize()
+
+            result = await rag_service.add_text_to_collection(
+                text=document_content,
+                collection_name="ui_testing",
+                metadata={
+                    "type": "ui_analysis",
+                    "image_path": image_path,
+                    "conversation_id": conversation_id,
+                    "user_requirement": user_requirement,
+                    "agent": "UIAnalysisAgent",
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
+
+            if result.get("success", False):
+                logger.success(
+                    f"✅ UI分析结果已保存到RAG知识库 | 向量数: {result.get('vector_count', 0)}"
+                )
+
+                # 发送保存成功消息
+                rag_save_message = {
+                    "type": "rag_save",
+                    "source": "UI分析智能体",
+                    "content": f"UI分析结果已保存到ui_testing知识库，生成{result.get('vector_count', 0)}个向量",
+                    "step": "分析结果已存入知识库",
+                    "conversation_id": conversation_id,
+                    "timestamp": datetime.now().isoformat(),
+                }
+                await put_message_to_queue(
+                    conversation_id,
+                    json.dumps(rag_save_message, ensure_ascii=False),
+                )
+            else:
+                logger.error(f"❌ RAG保存失败: {result.get('error', '未知错误')}")
+
+        except Exception as e:
+            logger.error(f"❌ 保存UI分析结果到RAG失败: {e}")
+            # 不抛出异常，避免影响主流程
 
 
 # ==================== 交互分析智能体 ====================
@@ -715,18 +807,36 @@ class MidsceneGenerationAgent(RoutedAgent):
 
         try:
             # 发送开始分析消息
+            start_message = {
+                "type": "agent_start",
+                "source": "Midscene用例生成智能体",
+                "content": "正在从知识库检索相关UI测试经验...",
+                "step": "开始RAG增强查询",
+                "conversation_id": conversation_id,
+                "timestamp": datetime.now().isoformat(),
+            }
             await put_message_to_queue(
                 conversation_id,
-                json.dumps(
-                    {
-                        "type": "agent_start",
-                        "agent": "Midscene用例生成智能体",
-                        "step": "开始生成Midscene测试脚本",
-                        "content": "正在整合分析结果，生成Midscene.js测试脚本...",
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    ensure_ascii=False,
-                ),
+                json.dumps(start_message, ensure_ascii=False),
+            )
+
+            # 使用RAG查询获取增强上下文
+            rag_context = await self._get_rag_enhanced_context(
+                message.user_requirement, conversation_id
+            )
+
+            # 发送RAG查询完成消息
+            rag_query_message = {
+                "type": "rag_query",
+                "source": "Midscene用例生成智能体",
+                "content": f"从ui_testing知识库检索到{len(rag_context.get('retrieved_docs', []))}个相关文档",
+                "step": "知识库查询完成",
+                "conversation_id": conversation_id,
+                "timestamp": datetime.now().isoformat(),
+            }
+            await put_message_to_queue(
+                conversation_id,
+                json.dumps(rag_query_message, ensure_ascii=False),
             )
 
             # 使用AI核心框架创建智能体
@@ -738,17 +848,22 @@ class MidsceneGenerationAgent(RoutedAgent):
                 auto_context=True,
             )
 
-            question = f"""基于以下分析结果，生成符合MidScene.js规范的测试脚本。
+            question = f"""基于以下分析结果和知识库检索内容，生成符合MidScene.js规范的测试脚本。
 
-UI分析结果：
+## 当前UI分析结果：
 {message.ui_analysis}
 
-交互流程分析结果：
-{message.interaction_analysis}
+## 用户需求：
+{message.user_requirement}
 
-用户需求：{message.user_requirement}
+## 知识库检索到的相关经验：
+{rag_context.get('context', '暂无相关经验')}
 
-请整合上述分析结果，设计完整的MidScene.js测试场景，严格按照JSON格式输出。"""
+## 检索到的相关文档：
+{self._format_retrieved_docs(rag_context.get('retrieved_docs', []))}
+
+请整合上述分析结果和知识库经验，设计完整的MidScene.js测试场景，严格按照JSON格式输出。
+充分利用知识库中的UI测试经验和最佳实践。"""
 
             # 流式生成处理
             logger.info("🚀 开始流式生成处理...")
@@ -761,18 +876,18 @@ UI分析结果：
                     midscene_result += chunk_content
                     chunk_count += 1
 
-                    # 发送流式内容
+                    # 构建队列消息
+                    queue_message = {
+                        "type": "streaming_chunk",
+                        "source": "Midscene用例生成智能体",
+                        "content": chunk_content,
+                        "message_type": "streaming",
+                        "conversation_id": conversation_id,
+                        "timestamp": datetime.now().isoformat(),
+                    }
                     await put_message_to_queue(
                         conversation_id,
-                        json.dumps(
-                            {
-                                "type": "stream_chunk",
-                                "agent": "Midscene用例生成智能体",
-                                "content": chunk_content,
-                                "timestamp": datetime.now().isoformat(),
-                            },
-                            ensure_ascii=False,
-                        ),
+                        json.dumps(queue_message, ensure_ascii=False),
                     )
 
                 elif isinstance(item, TextMessage):
@@ -848,6 +963,63 @@ UI分析结果：
                     ensure_ascii=False,
                 ),
             )
+
+    async def _get_rag_enhanced_context(
+        self, user_requirement: str, conversation_id: str
+    ) -> dict:
+        """使用RAG查询获取增强上下文"""
+        try:
+            logger.info(
+                f"🔍 [Midscene生成智能体] 开始RAG查询 | 对话ID: {conversation_id}"
+            )
+
+            # 使用RAG服务查询相关文档
+            rag_service = await get_rag_service()
+            await rag_service.initialize()
+
+            # 构建查询问题
+            query_question = (
+                f"UI自动化测试相关经验和最佳实践，用户需求：{user_requirement}"
+            )
+
+            result = await rag_service.query_collection(
+                question=query_question, collection_name="ui_testing", top_k=5
+            )
+
+            if result.get("success", False):
+                logger.success(
+                    f"✅ RAG查询成功 | 检索到{len(result.get('retrieved_docs', []))}个相关文档"
+                )
+                return {
+                    "context": result.get("answer", ""),
+                    "retrieved_docs": result.get("retrieved_docs", []),
+                    "query": query_question,
+                }
+            else:
+                logger.warning(f"⚠️ RAG查询失败: {result.get('error', '未知错误')}")
+                return {"context": "", "retrieved_docs": [], "query": query_question}
+
+        except Exception as e:
+            logger.error(f"❌ RAG查询异常: {e}")
+            return {"context": "", "retrieved_docs": [], "query": user_requirement}
+
+    def _format_retrieved_docs(self, retrieved_docs: list) -> str:
+        """格式化检索到的文档"""
+        if not retrieved_docs:
+            return "暂无相关文档"
+
+        formatted_docs = []
+        for i, doc in enumerate(retrieved_docs[:3], 1):  # 只显示前3个最相关的文档
+            content = doc.get("content", "")[:500]  # 限制长度
+            score = doc.get("score", 0)
+            formatted_docs.append(
+                f"""
+### 相关文档 {i} (相似度: {score:.3f})
+{content}...
+"""
+            )
+
+        return "\n".join(formatted_docs)
 
 
 # ==================== 脚本生成智能体 ====================

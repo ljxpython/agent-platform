@@ -7,6 +7,8 @@ import ChatPage from '@/pages/ChatPage';
 import TestCasePage from '@/pages/TestCasePage';
 import MidscenePage from '@/pages/MidscenePage';
 import UITestScriptPage from '@/pages/UITestScriptPage';
+import UIImageUploadPage from '@/pages/UIImageUploadPage';
+import UITestingRAGPage from '@/pages/UITestingRAGPage';
 import ScrollTestPage from '@/pages/ScrollTestPage';
 import LoginPage from '@/pages/LoginPage';
 import UserProfilePage from '@/pages/UserProfilePage';
@@ -14,6 +16,9 @@ import UserManagePage from '@/pages/system/UserManagePage';
 import RoleManagePage from '@/pages/system/RoleManagePage';
 import DepartmentManagePage from '@/pages/system/DepartmentManagePage';
 import ApiManagePage from '@/pages/system/ApiManagePage';
+import ProjectManagement from '@/pages/system/ProjectManagement';
+import ProjectTest from '@/pages/test/ProjectTest';
+import ApiTest from '@/pages/test/ApiTest';
 // RAG管理页面
 import RAGDashboard from '@/pages/rag/RAGDashboard';
 import DocumentManagement from '@/pages/rag/DocumentManagement';
@@ -64,12 +69,17 @@ const AppContent: React.FC = () => {
           <Route path="/testcase" element={<TestCasePage />} />
           <Route path="/midscene" element={<MidscenePage />} />
           <Route path="/ui-test-script" element={<UITestScriptPage />} />
+          <Route path="/ui-image-upload" element={<UIImageUploadPage />} />
+          <Route path="/ui-testing-rag" element={<UITestingRAGPage />} />
           <Route path="/scroll-test" element={<ScrollTestPage />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/system/users" element={<UserManagePage />} />
           <Route path="/system/roles" element={<RoleManagePage />} />
           <Route path="/system/departments" element={<DepartmentManagePage />} />
           <Route path="/system/apis" element={<ApiManagePage />} />
+          <Route path="/system/projects" element={<ProjectManagement />} />
+          <Route path="/test/projects" element={<ProjectTest />} />
+          <Route path="/test/api" element={<ApiTest />} />
           {/* RAG管理路由 */}
           <Route path="/rag" element={<RAGDashboard />} />
           <Route path="/rag/dashboard" element={<RAGDashboard />} />

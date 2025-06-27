@@ -28,6 +28,7 @@ TORTOISE_ORM = {
                 "backend.models.api",
                 "backend.models.rag",
                 "backend.models.rag_file",
+                "backend.models.project",
                 "aerich.models",
             ],
             "default_connection": "default",
@@ -55,6 +56,9 @@ async def init_db():
 
         # 创建默认用户
         await create_default_user()
+
+        # 初始化默认项目
+        await init_default_project()
 
         # 初始化默认RAG Collections
         await init_default_rag_collections()
@@ -178,6 +182,39 @@ async def init_default_rag_collections():
 
     except Exception as e:
         logger.error(f"❌ 初始化默认RAG Collections失败: {e}")
+        # 不抛出异常，避免影响整个数据库初始化过程
+
+
+async def init_default_project():
+    """初始化默认项目"""
+    try:
+        from backend.models.project import Project
+
+        logger.info("🚀 开始初始化默认项目...")
+
+        # 检查是否已存在默认项目
+        existing_default = await Project.get_or_none(is_default=True)
+        if existing_default:
+            logger.info("ℹ️ 默认项目已存在，无需创建")
+            return
+
+        # 创建默认项目
+        default_project = await Project.create(
+            name="general",
+            display_name="通用项目",
+            description="系统默认项目，用于存放通用的测试用例、RAG知识库等数据",
+            is_default=True,
+            is_active=True,
+            settings={
+                "auto_created": True,
+                "system_project": True,
+            },
+        )
+
+        logger.success(f"✅ 默认项目创建成功: {default_project.display_name}")
+
+    except Exception as e:
+        logger.error(f"❌ 初始化默认项目失败: {e}")
         # 不抛出异常，避免影响整个数据库初始化过程
 
 

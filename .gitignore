@@ -340,3 +340,4 @@ uploads
 **/aitestlab.db-wal
 **/aitestlab.db
 **/migrations
+migrations

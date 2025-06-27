@@ -156,6 +156,94 @@ export interface ApiUpdateRequest {
   is_active: boolean;
 }
 
+// 项目管理相关类型
+export interface ProjectListParams {
+  page?: number;
+  page_size?: number;
+  name?: string;
+  is_active?: boolean;
+  created_by_id?: number;
+}
+
+export interface ProjectCreateRequest {
+  name: string;
+  display_name: string;
+  description?: string;
+  is_active?: boolean;
+  department?: string;
+  manager?: string;
+  members?: string[];
+  tags?: string[];
+  start_date?: string;
+  end_date?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  status?: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
+  budget?: number;
+  contact_email?: string;
+  contact_phone?: string;
+  repository_url?: string;
+  documentation_url?: string;
+  settings?: Record<string, any>;
+}
+
+export interface ProjectUpdateRequest {
+  name?: string;
+  display_name?: string;
+  description?: string;
+  is_active?: boolean;
+  department?: string;
+  manager?: string;
+  members?: string[];
+  tags?: string[];
+  start_date?: string;
+  end_date?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  status?: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
+  budget?: number;
+  contact_email?: string;
+  contact_phone?: string;
+  repository_url?: string;
+  documentation_url?: string;
+  settings?: Record<string, any>;
+}
+
+export interface ProjectResponse {
+  id: number;
+  name: string;
+  display_name: string;
+  description?: string;
+  is_default: boolean;
+  is_active: boolean;
+  department?: string;
+  manager?: string;
+  members: string[];
+  tags: string[];
+  start_date?: string;
+  end_date?: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
+  budget?: number;
+  contact_email?: string;
+  contact_phone?: string;
+  repository_url?: string;
+  documentation_url?: string;
+  settings: Record<string, any>;
+  created_by_id?: number;
+  created_at: string;
+  updated_at: string;
+  stats?: {
+    rag_collections: number;
+    test_cases: number;
+    midscene_sessions: number;
+  };
+}
+
+export interface DepartmentOption {
+  value: string;
+  label: string;
+  id: number;
+}
+
 export interface ApiListParams {
   page?: number;
   page_size?: number;
@@ -298,6 +386,59 @@ export class SystemAPI {
 
   static async syncApis() {
     const response = await request.post('/v1/system/apis/sync');
+    return response.data;
+  }
+
+  // 项目管理
+  static async getProjectList(params: ProjectListParams = {}) {
+    console.log('🌐 [SystemAPI] 发送项目列表请求:', params);
+    const response = await request.get('/v1/system/projects', { params });
+    console.log('📨 [SystemAPI] 项目列表原始响应:', response);
+    console.log('🔍 [SystemAPI] response类型:', typeof response);
+    console.log('🔍 [SystemAPI] response属性:', Object.keys(response || {}));
+    return response;
+  }
+
+  static async getProject(id: number) {
+    const response = await request.get(`/v1/system/projects/${id}`);
+    return response.data;
+  }
+
+  static async createProject(data: ProjectCreateRequest) {
+    const response = await request.post('/v1/system/projects', data);
+    return response.data;
+  }
+
+  static async updateProject(id: number, data: ProjectUpdateRequest) {
+    const response = await request.put(`/v1/system/projects/${id}`, data);
+    return response.data;
+  }
+
+  static async deleteProject(id: number) {
+    const response = await request.delete(`/v1/system/projects/${id}`);
+    return response.data;
+  }
+
+  static async setDefaultProject(id: number) {
+    const response = await request.post(`/v1/system/projects/${id}/set-default`);
+    return response.data;
+  }
+
+  static async getProjectStats(id: number) {
+    const response = await request.get(`/v1/system/projects/${id}/stats`);
+    return response.data;
+  }
+
+  // 获取部门选项
+  static async getDepartmentOptions() {
+    console.log('🌐 [SystemAPI] 发送部门选项请求');
+    const response = await request.get('/v1/system/departments/options');
+    console.log('📨 [SystemAPI] 部门选项原始响应:', response);
+    console.log('🔍 [SystemAPI] response.data:', response.data);
+    console.log('🔍 [SystemAPI] response.data类型:', typeof response.data);
+
+    // request.get() 返回的是 {code: 200, msg: "...", data: [...]}
+    // 我们需要返回 data 字段中的数组
     return response.data;
   }
 }

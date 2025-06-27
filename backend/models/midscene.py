@@ -23,6 +23,14 @@ class MidsceneSession(Model):
         description="会话状态: pending, processing, completed, failed",
     )
 
+    # 项目关联
+    project = fields.ForeignKeyField(
+        "models.Project",
+        related_name="midscene_sessions",
+        null=True,
+        description="所属项目",
+    )
+
     # 文件信息
     uploaded_files = fields.JSONField(default=list, description="上传的文件列表")
     file_count = fields.IntField(default=0, description="文件数量")
