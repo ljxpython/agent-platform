@@ -244,6 +244,7 @@ async def upload_file_to_rag(
     files: List[UploadFile] = File(...),
     collection_name: str = Form("ai_chat"),
     user_id: str = Form("anonymous"),
+    force_refresh: bool = Form(False, description="强制刷新重复检测缓存"),
 ):
     """
     上传文件到RAG知识库 - 支持MD5重复检测
@@ -254,7 +255,7 @@ async def upload_file_to_rag(
     3. 如果文件不存在，上传到RAG并记录到数据库
     """
     logger.info(
-        f"收到文件上传请求 | 文件数量: {len(files)} | Collection: {collection_name} | 用户: {user_id}"
+        f"📤 收到文件上传请求 | 文件数量: {len(files)} | Collection: {collection_name} | 用户: {user_id} | 强制刷新: {force_refresh}"
     )
 
     try:
@@ -270,12 +271,21 @@ async def upload_file_to_rag(
             content = await file.read()
 
             # 1. 检查文件是否已存在（MD5 + collection）
-            upload_check = await rag_file_upload_service.process_file_upload(
-                filename=file.filename,
-                content=content,
-                collection_name=collection_name,
-                user_id=user_id,
-            )
+            if force_refresh:
+                logger.info(f"🔄 强制刷新模式，跳过重复检测: {file.filename}")
+                upload_check = {
+                    "success": True,
+                    "status": "force_upload",
+                    "skip_upload": False,
+                    "message": "强制上传模式",
+                }
+            else:
+                upload_check = await rag_file_upload_service.process_file_upload(
+                    filename=file.filename,
+                    content=content,
+                    collection_name=collection_name,
+                    user_id=user_id,
+                )
 
             if upload_check.get("skip_upload", False):
                 # 文件已存在或处理失败，跳过上传

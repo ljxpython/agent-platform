@@ -158,7 +158,17 @@ class EmbeddingGenerator:
         Returns:
             int: 向量维度
         """
-        return 768  # nomic-embed-text的固定维度
+        # 根据模型动态获取维度
+        if self.config.embedding_model == "bge-m3":
+            return 1024
+        elif self.config.embedding_model == "nomic-embed-text":
+            return 768
+        else:
+            # 默认使用配置中的维度
+            from backend.conf.rag_config import get_rag_config
+
+            rag_config = get_rag_config()
+            return rag_config.milvus.dimension
 
     def get_model_info(self) -> dict:
         """

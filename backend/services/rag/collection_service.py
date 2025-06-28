@@ -333,6 +333,147 @@ class RAGCollectionService:
             logger.error(f"❌ 更新Collection失败 {name}: {e}")
             return {"success": False, "message": f"更新失败: {str(e)}"}
 
+    async def sync_collection_from_vector_db(self, name: str) -> Dict:
+        """
+        从向量数据库同步Collection信息到数据库
+        读取向量数据库中的collection详细信息，与数据库记录进行校对和更新
+        """
+        try:
+            logger.info(f"🔄 开始同步Collection信息: {name}")
+
+            # 1. 获取数据库中的collection记录
+            db_collection = await RAGCollection.get_or_none(name=name)
+            if not db_collection:
+                return {
+                    "success": False,
+                    "message": f"数据库中不存在Collection '{name}'",
+                }
+
+            # 2. 获取向量数据库中的collection信息
+            from backend.rag_core.collection_manager import create_collection_manager
+
+            rag_config = get_rag_config()
+            manager = await create_collection_manager(rag_config)
+
+            vector_info = manager.get_collection_info(name)
+            if not vector_info:
+                return {
+                    "success": False,
+                    "message": f"向量数据库中不存在Collection '{name}'",
+                }
+
+            # 3. 比较并记录差异
+            differences = []
+            updates = {}
+
+            # 检查维度
+            if db_collection.dimension != vector_info["dimension"]:
+                differences.append(
+                    f"维度: 数据库={db_collection.dimension}, 向量库={vector_info['dimension']}"
+                )
+                updates["dimension"] = vector_info["dimension"]
+
+            # 检查chunk_size
+            if db_collection.chunk_size != vector_info["chunk_size"]:
+                differences.append(
+                    f"分块大小: 数据库={db_collection.chunk_size}, 向量库={vector_info['chunk_size']}"
+                )
+                updates["chunk_size"] = vector_info["chunk_size"]
+
+            # 检查chunk_overlap
+            if db_collection.chunk_overlap != vector_info["chunk_overlap"]:
+                differences.append(
+                    f"分块重叠: 数据库={db_collection.chunk_overlap}, 向量库={vector_info['chunk_overlap']}"
+                )
+                updates["chunk_overlap"] = vector_info["chunk_overlap"]
+
+            # 检查top_k
+            if db_collection.top_k != vector_info["top_k"]:
+                differences.append(
+                    f"Top-K: 数据库={db_collection.top_k}, 向量库={vector_info['top_k']}"
+                )
+                updates["top_k"] = vector_info["top_k"]
+
+            # 检查similarity_threshold
+            if (
+                abs(
+                    db_collection.similarity_threshold
+                    - vector_info["similarity_threshold"]
+                )
+                > 0.001
+            ):
+                differences.append(
+                    f"相似度阈值: 数据库={db_collection.similarity_threshold}, 向量库={vector_info['similarity_threshold']}"
+                )
+                updates["similarity_threshold"] = vector_info["similarity_threshold"]
+
+            # 4. 如果有差异，更新数据库记录
+            if updates:
+                # 使用 update 方法而不是 save 方法来避免 partial model 问题
+                await RAGCollection.filter(name=name).update(**updates)
+                logger.success(f"✅ 数据库Collection记录已更新: {name}")
+
+                return {
+                    "success": True,
+                    "message": "Collection信息同步完成",
+                    "differences": differences,
+                    "updates_applied": len(updates),
+                    "updated_fields": list(updates.keys()),
+                }
+            else:
+                logger.info(f"✅ Collection信息一致，无需更新: {name}")
+                return {
+                    "success": True,
+                    "message": "Collection信息已同步，无差异",
+                    "differences": [],
+                    "updates_applied": 0,
+                }
+
+            await manager.close()
+
+        except Exception as e:
+            logger.error(f"❌ 同步Collection信息失败 {name}: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
+
+    async def sync_all_collections(self) -> Dict:
+        """同步所有Collections的信息"""
+        try:
+            logger.info("🔄 开始同步所有Collections信息...")
+
+            # 获取所有数据库中的collections
+            db_collections = await RAGCollection.all()
+
+            results = []
+            total_updates = 0
+
+            for db_collection in db_collections:
+                sync_result = await self.sync_collection_from_vector_db(
+                    db_collection.name
+                )
+                results.append(
+                    {"collection_name": db_collection.name, "result": sync_result}
+                )
+
+                if (
+                    sync_result.get("success")
+                    and sync_result.get("updates_applied", 0) > 0
+                ):
+                    total_updates += sync_result["updates_applied"]
+
+            logger.success(f"✅ 所有Collections同步完成，共更新 {total_updates} 个字段")
+
+            return {
+                "success": True,
+                "message": f"同步完成，共处理 {len(results)} 个Collections",
+                "total_collections": len(results),
+                "total_updates": total_updates,
+                "details": results,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ 批量同步Collections失败: {e}")
+            return {"success": False, "message": f"批量同步失败: {str(e)}"}
+
     async def delete_collection(self, name: str) -> Dict:
         """删除Collection，包括数据库记录和向量数据库collection"""
         try:

@@ -78,7 +78,8 @@ class RAGSystem:
 **职责**: 将文本转换为向量表示
 
 **支持模型**:
-- nomic-embed-text (默认)
+- bge-m3 (默认，1024维)
+- nomic-embed-text (768维)
 - 其他Ollama支持的嵌入模型
 
 **特性**:

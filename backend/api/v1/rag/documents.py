@@ -233,22 +233,38 @@ async def delete_document(
 ):
     """删除文档"""
     try:
-        logger.info(f"删除文档 | ID: {document_id} | 用户: {user_id}")
+        logger.info(f"🗑️ 删除文档请求 | ID: {document_id} | 用户: {user_id}")
 
         # 删除数据库记录
-        success = await rag_file_upload_service.delete_document_record(
+        result = await rag_file_upload_service.delete_document_record(
             document_id, user_id
         )
 
-        if success:
-            return {"success": True, "message": "文档删除成功"}
+        if result["success"]:
+            logger.success(
+                f"✅ 文档删除成功: {result.get('deleted_document', {}).get('filename', 'Unknown')}"
+            )
+            return {
+                "code": 200,
+                "msg": result["message"],
+                "data": {
+                    "deleted_document": result.get("deleted_document"),
+                    "note": result.get("note"),
+                },
+            }
         else:
-            raise HTTPException(status_code=404, detail="文档不存在或无权限删除")
+            error_code = result.get("error_code", "UNKNOWN_ERROR")
+            if error_code == "RECORD_NOT_FOUND":
+                raise HTTPException(status_code=404, detail=result["message"])
+            elif error_code == "PERMISSION_DENIED":
+                raise HTTPException(status_code=403, detail=result["message"])
+            else:
+                raise HTTPException(status_code=400, detail=result["message"])
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"删除文档失败: {e}")
+        logger.error(f"❌ 删除文档失败: {e}")
         raise HTTPException(status_code=500, detail=f"删除文档失败: {str(e)}")
 
 

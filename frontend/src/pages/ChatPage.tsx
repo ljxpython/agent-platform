@@ -74,8 +74,6 @@ const ChatPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
 
   // RAG召回文档相关状态
-  const [, setRetrievedDocuments] = useState<any[]>([]);
-  const [, setShowRetrievedDocs] = useState<boolean>(false);
   const [retrievedDocsMessageId, setRetrievedDocsMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -273,64 +271,19 @@ const ChatPage: React.FC = () => {
     setUploadModalVisible(false);
   };
 
-  // 处理召回文档内容块的辅助函数
+  // 处理召回文档内容块的辅助函数 - 汇总所有内容到一个文本框
   const handleRetrievedChunk = (docsMessageId: string, docIndex: number, content: string) => {
     console.log(`📚 处理召回文档内容块: docId=${docsMessageId}, index=${docIndex}, contentLength=${content.length}`);
 
-    // 解析相似度分数（如果存在）
-    const similarityMatch = content.match(/相似度:\s*([\d.]+)/);
-    const similarity = similarityMatch ? parseFloat(similarityMatch[1]) : undefined;
-
-    // 更新召回文档列表
-    setRetrievedDocuments(prev => {
-      const existingDoc = prev.find(doc => doc.index === docIndex);
-      if (existingDoc) {
-        // 更新现有文档内容
-        const updatedDoc = {
-          ...existingDoc,
-          content: existingDoc.content + content,
-          similarity: similarity || existingDoc.similarity
-        };
-        console.log(`📚 合并文档 ${docIndex} 内容: ${existingDoc.content.length} + ${content.length} = ${updatedDoc.content.length}`);
-        return prev.map(doc => doc.index === docIndex ? updatedDoc : doc);
-      } else {
-        // 添加新文档
-        const newDoc = { index: docIndex, content, similarity };
-        console.log(`📚 新增文档 ${docIndex}: ${content.length} 字符`);
-        return [...prev, newDoc];
-      }
-    });
-
-    // 更新召回文档消息
+    // 直接将内容追加到召回文档消息的content中，实现汇总显示
     setMessages(prev =>
       prev.map(msg => {
         if (msg.id === docsMessageId) {
-          const updatedDocs = [...(msg.retrievedDocuments || [])];
-          const existingDocIndex = updatedDocs.findIndex(doc => doc.index === docIndex);
+          // 将新的内容直接追加到消息内容中
+          const updatedContent = msg.content + content;
+          console.log(`📚 汇总文档内容: ${msg.content.length} + ${content.length} = ${updatedContent.length}`);
 
-          if (existingDocIndex >= 0) {
-            // 合并现有文档内容
-            const existingDoc = updatedDocs[existingDocIndex];
-            updatedDocs[existingDocIndex] = {
-              ...existingDoc,
-              content: existingDoc.content + content,
-              similarity: similarity || existingDoc.similarity
-            };
-            console.log(`📚 消息中合并文档 ${docIndex}: ${existingDoc.content.length} + ${content.length} = ${updatedDocs[existingDocIndex].content.length}`);
-          } else {
-            // 添加新文档
-            updatedDocs.push({ index: docIndex, content, similarity });
-            console.log(`📚 消息中新增文档 ${docIndex}: ${content.length} 字符`);
-          }
-
-          console.log(`📚 更新召回文档消息:`, {
-            messageId: docsMessageId,
-            totalDocs: updatedDocs.length,
-            docIndex: docIndex,
-            currentDocLength: updatedDocs.find(d => d.index === docIndex)?.content?.length
-          });
-
-          return { ...msg, retrievedDocuments: updatedDocs };
+          return { ...msg, content: updatedContent };
         }
         return msg;
       })
@@ -422,10 +375,8 @@ const ChatPage: React.FC = () => {
                   const ragMessage: RAGMessage = data;
 
                   if (ragMessage.type === 'rag_start') {
-                    // RAG查询开始 - 清空之前的召回文档，但不添加助手消息
+                    // RAG查询开始 - 清理之前的状态
                     console.log('🚀 RAG查询开始:', ragMessage.content);
-                    setRetrievedDocuments([]);
-                    setShowRetrievedDocs(false);
                     setRetrievedDocsMessageId(null);
 
                     // 清理之前的临时状态
@@ -440,7 +391,7 @@ const ChatPage: React.FC = () => {
                     console.log('📄 RAG检索结果:', ragMessage.content);
                     // 不在这里更新助手消息，等待agent_start时再添加助手消息
                   } else if (ragMessage.type === 'rag_retrieved_start') {
-                    // 召回内容开始 - 创建召回文档消息
+                    // 召回内容开始 - 创建召回文档汇总消息
                     console.log('📚 开始接收召回文档:', ragMessage.content);
                     const docsMessageId = uuidv4();
 
@@ -450,14 +401,13 @@ const ChatPage: React.FC = () => {
 
                     const retrievedDocsMessage: ChatMessageType = {
                       id: docsMessageId,
-                      content: ragMessage.content,
+                      content: ragMessage.content, // 初始内容，后续会追加所有召回的文档内容
                       role: 'retrieved_docs',
-                      timestamp: new Date(),
-                      retrievedDocuments: []
+                      timestamp: new Date()
                     };
 
                     setMessages(prev => [...prev, retrievedDocsMessage]);
-                    console.log('📚 召回文档消息已添加到列表, ID:', docsMessageId);
+                    console.log('📚 召回文档汇总消息已添加到列表, ID:', docsMessageId);
 
                     // 将ID存储到一个ref中，供后续chunk使用
                     if (!window.currentRetrievedDocsMessageId) {
@@ -481,7 +431,7 @@ const ChatPage: React.FC = () => {
 
                     // 如果还没有召回文档消息，先创建一个
                     if (!currentDocsMessageId) {
-                      console.log('📚 检测到召回内容但没有消息容器，创建召回文档消息');
+                      console.log('📚 检测到召回内容但没有消息容器，创建召回文档汇总消息');
                       const docsMessageId = uuidv4();
                       setRetrievedDocsMessageId(docsMessageId);
                       window.currentRetrievedDocsMessageId = docsMessageId;
@@ -489,14 +439,13 @@ const ChatPage: React.FC = () => {
 
                       const retrievedDocsMessage: ChatMessageType = {
                         id: docsMessageId,
-                        content: '正在检索相关文档...',
+                        content: '📚 召回的相关内容：\n\n',
                         role: 'retrieved_docs',
-                        timestamp: new Date(),
-                        retrievedDocuments: []
+                        timestamp: new Date()
                       };
 
                       setMessages(prev => [...prev, retrievedDocsMessage]);
-                      console.log('📚 召回文档消息已创建:', docsMessageId);
+                      console.log('📚 召回文档汇总消息已创建:', docsMessageId);
                     }
 
                     // 处理召回文档内容

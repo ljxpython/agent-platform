@@ -74,13 +74,18 @@ async def basic_example():
 
 ```yaml
 # RAG 配置
-milvus_host: "localhost"
-milvus_port: 19530
-ollama_base_url: "http://localhost:11434"
-ollama_embedding_model: "nomic-embed-text"
-deepseek_model: "deepseek-chat"
-deepseek_api_key: "your-api-key"
-deepseek_base_url: "https://api.deepseek.com/v1"
+rag:
+  milvus:
+    host: "localhost"
+    port: 19530
+    dimension: 1024
+  ollama:
+    base_url: "http://localhost:11434"
+    embedding_model: "bge-m3"
+  deepseek:
+    model: "deepseek-chat"
+    api_key: "your-api-key"
+    base_url: "https://api.deepseek.com/v1"
 ```
 
 ### 服务层使用

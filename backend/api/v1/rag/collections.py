@@ -21,11 +21,11 @@ class CollectionCreateRequest(BaseModel):
     display_name: str
     description: Optional[str] = ""
     business_type: str = "general"
-    chunk_size: int = 512
-    chunk_overlap: int = 50
-    dimension: int = 768
-    top_k: int = 5
-    similarity_threshold: float = 0.7
+    chunk_size: Optional[int] = None  # 使用默认配置
+    chunk_overlap: Optional[int] = None  # 使用默认配置
+    dimension: Optional[int] = None  # 使用当前模型对应的dimension
+    top_k: Optional[int] = None  # 使用默认配置
+    similarity_threshold: Optional[float] = None  # 使用默认配置
 
 
 class CollectionUpdateRequest(BaseModel):
@@ -105,18 +105,64 @@ async def create_collection(request: CollectionCreateRequest):
     try:
         logger.info(f"📝 创建Collection: {request.name}")
 
-        # 准备collection数据
+        # 获取默认配置
+        from backend.conf.rag_config import get_rag_config
+
+        rag_config = get_rag_config()
+        defaults = rag_config.milvus.collections.get("general", None)
+
+        # 如果没有默认配置，使用配置文件中的默认值
+        if not defaults:
+            config_defaults = {
+                "dimension": rag_config.milvus.dimension,
+                "top_k": 5,
+                "similarity_threshold": 0.7,
+                "chunk_size": 1000,
+                "chunk_overlap": 200,
+            }
+        else:
+            config_defaults = {
+                "dimension": defaults.dimension,
+                "top_k": defaults.top_k,
+                "similarity_threshold": defaults.similarity_threshold,
+                "chunk_size": defaults.chunk_size,
+                "chunk_overlap": defaults.chunk_overlap,
+            }
+
+        # 准备collection数据，使用默认值填充未指定的参数
         collection_data = {
             "name": request.name,
             "display_name": request.display_name,
             "description": request.description,
             "business_type": request.business_type,
-            "chunk_size": request.chunk_size,
-            "chunk_overlap": request.chunk_overlap,
-            "dimension": request.dimension,
-            "top_k": request.top_k,
-            "similarity_threshold": request.similarity_threshold,
+            "chunk_size": (
+                request.chunk_size
+                if request.chunk_size is not None
+                else config_defaults["chunk_size"]
+            ),
+            "chunk_overlap": (
+                request.chunk_overlap
+                if request.chunk_overlap is not None
+                else config_defaults["chunk_overlap"]
+            ),
+            "dimension": (
+                request.dimension
+                if request.dimension is not None
+                else config_defaults["dimension"]
+            ),
+            "top_k": (
+                request.top_k if request.top_k is not None else config_defaults["top_k"]
+            ),
+            "similarity_threshold": (
+                request.similarity_threshold
+                if request.similarity_threshold is not None
+                else config_defaults["similarity_threshold"]
+            ),
         }
+
+        logger.info(
+            f"📋 使用配置: dimension={collection_data['dimension']}, top_k={collection_data['top_k']}, chunk_size={collection_data['chunk_size']}"
+        )
 
         # 调用服务层创建Collection（包括向量数据库）
         result = await collection_service.create_collection(collection_data)
@@ -366,3 +412,66 @@ async def get_collection_stats(collection_id: int):
     except Exception as e:
         logger.error(f"❌ 获取Collection统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取Collection统计失败: {str(e)}")
+
+
+@rag_collections_router.post("/{name}/sync", summary="同步Collection信息")
+async def sync_collection(name: str):
+    """
+    从向量数据库同步Collection信息到数据库
+    读取向量数据库中的collection详细信息，与数据库记录进行校对和更新
+    """
+    try:
+        logger.info(f"🔄 同步Collection信息: {name}")
+
+        result = await collection_service.sync_collection_from_vector_db(name)
+
+        if result["success"]:
+            return {
+                "code": 200,
+                "msg": result["message"],
+                "data": {
+                    "collection_name": name,
+                    "differences": result.get("differences", []),
+                    "updates_applied": result.get("updates_applied", 0),
+                    "updated_fields": result.get("updated_fields", []),
+                },
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"同步Collection信息失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步失败: {str(e)}")
+
+
+@rag_collections_router.post("/sync-all", summary="同步所有Collection信息")
+async def sync_all_collections():
+    """
+    同步所有Collections的信息
+    批量从向量数据库读取信息并更新数据库记录
+    """
+    try:
+        logger.info("🔄 批量同步所有Collections信息")
+
+        result = await collection_service.sync_all_collections()
+
+        if result["success"]:
+            return {
+                "code": 200,
+                "msg": result["message"],
+                "data": {
+                    "total_collections": result["total_collections"],
+                    "total_updates": result["total_updates"],
+                    "details": result["details"],
+                },
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量同步Collections失败: {e}")
+        raise HTTPException(status_code=500, detail=f"批量同步失败: {str(e)}")

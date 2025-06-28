@@ -16,16 +16,34 @@ class CollectionConfig:
 
     name: str
     description: str
-    dimension: int = 768  # nomic-embed-text的向量维度
-    business_type: str = "general"  # 业务类型：general, testcase, ui_testing, ai_chat等
+    dimension: int
+    business_type: str
 
     # 检索参数
-    top_k: int = 5
-    similarity_threshold: float = 0.7
+    top_k: int
+    similarity_threshold: float
 
     # 文档处理参数
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
+    chunk_size: int
+    chunk_overlap: int
+
+    @classmethod
+    def from_dict(cls, config_dict: dict, defaults: dict):
+        """从配置字典创建CollectionConfig实例"""
+        return cls(
+            name=config_dict.get("name"),
+            description=config_dict.get("description"),
+            dimension=config_dict.get("dimension", defaults.get("dimension", 768)),
+            business_type=config_dict.get("business_type", "general"),
+            top_k=config_dict.get("top_k", defaults.get("top_k", 5)),
+            similarity_threshold=config_dict.get(
+                "similarity_threshold", defaults.get("similarity_threshold", 0.7)
+            ),
+            chunk_size=config_dict.get("chunk_size", defaults.get("chunk_size", 1000)),
+            chunk_overlap=config_dict.get(
+                "chunk_overlap", defaults.get("chunk_overlap", 200)
+            ),
+        )
 
 
 @dataclass
@@ -35,47 +53,34 @@ class MilvusConfig:
     host: str
     port: int
     default_collection: str
-    dimension: int = 768  # nomic-embed-text的向量维度
-    collections: Dict[str, CollectionConfig] = None
-
-    def __post_init__(self):
-        """初始化默认collections"""
-        if self.collections is None:
-            self.collections = {
-                "general": CollectionConfig(
-                    name="general_knowledge",
-                    description="通用知识库",
-                    business_type="general",
-                ),
-                "testcase": CollectionConfig(
-                    name="testcase_knowledge",
-                    description="测试用例专业知识库",
-                    business_type="testcase",
-                    chunk_size=800,
-                    chunk_overlap=150,
-                ),
-                "ui_testing": CollectionConfig(
-                    name="ui_testing_knowledge",
-                    description="UI测试专业知识库",
-                    business_type="ui_testing",
-                    chunk_size=1200,
-                    chunk_overlap=200,
-                ),
-                "ai_chat": CollectionConfig(
-                    name="ai_chat_knowledge",
-                    description="AI对话专业知识库",
-                    business_type="ai_chat",
-                ),
-            }
+    dimension: int
+    collections: Dict[str, CollectionConfig]
 
     @classmethod
     def from_settings(cls):
         """从settings中创建配置"""
+        rag_config = getattr(settings, "rag", {})
+        milvus_config = rag_config.get("milvus", {})
+        collection_defaults = rag_config.get("collection_defaults", {})
+        collections_config = rag_config.get("collections", {})
+
+        # 创建collections字典
+        collections = {}
+        for key, config_dict in collections_config.items():
+            collections[key] = CollectionConfig.from_dict(
+                config_dict, collection_defaults
+            )
+
         return cls(
-            host=getattr(settings, "milvus_host", "localhost"),
-            port=getattr(settings, "milvus_port", 19530),
-            default_collection="general_knowledge",
-            dimension=768,
+            host=milvus_config.get("host", "localhost"),
+            port=milvus_config.get("port", 19530),
+            default_collection=milvus_config.get(
+                "default_collection", "general_knowledge"
+            ),
+            dimension=milvus_config.get(
+                "dimension", collection_defaults.get("dimension", 768)
+            ),
+            collections=collections,
         )
 
 
@@ -89,11 +94,12 @@ class OllamaConfig:
     @classmethod
     def from_settings(cls):
         """从settings中创建配置"""
+        rag_config = getattr(settings, "rag", {})
+        ollama_config = rag_config.get("ollama", {})
+
         return cls(
-            base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
-            embedding_model=getattr(
-                settings, "ollama_embedding_model", "nomic-embed-text"
-            ),
+            base_url=ollama_config.get("base_url", "http://localhost:11434"),
+            embedding_model=ollama_config.get("embedding_model", "nomic-embed-text"),
         )
 
 
@@ -108,10 +114,13 @@ class DeepSeekConfig:
     @classmethod
     def from_settings(cls):
         """从settings中创建配置"""
+        rag_config = getattr(settings, "rag", {})
+        deepseek_config = rag_config.get("deepseek", {})
+
         return cls(
-            model=getattr(settings, "deepseek_model", "deepseek-chat"),
-            api_key=getattr(settings, "deepseek_api_key", ""),
-            base_url=getattr(settings, "deepseek_base_url", "https://api.deepseek.com"),
+            model=deepseek_config.get("model", "deepseek-chat"),
+            api_key=deepseek_config.get("api_key", ""),
+            base_url=deepseek_config.get("base_url", "https://api.deepseek.com/v1"),
         )
 
 

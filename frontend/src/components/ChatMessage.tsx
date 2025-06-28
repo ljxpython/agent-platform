@@ -119,44 +119,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             {message.content}
           </div>
         ) : isRetrievedDocs ? (
-          // 召回文档：卡片展示
-          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {message.retrievedDocuments?.map((doc, index) => (
-                <Card
-                  key={`${message.id}-doc-${doc.index}-${index}`}
-                  size="small"
-                  style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #e8e8e8',
-                    borderRadius: '8px'
-                  }}
-                  title={
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text strong style={{ fontSize: 14, color: '#262626' }}>
-                        文档 {doc.index}
-                      </Text>
-                      {doc.similarity && (
-                        <Tag color="blue" style={{ fontSize: 12 }}>
-                          相似度: {doc.similarity.toFixed(3)}
-                        </Tag>
-                      )}
-                    </div>
-                  }
-                >
-                  <div style={{
-                    maxHeight: '120px',
-                    overflowY: 'auto',
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    color: '#595959',
-                    whiteSpace: 'pre-wrap'
-                  }}>
-                    {doc.content}
-                  </div>
-                </Card>
-              ))}
-            </Space>
+          // 召回文档：汇总文本框显示
+          <div style={{
+            backgroundColor: '#f8f9fa',
+            border: '1px solid #e8e8e8',
+            borderRadius: '8px',
+            padding: '16px',
+            maxHeight: '400px',
+            overflowY: 'auto'
+          }}>
+            <div style={{
+              fontSize: 13,
+              lineHeight: 1.6,
+              color: '#595959',
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'monospace'
+            }}>
+              {message.content}
+            </div>
           </div>
         ) : (
           // AI 消息：Markdown 渲染

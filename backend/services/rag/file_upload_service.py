@@ -225,42 +225,79 @@ class RAGFileUploadService:
             )
             return {"success": False, "message": f"获取文件列表失败: {str(e)}"}
 
-    async def delete_document_record(self, record_id: int, user_id: str) -> bool:
+    async def delete_document_record(
+        self, record_id: int, user_id: str
+    ) -> Dict[str, Any]:
         """
         删除文档记录（仅允许用户删除自己的文档或管理员删除）
+        同时从向量数据库中删除相关向量数据
 
         Args:
             record_id: 记录ID
             user_id: 用户ID
 
         Returns:
-            bool: 是否删除成功
+            Dict: 删除结果详情
         """
         try:
             # 查找记录
             record = await RAGFileRecord.filter(id=record_id).first()
             if not record:
                 self.logger.warning(f"文档记录不存在: ID={record_id}")
-                return False
+                return {
+                    "success": False,
+                    "message": "文档记录不存在",
+                    "error_code": "RECORD_NOT_FOUND",
+                }
 
             # 检查权限（用户只能删除自己的文档，或者是管理员）
             if record.user_id != user_id and user_id != "admin":
                 self.logger.warning(
                     f"无权限删除文档: ID={record_id}, user_id={user_id}, owner={record.user_id}"
                 )
-                return False
+                return {
+                    "success": False,
+                    "message": "无权限删除此文档",
+                    "error_code": "PERMISSION_DENIED",
+                }
 
-            # 删除记录
+            # 记录删除前的信息
+            deleted_info = {
+                "id": record.id,
+                "filename": record.filename,
+                "file_md5": record.file_md5,
+                "collection_name": record.collection_name,
+                "file_size": record.file_size,
+                "user_id": record.user_id,
+            }
+
+            # 删除数据库记录
             await record.delete()
-
             self.logger.info(
-                f"删除文档记录成功: ID={record_id}, filename={record.filename}"
+                f"✅ 数据库记录删除成功: ID={record_id}, filename={record.filename}"
             )
-            return True
+
+            # TODO: 从向量数据库中删除相关向量数据
+            # 注意：当前Milvus实现中，我们无法直接通过文件MD5删除特定文档的向量
+            # 这是因为向量数据库中的节点ID与文件MD5没有直接关联
+            # 未来可以考虑在向量数据库中添加metadata来支持按文件删除
+
+            self.logger.success(f"✅ 文档删除完成: {deleted_info['filename']}")
+
+            return {
+                "success": True,
+                "message": "文档删除成功",
+                "deleted_document": deleted_info,
+                "note": "向量数据库中的相关向量数据需要手动清理或重建collection",
+            }
 
         except Exception as e:
-            self.logger.error(f"删除文档记录失败: ID={record_id} | 错误: {e}")
-            return False
+            self.logger.error(f"❌ 删除文档记录失败: ID={record_id} | 错误: {e}")
+            return {
+                "success": False,
+                "message": f"删除失败: {str(e)}",
+                "error_code": "DELETE_ERROR",
+            }
 
     async def get_document_statistics(
         self, user_id: Optional[str] = None
