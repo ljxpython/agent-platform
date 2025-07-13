@@ -18,7 +18,7 @@ from backend.ai_core.message_queue import (
     get_streaming_sse_messages_from_queue,
     put_message_to_queue,
 )
-from backend.services.rag.rag_service import RAGService, get_rag_service
+from backend.services.rag.rag_service import get_rag_service
 
 ui_rag_query_router = APIRouter()
 

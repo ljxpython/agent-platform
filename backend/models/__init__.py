@@ -6,6 +6,8 @@ from .api import Api
 from .base import BaseModel, TimestampMixin
 from .chat import ChatMessage
 from .department import Department
+from .project import Project
+from .rag import RAGCollection, RAGDocument, RAGQueryLog
 from .rag_file import RAGFileRecord
 from .role import Role, RoleApi
 from .testcase import TestCaseConversation, TestCaseFile, TestCaseMessage
@@ -25,6 +27,10 @@ __all__ = [
     "RoleApi",
     "Department",
     "Api",
+    "Project",
+    "RAGCollection",
+    "RAGDocument",
+    "RAGQueryLog",
     "RAGFileRecord",
     "UITask",
 ]

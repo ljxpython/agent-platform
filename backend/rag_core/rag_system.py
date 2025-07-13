@@ -158,6 +158,9 @@ class RAGSystem:
                 f"请先调用 setup_collection('{collection_name}') 创建Collection。"
             )
 
+        # 确保Collection已初始化（包括查询引擎）
+        await self._ensure_collection_initialized(collection_name)
+
         collection_config = self.config.get_collection_config(collection_name)
         if not collection_config:
             raise ValueError(f"Collection配置不存在: {collection_name}")
@@ -201,6 +204,17 @@ class RAGSystem:
         """从文件添加文档到指定知识库"""
         if not self._initialized:
             await self.initialize()
+
+        # 检查Collection是否存在
+        collection_exists = await self._check_collection_exists(collection_name)
+        if not collection_exists:
+            raise ValueError(
+                f"Collection '{collection_name}' 不存在于Milvus中。"
+                f"请先调用 setup_collection('{collection_name}') 创建Collection。"
+            )
+
+        # 确保Collection已初始化（包括查询引擎）
+        await self._ensure_collection_initialized(collection_name)
 
         collection_config = self.config.get_collection_config(collection_name)
         if not collection_config:
@@ -295,6 +309,9 @@ class RAGSystem:
                 f"请先调用 setup_collection('{collection_name}') 创建Collection，"
                 f"或添加一些文档到该Collection。"
             )
+
+        # 确保Collection已初始化（包括查询引擎）
+        await self._ensure_collection_initialized(collection_name)
 
         query_engine = self.query_engines[collection_name]
         return await query_engine.query(

@@ -3,7 +3,7 @@ Collection管理器
 支持多collection架构，为不同业务提供专业知识库管理
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -151,12 +151,116 @@ class CollectionManager:
 
     def list_collections(self) -> List[str]:
         """
-        列出所有collections
+        列出所有已初始化的collections
 
         Returns:
             List[str]: collection名称列表
         """
         return list(self.vector_dbs.keys())
+
+    def list_milvus_collections(self) -> List[str]:
+        """
+        直接查询Milvus中存在的所有collections
+
+        Returns:
+            List[str]: Milvus中实际存在的collection名称列表
+        """
+        try:
+            from pymilvus import connections, utility
+
+            # 建立临时连接
+            conn_alias = "temp_list_collections"
+            connections.connect(
+                alias=conn_alias,
+                host=self.config.milvus.host,
+                port=self.config.milvus.port,
+            )
+
+            # 获取所有collection列表
+            collections = utility.list_collections(using=conn_alias)
+
+            # 断开临时连接
+            connections.disconnect(conn_alias)
+
+            logger.info(f"📋 Milvus中的Collections: {collections}")
+            return collections
+
+        except Exception as e:
+            logger.error(f"❌ 获取Milvus Collections失败: {e}")
+            return []
+
+    def get_milvus_collection_info(self, collection_name: str) -> Optional[Dict]:
+        """
+        获取Milvus中collection的详细信息
+
+        Args:
+            collection_name: collection名称
+
+        Returns:
+            Dict: collection详细信息
+        """
+        try:
+            from pymilvus import Collection, connections, utility
+
+            # 建立临时连接
+            conn_alias = f"temp_info_{collection_name}"
+            connections.connect(
+                alias=conn_alias,
+                host=self.config.milvus.host,
+                port=self.config.milvus.port,
+            )
+
+            # 检查collection是否存在
+            if not utility.has_collection(collection_name, using=conn_alias):
+                connections.disconnect(conn_alias)
+                return None
+
+            # 获取collection对象
+            collection = Collection(collection_name, using=conn_alias)
+
+            # 获取详细信息
+            info = {
+                "name": collection_name,
+                "description": collection.description,
+                "num_entities": collection.num_entities,
+                "schema": {
+                    "fields": [
+                        {
+                            "name": field.name,
+                            "type": str(field.dtype),
+                            "is_primary": field.is_primary,
+                            "auto_id": field.auto_id,
+                            "description": field.description,
+                        }
+                        for field in collection.schema.fields
+                    ]
+                },
+                "indexes": [],
+            }
+
+            # 获取索引信息
+            try:
+                indexes = collection.indexes
+                for index in indexes:
+                    info["indexes"].append(
+                        {
+                            "field_name": index.field_name,
+                            "index_name": index.index_name,
+                            "params": index.params,
+                        }
+                    )
+            except Exception as idx_e:
+                logger.warning(f"获取索引信息失败: {idx_e}")
+
+            # 断开临时连接
+            connections.disconnect(conn_alias)
+
+            logger.info(f"📊 Collection信息获取成功: {collection_name}")
+            return info
+
+        except Exception as e:
+            logger.error(f"❌ 获取Collection信息失败 {collection_name}: {e}")
+            return None
 
     def get_collection_info(self, collection_name: str) -> Optional[Dict]:
         """

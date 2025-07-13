@@ -1,6 +1,7 @@
 """
-RAG文件上传服务 - 简化版本
+RAG文件上传服务 - 重写版本
 核心功能：MD5重复检测，避免重复上传到同一个collection
+支持项目隔离的文件管理
 """
 
 import hashlib
@@ -13,10 +14,38 @@ from backend.models.rag_file import RAGFileRecord
 
 
 class RAGFileUploadService:
-    """RAG文件上传服务 - 专注于重复检测"""
+    """
+    RAG文件上传服务 - 重写版本
 
-    def __init__(self):
-        self.logger = logger.bind(service="RAGFileUploadService")
+    设计原则：
+    1. 专注于文件MD5重复检测
+    2. 支持项目隔离
+    3. 与RAGService配合使用
+    4. 简化文件管理流程
+    """
+
+    def __init__(self, project_id: Optional[str] = None):
+        """
+        初始化文件上传服务
+
+        Args:
+            project_id: 项目ID，用于文件隔离
+        """
+        self.project_id = project_id or "default"
+        self.logger = logger.bind(
+            service="RAGFileUploadService", project=self.project_id
+        )
+
+        self.logger.info(f"🔧 文件上传服务初始化 | 项目: {self.project_id}")
+
+    def _get_project_collection_name(self, collection_name: str) -> str:
+        """
+        获取项目级别的 collection 名称
+        格式: {project_id}_{collection_name}
+        """
+        if self.project_id == "default":
+            return collection_name
+        return f"{self.project_id}_{collection_name}"
 
     def calculate_file_md5(self, content: bytes) -> str:
         """计算文件内容的MD5哈希值"""
@@ -30,26 +59,30 @@ class RAGFileUploadService:
         self, file_md5: str, collection_name: str
     ) -> Optional[RAGFileRecord]:
         """
-        检查文件是否已经在指定collection中存在
+        检查文件是否已经在指定collection中存在（支持项目隔离）
 
         Args:
             file_md5: 文件MD5哈希值
-            collection_name: 集合名称
+            collection_name: 集合名称（原始名称）
 
         Returns:
             RAGFileRecord: 如果文件已存在，返回记录；否则返回None
         """
         try:
+            project_collection_name = self._get_project_collection_name(collection_name)
+
             existing_record = await RAGFileRecord.get_existing_record(
-                file_md5, collection_name
+                file_md5, project_collection_name
             )
             if existing_record:
                 self.logger.info(
-                    f"文件已存在 | MD5: {file_md5[:8]}... | Collection: {collection_name} | 原文件: {existing_record.filename}"
+                    f"文件已存在 | MD5: {file_md5[:8]}... | Collection: {collection_name} -> {project_collection_name} | 原文件: {existing_record.filename}"
                 )
             return existing_record
         except Exception as e:
-            self.logger.error(f"检查文件是否存在失败: {e}")
+            self.logger.error(
+                f"检查文件是否存在失败 | Collection: {collection_name} | 项目: {self.project_id} | 错误: {e}"
+            )
             return None
 
     async def record_uploaded_file(
@@ -61,34 +94,38 @@ class RAGFileUploadService:
         user_id: Optional[str] = None,
     ) -> RAGFileRecord:
         """
-        记录已上传的文件信息
+        记录已上传的文件信息（支持项目隔离）
 
         Args:
             filename: 文件名
             file_md5: 文件MD5哈希值
             file_size: 文件大小
-            collection_name: 集合名称
+            collection_name: 集合名称（原始名称）
             user_id: 用户ID（可选）
 
         Returns:
             RAGFileRecord: 创建的文件记录
         """
         try:
+            project_collection_name = self._get_project_collection_name(collection_name)
+
             record = await RAGFileRecord.create_record(
                 filename=filename,
                 file_md5=file_md5,
                 file_size=file_size,
-                collection_name=collection_name,
+                collection_name=project_collection_name,
                 user_id=user_id,
             )
 
             self.logger.success(
-                f"记录文件上传 | 文件: {filename} | MD5: {file_md5[:8]}... | Collection: {collection_name}"
+                f"记录文件上传 | 文件: {filename} | MD5: {file_md5[:8]}... | Collection: {collection_name} -> {project_collection_name}"
             )
             return record
 
         except Exception as e:
-            self.logger.error(f"记录文件上传失败: {e}")
+            self.logger.error(
+                f"记录文件上传失败 | 文件: {filename} | 项目: {self.project_id} | 错误: {e}"
+            )
             raise
 
     async def process_file_upload(
@@ -195,25 +232,33 @@ class RAGFileUploadService:
 
     async def get_collection_files(self, collection_name: str) -> Dict[str, Any]:
         """
-        获取指定collection中的所有文件
+        获取指定collection中的所有文件（支持项目隔离）
 
         Args:
-            collection_name: 集合名称
+            collection_name: 集合名称（原始名称）
 
         Returns:
             Dict: 文件列表和统计信息
         """
         try:
+            project_collection_name = self._get_project_collection_name(collection_name)
+
             records = await RAGFileRecord.filter(
-                collection_name=collection_name
+                collection_name=project_collection_name
             ).order_by("-created_at")
 
             files = [record.to_dict() for record in records]
             total_size = sum(record.file_size for record in records)
 
+            self.logger.info(
+                f"📋 获取Collection文件列表 | Collection: {collection_name} -> {project_collection_name} | 文件数: {len(files)}"
+            )
+
             return {
                 "success": True,
                 "collection_name": collection_name,
+                "project_collection_name": project_collection_name,
+                "project_id": self.project_id,
                 "file_count": len(files),
                 "total_size_mb": round(total_size / (1024 * 1024), 2),
                 "files": files,
@@ -221,7 +266,7 @@ class RAGFileUploadService:
 
         except Exception as e:
             self.logger.error(
-                f"获取collection文件列表失败: {collection_name} | 错误: {e}"
+                f"获取collection文件列表失败 | Collection: {collection_name} | 项目: {self.project_id} | 错误: {e}"
             )
             return {"success": False, "message": f"获取文件列表失败: {str(e)}"}
 
@@ -303,7 +348,7 @@ class RAGFileUploadService:
         self, user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        获取文档统计信息
+        获取文档统计信息（项目级别）
 
         Args:
             user_id: 用户ID（可选，如果提供则只统计该用户的文档）
@@ -312,27 +357,51 @@ class RAGFileUploadService:
             Dict: 统计信息
         """
         try:
-            query = RAGFileRecord.all()
+            # 获取所有记录，然后在Python中过滤
+            all_records_query = RAGFileRecord.all()
             if user_id:
-                query = RAGFileRecord.filter(user_id=user_id)
+                all_records_query = all_records_query.filter(user_id=user_id)
 
-            total_count = await query.count()
-            completed_count = await query.filter(status="completed").count()
+            all_records = await all_records_query.all()
 
-            # 按集合统计
-            collections = await RAGFileRecord.all().values_list(
-                "collection_name", flat=True
-            )
+            # 根据项目ID过滤records
+            if self.project_id == "default":
+                # 默认项目：查询不带项目前缀的collections
+                records = [
+                    record
+                    for record in all_records
+                    if "_" not in record.collection_name
+                ]
+            else:
+                # 其他项目：查询带有项目前缀的collections
+                project_prefix = f"{self.project_id}_"
+                records = [
+                    record
+                    for record in all_records
+                    if record.collection_name.startswith(project_prefix)
+                ]
+
+            # 计算统计信息
+            total_count = len(records)
+            completed_count = len([r for r in records if r.status == "completed"])
+
+            # 按集合统计（项目级别）
             collection_stats = {}
-            for collection in set(collections):
-                count = await RAGFileRecord.filter(collection_name=collection).count()
-                collection_stats[collection] = count
+            for record in records:
+                # 提取原始collection名称
+                original_name = record.collection_name
+                if self.project_id != "default" and "_" in record.collection_name:
+                    original_name = record.collection_name.split("_", 1)[1]
+
+                collection_stats[original_name] = (
+                    collection_stats.get(original_name, 0) + 1
+                )
 
             # 计算总文件大小
-            records = await query.all()
             total_size = sum(record.file_size for record in records)
 
             stats = {
+                "project_id": self.project_id,
                 "total_documents": total_count,
                 "completed_documents": completed_count,
                 "collection_stats": collection_stats,
@@ -344,13 +413,42 @@ class RAGFileUploadService:
                 ),
             }
 
-            self.logger.info(f"文档统计: {stats}")
+            self.logger.info(
+                f"文档统计 | 项目: {self.project_id} | 总数: {total_count}"
+            )
             return stats
 
         except Exception as e:
-            self.logger.error(f"获取文档统计失败: {e}")
-            return {}
+            self.logger.error(f"获取文档统计失败 | 项目: {self.project_id} | 错误: {e}")
+            return {"project_id": self.project_id, "error": str(e)}
 
 
-# 全局实例
-rag_file_upload_service = RAGFileUploadService()
+# ==================== 服务实例管理 ====================
+
+# 项目级别的文件上传服务实例缓存
+_file_upload_services: Dict[str, RAGFileUploadService] = {}
+
+
+def get_file_upload_service(project_id: Optional[str] = None) -> RAGFileUploadService:
+    """
+    获取文件上传服务实例（支持项目隔离）
+
+    Args:
+        project_id: 项目ID，如果不提供则使用默认项目
+
+    Returns:
+        RAGFileUploadService: 文件上传服务实例
+    """
+    global _file_upload_services
+
+    project_id = project_id or "default"
+
+    if project_id not in _file_upload_services:
+        logger.info(f"🔧 创建新的文件上传服务实例 | 项目: {project_id}")
+        _file_upload_services[project_id] = RAGFileUploadService(project_id=project_id)
+
+    return _file_upload_services[project_id]
+
+
+# 保持向后兼容性的全局实例
+rag_file_upload_service = get_file_upload_service("default")

@@ -10,8 +10,8 @@ from loguru import logger
 
 from backend.models.rag_file import RAGFileRecord
 from backend.schemas.rag import DocumentCreate, DocumentResponse, DocumentUpdate
-from backend.services.rag.file_upload_service import rag_file_upload_service
-from backend.services.rag.rag_service import RAGService, get_rag_service
+from backend.services.rag.file_upload_service import get_file_upload_service
+from backend.services.rag.rag_service import get_rag_service
 
 rag_documents_router = APIRouter()
 
@@ -164,15 +164,18 @@ class AddTextRequest(BaseModel):
 
 @rag_documents_router.post("/add-text", summary="添加文本文档")
 async def add_text_document(
-    request: AddTextRequest, rag_service: RAGService = Depends(get_rag_service)
+    request: AddTextRequest,
+    project_id: Optional[str] = Query(None, description="项目ID"),
 ):
-    """添加文本文档到知识库"""
+    """添加文本文档到知识库（支持项目隔离）"""
+    project_id = project_id or "default"
     try:
         logger.info(
-            f"添加文本文档 | 标题: {request.title} | Collection: {request.collection_name}"
+            f"添加文本文档 | 标题: {request.title} | Collection: {request.collection_name} | 项目: {project_id}"
         )
 
-        # 添加到RAG知识库
+        # 获取RAG服务并添加到知识库
+        rag_service = await get_rag_service(project_id)
         result = await rag_service.add_text_to_collection(
             text=request.content,
             collection_name=request.collection_name,
@@ -190,14 +193,15 @@ async def add_text_document(
             content_bytes = request.content.encode("utf-8")
             md5_hash = hashlib.md5(content_bytes).hexdigest()
 
-            # 检查是否已存在
-            existing_record = await rag_file_upload_service.check_file_exists(
+            # 获取文件上传服务并检查是否已存在
+            file_upload_service = get_file_upload_service(project_id)
+            existing_record = await file_upload_service.check_file_exists(
                 md5_hash, request.collection_name
             )
 
             if not existing_record:
                 # 创建文档记录
-                await rag_file_upload_service.record_uploaded_file(
+                await file_upload_service.record_uploaded_file(
                     filename=f"{request.title}.txt",
                     file_md5=md5_hash,
                     file_size=len(content_bytes),
@@ -408,3 +412,100 @@ async def batch_upload_documents(
     except Exception as e:
         logger.error(f"批量上传失败: {e}")
         raise HTTPException(status_code=500, detail=f"批量上传失败: {str(e)}")
+
+
+@rag_documents_router.post("/add-text", summary="添加文本到知识库")
+async def add_text_to_collection(
+    text: str = Form(..., description="文本内容"),
+    collection_name: str = Form("general", description="Collection名称"),
+    metadata: Optional[str] = Form(None, description="元数据JSON字符串"),
+    project_id: Optional[str] = Query(None, description="项目ID"),
+):
+    """添加文本到知识库（支持项目隔离）"""
+    project_id = project_id or "default"
+    try:
+        logger.info(
+            f"📝 添加文本到知识库 | Collection: {collection_name} | 项目: {project_id}"
+        )
+
+        # 解析元数据
+        metadata_dict = {}
+        if metadata:
+            import json
+
+            try:
+                metadata_dict = json.loads(metadata)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=400, detail="元数据格式错误，请提供有效的JSON"
+                )
+
+        # 使用项目级别的RAG服务
+        rag_service = await get_rag_service(project_id)
+        result = await rag_service.add_text(text, collection_name, metadata_dict)
+
+        if result.get("success"):
+            return {
+                "code": 200,
+                "msg": "文本添加成功",
+                "data": result,
+            }
+        else:
+            return {
+                "code": 500,
+                "msg": result.get("message", "添加失败"),
+                "data": result,
+            }
+    except Exception as e:
+        logger.error(f"❌ 添加文本失败: {e}")
+        raise HTTPException(status_code=500, detail=f"添加文本失败: {str(e)}")
+
+
+@rag_documents_router.get("/files/{collection_name}", summary="获取Collection中的文件")
+async def get_collection_files(
+    collection_name: str,
+    project_id: Optional[str] = Query(None, description="项目ID"),
+):
+    """获取指定Collection中的文件列表（支持项目隔离）"""
+    project_id = project_id or "default"
+    try:
+        logger.info(
+            f"📋 获取Collection文件 | Collection: {collection_name} | 项目: {project_id}"
+        )
+
+        # 使用项目级别的文件上传服务
+        file_service = get_file_upload_service(project_id)
+        result = await file_service.get_collection_files(collection_name)
+
+        return {
+            "code": 200,
+            "msg": "获取文件列表成功",
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"❌ 获取文件列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取文件列表失败: {str(e)}")
+
+
+@rag_documents_router.get("/stats", summary="获取文档统计信息")
+async def get_document_stats(
+    project_id: Optional[str] = Query(None, description="项目ID"),
+    user_id: Optional[str] = Query(None, description="用户ID"),
+):
+    """获取文档统计信息（支持项目隔离）"""
+    project_id = project_id or "default"
+    try:
+        logger.info(f"📊 获取文档统计 | 项目: {project_id} | 用户: {user_id}")
+
+        # 使用项目级别的文件上传服务
+        file_service = get_file_upload_service(project_id)
+        stats = await file_service.get_document_statistics(user_id)
+
+        return {
+            "code": 200,
+            "msg": "获取统计信息成功",
+            "data": stats,
+        }
+    except Exception as e:
+        logger.error(f"❌ 获取文档统计失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")

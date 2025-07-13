@@ -260,8 +260,10 @@ async def upload_file_to_rag(
 
     try:
         from backend.services.document.document_service import document_service
-        from backend.services.rag.file_upload_service import rag_file_upload_service
+        from backend.services.rag.file_upload_service import get_file_upload_service
 
+        # 获取文件上传服务实例
+        file_upload_service = get_file_upload_service("default")  # 使用默认项目
         results = []
 
         for file in files:
@@ -280,7 +282,7 @@ async def upload_file_to_rag(
                     "message": "强制上传模式",
                 }
             else:
-                upload_check = await rag_file_upload_service.process_file_upload(
+                upload_check = await file_upload_service.process_file_upload(
                     filename=file.filename,
                     content=content,
                     collection_name=collection_name,
@@ -332,7 +334,7 @@ async def upload_file_to_rag(
                     file_md5 = upload_check.get("file_md5")
                     file_size = upload_check.get("file_size")
 
-                    record_result = await rag_file_upload_service.complete_file_upload(
+                    record_result = await file_upload_service.complete_file_upload(
                         filename=file.filename,
                         file_md5=file_md5,
                         file_size=file_size,
@@ -432,9 +434,10 @@ async def get_collection_files(collection_name: str):
     logger.debug(f"收到获取collection文件列表请求: {collection_name}")
 
     try:
-        from backend.services.rag.file_upload_service import rag_file_upload_service
+        from backend.services.rag.file_upload_service import get_file_upload_service
 
-        result = await rag_file_upload_service.get_collection_files(collection_name)
+        file_upload_service = get_file_upload_service("default")  # 使用默认项目
+        result = await file_upload_service.get_collection_files(collection_name)
         logger.debug(f"Collection {collection_name} 文件列表: {result}")
 
         return result

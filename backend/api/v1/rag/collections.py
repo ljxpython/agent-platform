@@ -10,8 +10,8 @@ from loguru import logger
 from pydantic import BaseModel
 
 from backend.models.rag import RAGCollection
-from backend.services.rag.collection_service import collection_service
-from backend.services.rag.rag_service import RAGService, get_rag_service
+from backend.services.rag.collection_service import get_collection_service
+from backend.services.rag.rag_service import get_rag_service
 
 rag_collections_router = APIRouter()
 
@@ -40,63 +40,173 @@ class CollectionUpdateRequest(BaseModel):
 
 
 @rag_collections_router.get("/", summary="获取Collection列表")
-async def get_collections():
-    """获取所有Collection列表"""
+async def get_collections(
+    project_id: Optional[str] = Query(None, description="项目ID")
+):
+    """获取所有Collections列表（支持项目隔离）"""
     try:
-        logger.info("📋 获取Collection列表")
+        project_id = project_id or "default"
+        logger.info(f"📋 获取Collection列表 | 项目: {project_id}")
 
-        collections = await RAGCollection.all().order_by("created_at")
+        # 使用Collection服务获取列表
+        from backend.services.rag.collection_service import get_collection_service
 
-        collection_list = []
-        for collection in collections:
-            # 统计文档数量
-            from backend.models.rag_file import RAGFileRecord
-
-            doc_count = await RAGFileRecord.filter(
-                collection_name=collection.name
-            ).count()
-
-            collection_list.append(
-                {
-                    "id": collection.id,
-                    "name": collection.name,
-                    "display_name": collection.display_name,
-                    "description": collection.description,
-                    "business_type": collection.business_type,
-                    "chunk_size": collection.chunk_size,
-                    "chunk_overlap": collection.chunk_overlap,
-                    "dimension": collection.dimension,
-                    "top_k": collection.top_k,
-                    "similarity_threshold": collection.similarity_threshold,
-                    "is_active": collection.is_active,
-                    "document_count": doc_count,
-                    "created_at": (
-                        collection.created_at.isoformat()
-                        if collection.created_at
-                        else None
-                    ),
-                    "updated_at": (
-                        collection.updated_at.isoformat()
-                        if collection.updated_at
-                        else None
-                    ),
-                }
-            )
-
-        logger.success(
-            f"✅ 获取Collection列表成功: {len(collection_list)} 个Collection"
-        )
+        collection_service = get_collection_service(project_id)
+        collection_list = await collection_service.get_all_collections()
 
         return {
             "code": 200,
             "msg": "获取Collection列表成功",
-            "data": {"collections": collection_list},
+            "data": {
+                "collections": collection_list,
+                "project_id": project_id,
+            },
             "total": len(collection_list),
         }
 
     except Exception as e:
         logger.error(f"❌ 获取Collection列表失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取Collection列表失败: {str(e)}")
+
+
+@rag_collections_router.get("/milvus", summary="获取Milvus中的Collection列表")
+async def get_milvus_collections(
+    project_id: Optional[str] = Query(None, description="项目ID")
+):
+    """获取Milvus向量数据库中实际存在的Collections列表"""
+    try:
+        project_id = project_id or "default"
+        logger.info(f"🔍 获取Milvus Collection列表 | 项目: {project_id}")
+
+        # 获取RAG服务
+        from backend.services.rag.rag_service import get_rag_service
+
+        rag_service = await get_rag_service(project_id)
+        result = await rag_service.list_milvus_collections()
+
+        if result.get("success"):
+            return {
+                "code": 200,
+                "msg": "获取Milvus Collection列表成功",
+                "data": result,
+            }
+        else:
+            return {
+                "code": 500,
+                "msg": result.get("message", "获取失败"),
+                "data": result,
+            }
+
+    except Exception as e:
+        logger.error(f"❌ 获取Milvus Collection列表失败: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"获取Milvus Collection列表失败: {str(e)}"
+        )
+
+
+@rag_collections_router.post("/sync-from-milvus", summary="从Milvus同步Collections")
+async def sync_collections_from_milvus(
+    project_id: Optional[str] = Query(None, description="项目ID")
+):
+    """从Milvus向量数据库同步Collections到SQLite数据库"""
+    try:
+        project_id = project_id or "default"
+        logger.info(f"🔄 从Milvus同步Collections | 项目: {project_id}")
+
+        # 获取服务实例
+        from backend.services.rag.collection_service import get_collection_service
+        from backend.services.rag.rag_service import get_rag_service
+
+        rag_service = await get_rag_service(project_id)
+        collection_service = get_collection_service(project_id)
+
+        # 执行同步
+        result = await collection_service.sync_from_milvus(rag_service)
+
+        if result.get("success"):
+            return {
+                "code": 200,
+                "msg": result.get("message", "同步成功"),
+                "data": result,
+            }
+        else:
+            return {
+                "code": 500,
+                "msg": result.get("message", "同步失败"),
+                "data": result,
+            }
+
+    except Exception as e:
+        logger.error(f"❌ 从Milvus同步Collections失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步失败: {str(e)}")
+
+
+@rag_collections_router.get(
+    "/{collection_name}/milvus-info", summary="获取Milvus中Collection详细信息"
+)
+async def get_milvus_collection_info(
+    collection_name: str, project_id: Optional[str] = Query(None, description="项目ID")
+):
+    """获取Milvus中Collection的详细信息"""
+    try:
+        project_id = project_id or "default"
+        logger.info(
+            f"🔍 获取Milvus Collection信息 | Collection: {collection_name} | 项目: {project_id}"
+        )
+
+        # 获取RAG服务
+        from backend.services.rag.rag_service import get_rag_service
+
+        rag_service = await get_rag_service(project_id)
+        result = await rag_service.get_milvus_collection_info(collection_name)
+
+        if result.get("success"):
+            return {
+                "code": 200,
+                "msg": "获取Collection信息成功",
+                "data": result,
+            }
+        else:
+            return {
+                "code": 404 if "不存在" in result.get("message", "") else 500,
+                "msg": result.get("message", "获取失败"),
+                "data": result,
+            }
+
+    except Exception as e:
+        logger.error(f"❌ 获取Milvus Collection信息失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取信息失败: {str(e)}")
+
+
+@rag_collections_router.post("/init-defaults", summary="初始化默认Collections")
+async def init_default_collections(
+    project_id: Optional[str] = Query(None, description="项目ID")
+):
+    """初始化默认Collections"""
+    try:
+        project_id = project_id or "default"
+        logger.info(f"🔧 初始化默认Collections | 项目: {project_id}")
+
+        # 获取Collection服务
+        from backend.services.rag.collection_service import get_collection_service
+
+        collection_service = get_collection_service(project_id)
+
+        # 初始化默认Collections
+        created_count = await collection_service.initialize_default_collections()
+
+        return {
+            "code": 200,
+            "msg": f"默认Collections初始化成功，创建了 {created_count} 个Collection",
+            "data": {
+                "project_id": project_id,
+                "created_count": created_count,
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 初始化默认Collections失败: {e}")
+        raise HTTPException(status_code=500, detail=f"初始化失败: {str(e)}")
 
 
 @rag_collections_router.post("/", summary="创建Collection")
