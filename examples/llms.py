@@ -33,6 +33,8 @@ openai_model_client = OpenAIChatCompletionClient(
         "structured_output": True,
         "multiple_system_messages": True,
     },
+    temperature=0.2,
+    top_p=0.7,
 )
 
 
