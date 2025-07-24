@@ -11,31 +11,25 @@ import {
   Input,
   Select,
   message,
-  Table,
   Tag,
   Descriptions,
   Alert,
   Statistic,
-  Progress,
-  Upload,
-  Modal,
   Spin,
 } from 'antd';
 import {
   DatabaseOutlined,
   FileTextOutlined,
   SearchOutlined,
-  CloudUploadOutlined,
   MessageOutlined,
-  SettingOutlined,
   InfoCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
-  UploadOutlined,
+  CloudUploadOutlined,
 } from '@ant-design/icons';
 import PageLayout from '../../components/PageLayout';
 
-const { Title, Paragraph, Text } = Typography;
+const { Text } = Typography;
 const { TabPane } = Tabs;
 const { TextArea } = Input;
 const { Option } = Select;

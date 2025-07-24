@@ -6,14 +6,10 @@ import {
   Space,
   Tag,
   Modal,
-  Form,
-  Input,
-  InputNumber,
   Select,
   message,
   Popconfirm,
   Typography,
-  Statistic,
   Row,
   Col,
   Tooltip,
@@ -22,26 +18,20 @@ import {
   Badge,
   Descriptions,
   Divider,
-  Spin,
 } from 'antd';
 import {
   DatabaseOutlined,
-  PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
   ReloadOutlined,
-  SettingOutlined,
-  FileTextOutlined,
   CloudSyncOutlined,
   InfoCircleOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import PageLayout from '../../components/PageLayout';
 
-const { Title, Paragraph, Text } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
 
@@ -261,7 +251,7 @@ const CollectionManagementEnhanced: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: any, record: Collection) => (
+      render: (_: any, record: Collection) => (
         <Space>
           <Tooltip title="查看详情">
             <Button
@@ -295,7 +285,7 @@ const CollectionManagementEnhanced: React.FC = () => {
       title: 'Collection名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: MilvusCollection) => (
+      render: (text: string) => (
         <Space>
           <CloudSyncOutlined style={{ color: '#1890ff' }} />
           <Text strong>{text}</Text>
@@ -318,7 +308,7 @@ const CollectionManagementEnhanced: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: any, record: MilvusCollection) => (
+      render: (_: any, record: MilvusCollection) => (
         <Space>
           <Tooltip title="查看详情">
             <Button

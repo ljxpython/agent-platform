@@ -5,7 +5,6 @@
 import type {
   Project,
   Task,
-  TaskSummary,
   ApiResponse,
   TaskListResponse,
   UploadResponse,

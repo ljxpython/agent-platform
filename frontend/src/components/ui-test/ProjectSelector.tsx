@@ -89,7 +89,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       });
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         message.success('项目创建成功');
         setCreateModalVisible(false);
         createForm.resetFields();

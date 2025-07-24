@@ -17,11 +17,8 @@ import {
   Row,
   Col,
   Tooltip,
-  Tabs,
-  Alert,
-  Badge,
-  Descriptions,
-  Divider,
+
+
 } from 'antd';
 import {
   DatabaseOutlined,
@@ -32,16 +29,13 @@ import {
   ReloadOutlined,
   SettingOutlined,
   FileTextOutlined,
-  CloudSyncOutlined,
-  InfoCircleOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
+
 } from '@ant-design/icons';
 import PageLayout from '../../components/PageLayout';
 
 const { Title, Paragraph, Text } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
+
 
 interface Collection {
   id: number;
@@ -62,34 +56,8 @@ interface Collection {
   project_collection_name?: string;
 }
 
-interface MilvusCollection {
-  name: string;
-  project_collection_name: string;
-  project_id: string;
-}
 
-interface MilvusCollectionInfo {
-  name: string;
-  description: string;
-  num_entities: number;
-  schema: {
-    fields: Array<{
-      name: string;
-      type: string;
-      is_primary: boolean;
-      auto_id: boolean;
-      description: string;
-    }>;
-  };
-  indexes: Array<{
-    field_name: string;
-    index_name: string;
-    params: any;
-  }>;
-  original_name: string;
-  project_collection_name: string;
-  project_id: string;
-}
+
 
 const CollectionManagement: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);

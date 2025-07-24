@@ -12,7 +12,6 @@ import {
   Popconfirm,
   Tag,
   Card,
-  Statistic,
   Row,
   Col,
   Typography,
@@ -26,7 +25,6 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  StarOutlined,
   StarFilled,
   BarChartOutlined,
   DatabaseOutlined,
@@ -50,26 +48,7 @@ const { TextArea } = Input;
 const { Option } = Select;
 const { TabPane } = Tabs;
 
-interface ProjectFormData {
-  name: string;
-  display_name: string;
-  description?: string;
-  is_active: boolean;
-  department?: string;
-  manager?: string;
-  members?: string[];
-  tags?: string[];
-  start_date?: string;
-  end_date?: string;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  status?: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
-  budget?: number;
-  contact_email?: string;
-  contact_phone?: string;
-  repository_url?: string;
-  documentation_url?: string;
-  settings: Record<string, any>;
-}
+
 
 const ProjectManagement: React.FC = () => {
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
@@ -413,16 +392,7 @@ const ProjectManagement: React.FC = () => {
   };
 
   // 设置默认项目
-  const handleSetDefault = async (project: ProjectResponse) => {
-    try {
-      await SystemAPI.setDefaultProject(project.id);
-      message.success(`已设置 "${project.display_name}" 为默认项目`);
-      fetchProjects(pagination.current, pagination.pageSize);
-    } catch (error: any) {
-      console.error('设置默认项目失败:', error);
-      message.error(error.response?.data?.detail || '设置默认项目失败');
-    }
-  };
+
 
   // 表格列定义
   const columns = [
@@ -702,7 +672,7 @@ const ProjectManagement: React.FC = () => {
                       allowClear
                       showSearch
                       filterOption={(input, option) =>
-                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                        String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                       }
                     >
                       {departmentOptions.map(dept => (

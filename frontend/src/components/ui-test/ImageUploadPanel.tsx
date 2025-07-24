@@ -46,6 +46,7 @@ interface UploadProgress {
   source: string;
   content: string;
   task_id?: string;
+  conversation_id?: string;
   timestamp: string;
 }
 
@@ -64,7 +65,7 @@ const ImageUploadPanel: React.FC<ImageUploadPanelProps> = ({
   const [fileList, setFileList] = useState<FileWithStatus[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
-  const [conversationId, setConversationId] = useState<string>('');
+
 
   // 支持的图片格式
   const supportedFormats = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
@@ -122,7 +123,6 @@ const ImageUploadPanel: React.FC<ImageUploadPanelProps> = ({
 
       // 生成对话ID
       const newConversationId = `ui_upload_${Date.now()}`;
-      setConversationId(newConversationId);
 
       // 准备FormData
       const formData = new FormData();
@@ -300,7 +300,7 @@ const ImageUploadPanel: React.FC<ImageUploadPanelProps> = ({
             <List
               size="small"
               dataSource={uploadProgress}
-              renderItem={(item, index) => (
+              renderItem={(item) => (
                 <List.Item>
                   <List.Item.Meta
                     avatar={getProgressIcon(item.type)}

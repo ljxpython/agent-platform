@@ -18,7 +18,7 @@ export interface UITestingQueryRequest {
 
 export interface UploadResponse {
   code: number;
-  msg: string;
+  msg?: string;
   data: {
     conversation_id: string;
     uploaded_files: number;
@@ -30,7 +30,7 @@ export interface UploadResponse {
 
 export interface QueryResponse {
   code: number;
-  msg: string;
+  msg?: string;
   data: {
     conversation_id: string;
     rag_answer: string;
@@ -52,7 +52,7 @@ export interface CollectionInfo {
 
 export interface CollectionsResponse {
   code: number;
-  msg: string;
+  msg?: string;
   data: {
     collections: CollectionInfo[];
   };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar, Typography, Button, Card, Tag, Space } from 'antd';
+import { Avatar, Typography, Button } from 'antd';
 import { UserOutlined, CopyOutlined, LikeOutlined, DislikeOutlined, BookOutlined } from '@ant-design/icons';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
 import MarkdownRenderer from '@/components/MarkdownRenderer';

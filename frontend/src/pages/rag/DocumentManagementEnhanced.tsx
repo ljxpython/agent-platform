@@ -11,18 +11,14 @@ import {
   Input,
   Select,
   Tag,
-  Progress,
   Typography,
   Row,
   Col,
   Statistic,
   Tooltip,
   Popconfirm,
-  Alert,
-  Tabs,
+
   Descriptions,
-  Badge,
-  Divider,
 } from 'antd';
 import {
   UploadOutlined,
@@ -36,14 +32,12 @@ import {
   FolderOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
-  InfoCircleOutlined,
 } from '@ant-design/icons';
 import PageLayout from '../../components/PageLayout';
 
-const { Title, Paragraph, Text } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
-const { TabPane } = Tabs;
 
 interface FileRecord {
   id: number;
@@ -208,7 +202,7 @@ const DocumentManagementEnhanced: React.FC = () => {
       title: '文件名',
       dataIndex: 'filename',
       key: 'filename',
-      render: (text: string, record: FileRecord) => (
+      render: (text: string) => (
         <Space>
           <FileOutlined />
           <Text>{text}</Text>
@@ -259,7 +253,7 @@ const DocumentManagementEnhanced: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (text: any, record: FileRecord) => (
+      render: (_: any, record: FileRecord) => (
         <Space>
           <Tooltip title="查看详情">
             <Button
