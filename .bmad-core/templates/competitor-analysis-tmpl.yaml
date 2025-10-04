@@ -141,7 +141,14 @@ sections:
         title: Feature Comparison Matrix
         instruction: Create a detailed comparison table of key features across competitors
         type: table
-        columns: ["Feature Category", "{{your_company}}", "{{competitor_1}}", "{{competitor_2}}", "{{competitor_3}}"]
+        columns:
+          [
+            "Feature Category",
+            "{{your_company}}",
+            "{{competitor_1}}",
+            "{{competitor_2}}",
+            "{{competitor_3}}",
+          ]
         rows:
           - category: "Core Functionality"
             items:
@@ -153,7 +160,13 @@ sections:
               - ["Onboarding Time", "{{time}}", "{{time}}", "{{time}}", "{{time}}"]
           - category: "Integration & Ecosystem"
             items:
-              - ["API Availability", "{{availability}}", "{{availability}}", "{{availability}}", "{{availability}}"]
+              - [
+                  "API Availability",
+                  "{{availability}}",
+                  "{{availability}}",
+                  "{{availability}}",
+                  "{{availability}}",
+                ]
               - ["Third-party Integrations", "{{number}}", "{{number}}", "{{number}}", "{{number}}"]
           - category: "Pricing & Plans"
             items:

@@ -75,12 +75,24 @@ sections:
         rows:
           - ["Framework", "{{framework}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["UI Library", "{{ui_library}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
-          - ["State Management", "{{state_management}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
+          - [
+              "State Management",
+              "{{state_management}}",
+              "{{version}}",
+              "{{purpose}}",
+              "{{why_chosen}}",
+            ]
           - ["Routing", "{{routing_library}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Build Tool", "{{build_tool}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Styling", "{{styling_solution}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Testing", "{{test_framework}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
-          - ["Component Library", "{{component_lib}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
+          - [
+              "Component Library",
+              "{{component_lib}}",
+              "{{version}}",
+              "{{purpose}}",
+              "{{why_chosen}}",
+            ]
           - ["Form Handling", "{{form_library}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Animation", "{{animation_lib}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Dev Tools", "{{dev_tools}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]

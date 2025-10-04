@@ -141,7 +141,7 @@ workflow:
         F -->|Yes| G[Return to relevant agent for fixes]
         F -->|No| H[po: shard documents]
         G --> E
-
+        
         H --> I[sm: create story]
         I --> J{Review draft story?}
         J -->|Yes| K[analyst/pm: review & approve story]

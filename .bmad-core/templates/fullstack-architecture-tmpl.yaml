@@ -156,11 +156,29 @@ sections:
         columns: [Category, Technology, Version, Purpose, Rationale]
         rows:
           - ["Frontend Language", "{{fe_language}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
-          - ["Frontend Framework", "{{fe_framework}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
-          - ["UI Component Library", "{{ui_library}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
+          - [
+              "Frontend Framework",
+              "{{fe_framework}}",
+              "{{version}}",
+              "{{purpose}}",
+              "{{why_chosen}}",
+            ]
+          - [
+              "UI Component Library",
+              "{{ui_library}}",
+              "{{version}}",
+              "{{purpose}}",
+              "{{why_chosen}}",
+            ]
           - ["State Management", "{{state_mgmt}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Backend Language", "{{be_language}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
-          - ["Backend Framework", "{{be_framework}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
+          - [
+              "Backend Framework",
+              "{{be_framework}}",
+              "{{version}}",
+              "{{purpose}}",
+              "{{why_chosen}}",
+            ]
           - ["API Style", "{{api_style}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Database", "{{database}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
           - ["Cache", "{{cache}}", "{{version}}", "{{purpose}}", "{{why_chosen}}"]
@@ -488,60 +506,60 @@ sections:
     type: code
     language: plaintext
     examples:
-    - |
-      {{project-name}}/
-      ├── .github/                    # CI/CD workflows
-      │   └── workflows/
-      │       ├── ci.yaml
-      │       └── deploy.yaml
-      ├── apps/                       # Application packages
-      │   ├── web/                    # Frontend application
-      │   │   ├── src/
-      │   │   │   ├── components/     # UI components
-      │   │   │   ├── pages/          # Page components/routes
-      │   │   │   ├── hooks/          # Custom React hooks
-      │   │   │   ├── services/       # API client services
-      │   │   │   ├── stores/         # State management
-      │   │   │   ├── styles/         # Global styles/themes
-      │   │   │   └── utils/          # Frontend utilities
-      │   │   ├── public/             # Static assets
-      │   │   ├── tests/              # Frontend tests
-      │   │   └── package.json
-      │   └── api/                    # Backend application
-      │       ├── src/
-      │       │   ├── routes/         # API routes/controllers
-      │       │   ├── services/       # Business logic
-      │       │   ├── models/         # Data models
-      │       │   ├── middleware/     # Express/API middleware
-      │       │   ├── utils/          # Backend utilities
-      │       │   └── {{serverless_or_server_entry}}
-      │       ├── tests/              # Backend tests
-      │       └── package.json
-      ├── packages/                   # Shared packages
-      │   ├── shared/                 # Shared types/utilities
-      │   │   ├── src/
-      │   │   │   ├── types/          # TypeScript interfaces
-      │   │   │   ├── constants/      # Shared constants
-      │   │   │   └── utils/          # Shared utilities
-      │   │   └── package.json
-      │   ├── ui/                     # Shared UI components
-      │   │   ├── src/
-      │   │   └── package.json
-      │   └── config/                 # Shared configuration
-      │       ├── eslint/
-      │       ├── typescript/
-      │       └── jest/
-      ├── infrastructure/             # IaC definitions
-      │   └── {{iac_structure}}
-      ├── scripts/                    # Build/deploy scripts
-      ├── docs/                       # Documentation
-      │   ├── prd.md
-      │   ├── front-end-spec.md
-      │   └── fullstack-architecture.md
-      ├── .env.example                # Environment template
-      ├── package.json                # Root package.json
-      ├── {{monorepo_config}}         # Monorepo configuration
-      └── README.md
+      - |
+        {{project-name}}/
+        ├── .github/                    # CI/CD workflows
+        │   └── workflows/
+        │       ├── ci.yaml
+        │       └── deploy.yaml
+        ├── apps/                       # Application packages
+        │   ├── web/                    # Frontend application
+        │   │   ├── src/
+        │   │   │   ├── components/     # UI components
+        │   │   │   ├── pages/          # Page components/routes
+        │   │   │   ├── hooks/          # Custom React hooks
+        │   │   │   ├── services/       # API client services
+        │   │   │   ├── stores/         # State management
+        │   │   │   ├── styles/         # Global styles/themes
+        │   │   │   └── utils/          # Frontend utilities
+        │   │   ├── public/             # Static assets
+        │   │   ├── tests/              # Frontend tests
+        │   │   └── package.json
+        │   └── api/                    # Backend application
+        │       ├── src/
+        │       │   ├── routes/         # API routes/controllers
+        │       │   ├── services/       # Business logic
+        │       │   ├── models/         # Data models
+        │       │   ├── middleware/     # Express/API middleware
+        │       │   ├── utils/          # Backend utilities
+        │       │   └── {{serverless_or_server_entry}}
+        │       ├── tests/              # Backend tests
+        │       └── package.json
+        ├── packages/                   # Shared packages
+        │   ├── shared/                 # Shared types/utilities
+        │   │   ├── src/
+        │   │   │   ├── types/          # TypeScript interfaces
+        │   │   │   ├── constants/      # Shared constants
+        │   │   │   └── utils/          # Shared utilities
+        │   │   └── package.json
+        │   ├── ui/                     # Shared UI components
+        │   │   ├── src/
+        │   │   └── package.json
+        │   └── config/                 # Shared configuration
+        │       ├── eslint/
+        │       ├── typescript/
+        │       └── jest/
+        ├── infrastructure/             # IaC definitions
+        │   └── {{iac_structure}}
+        ├── scripts/                    # Build/deploy scripts
+        ├── docs/                       # Documentation
+        │   ├── prd.md
+        │   ├── front-end-spec.md
+        │   └── fullstack-architecture.md
+        ├── .env.example                # Environment template
+        ├── package.json                # Root package.json
+        ├── {{monorepo_config}}         # Monorepo configuration
+        └── README.md
 
   - id: development-workflow
     title: Development Workflow
@@ -671,10 +689,10 @@ sections:
         type: code
         language: text
         template: |
-                  E2E Tests
-                 /        \
-            Integration Tests
-               /            \
+          E2E Tests
+          /        \
+          Integration Tests
+          /            \
           Frontend Unit  Backend Unit
       - id: test-organization
         title: Test Organization
