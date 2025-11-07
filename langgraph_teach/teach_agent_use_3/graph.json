@@ -2,7 +2,7 @@
   "dependencies": ["."],
   "graphs": {
     "agent": {
-      "path": "./src/file_agent/main.py:agent"
+      "path": "./src/file_agent/graph.py:graph"
     },
     "sql_agent": {
       "path": "./sql_agent.py:agent"
