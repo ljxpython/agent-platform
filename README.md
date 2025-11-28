@@ -27,6 +27,10 @@
 ---
 ## 日记及后续安排
 
+https://github.com/ljxpython/langgraph_teach 项目中，会包含所有我个人学习 langgraph 和 langchain 的学习代码，涉及 智能体，graph 构建，多模态，ReAct，上下文工程等等 AI 相关知识，感兴趣的朋友可以拉取下来一起学习，后面会基于里面的相关代码进行扩展，完成本测试平台的开发，大体还需要 2 个月的时间准备，之后我会重构本项目，用更加简洁的代码完成更加负责的事情，重构的项目会涉及用例生成，接口，性能，UI（看情况）等等一些模块
+
+时间：2025 年 11 月 28 日
+
 在`langgraph_teach`文件夹中,我增加了很多langgraph&langgraph的学习代码,大家可以参考,也可以直接运行,查看效果,后续的平台开发将Autogen转变为langgraph&langchain
 
 时间: 2025年11月11日
