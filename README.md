@@ -178,10 +178,17 @@ scripts/dev-down.sh
 - `docs/repo-layout.md`：仓库整体结构与职责边界
 - `docs/local-dev.md`：本地开发与联调说明
 - `docs/env-matrix.md`：四个应用的环境变量矩阵
+- `docs/deployment-guide.md`：拉取代码后的环境准备、PostgreSQL、uv/pnpm 与四应用部署说明
 - `docs/migration-notes.md`：迁移状态与当前验证结论
 - `docs/startup-verification-guide.md`：当前可执行启动与数据库检查说明
 - `docs/frontend-capability-plan.md`：前端能力对照与后续接入规划
 - [docs/project-story.md](docs/project-story.md)：项目初心、开发日志与演进记录
+
+## AI 助手文档
+
+这一组文档不是单纯给人阅读的说明书，而是给 AI 助手、开发者代理或自动化协作流程使用的操作指令。后续如果继续增加新的 AI 助手说明，也统一放在这里，方便用户和开发者快速找到与项目配套的 AI 能力入口。
+
+- `docs/ai-deployment-assistant-instruction.md`：给 AI 助手使用的问答式部署引导指令
 
 ## 支持与交流
 
