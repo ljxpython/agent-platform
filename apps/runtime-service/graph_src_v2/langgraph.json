@@ -1,0 +1,50 @@
+{
+  "python_version": "3.13",
+  "dockerfile_lines": [],
+  "dependencies": [
+    "./"
+  ],
+  "graphs": {
+    "assistant": {
+      "path": "./graph_src_v2/agents/assistant_agent/graph.py:graph",
+      "description": "默认助手主入口：create_agent + 运行时动态工具装配，适合作为通用对话与工具调用入口。"
+    },
+    "assistant_entrypoint": {
+      "path": "./graph_src_v2/agents/assistant_agent/graph_entrypoint.py:make_graph",
+      "description": "assistant 的 HITL 入口变体：内置 HumanInTheLoopMiddleware，演示高影响动作审批流程。"
+    },
+    "customer_support_handoffs_demo": {
+      "path": "./graph_src_v2/agents/customer_support_agent/graph.py:graph",
+      "description": "客服交接演示：通过状态机步骤（保修收集→问题分类→方案处理）驱动 handoff 流程。"
+    },
+    "deepagent_demo": {
+      "path": "./graph_src_v2/agents/deepagent_agent/graph.py:graph",
+      "description": "deepagent 统一入口：包含 subagents + skills 的深度任务分解执行，并合并了本地数据分析产物工作流能力。"
+    },
+    "personal_assistant_demo": {
+      "path": "./graph_src_v2/agents/personal_assistant_agent/graph.py:graph",
+      "description": "个人助理演示：calendar/email 子代理协同，由 supervisor 统一调度。"
+    },
+    "skills_sql_assistant_demo": {
+      "path": "./graph_src_v2/agents/skills_sql_assistant_agent/graph.py:graph",
+      "description": "SQL 技能助手演示：middleware 注入技能目录，按需 load_skill 加载 schema 与业务规则。"
+    }
+  },
+  "http": {
+    "app": "./graph_src_v2/custom_routes/app.py:app",
+    "cors": {
+      "allow_origins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://localhost",
+        "http://127.0.0.1"
+      ],
+      "allow_methods": ["*"],
+      "allow_headers": ["*"],
+      "allow_credentials": false
+    }
+  },
+  "env": "./graph_src_v2/.env"
+}
