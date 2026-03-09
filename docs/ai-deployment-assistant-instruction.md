@@ -325,6 +325,35 @@ corepack use pnpm@10.5.1
 - port: `5432`
 - database: `agent_platform`
 - user: `agent`
+- password: 需要由用户自己设置，并在后续 `.env` 中保持一致
+
+### 这一段必须和用户确认清楚
+
+在真正创建 PostgreSQL 之前，你必须明确和用户确认下面 4 个值：
+
+- 数据库主机：默认建议 `127.0.0.1`
+- 数据库端口：默认建议 `5432`
+- 数据库名：默认建议 `agent_platform`
+- 用户名：默认建议 `agent`
+- 密码：由用户自己设置一个明确值，不能留空
+
+你不能只告诉用户“准备 PostgreSQL”，而不把用户名和密码这件事讲清楚。
+
+建议询问话术：
+
+```text
+这一步我们要把 PostgreSQL 的连接信息先确认清楚，后面 `platform-api` 的 `.env` 会直接用到它。
+
+当前我建议你用这组默认值：
+- host: 127.0.0.1
+- port: 5432
+- database: agent_platform
+- user: agent
+
+接下来还需要你确定一个数据库密码。这个密码后面既要用于创建 PostgreSQL，也要写进 `platform-api` 的 `DATABASE_URL`。
+
+如果你愿意，我们就按这组默认值继续，只由你自己来指定密码。
+```
 
 ### 如果 PostgreSQL 未准备好
 
@@ -345,6 +374,36 @@ docker run -d \
   -v agent_platform_pgdata:/var/lib/postgresql/data \
   postgres:16
 ```
+
+### 创建完成后必须再次帮用户确认
+
+你必须把最终确定下来的数据库连接信息重新总结给用户，特别是用户名和密码用途：
+
+```text
+现在 PostgreSQL 这边我们约定的是：
+- host: 127.0.0.1
+- port: 5432
+- database: agent_platform
+- username: agent
+- password: 你刚刚设置的那个密码
+
+后面在 `apps/platform-api/.env` 里，我们会把这组信息写进 `DATABASE_URL`。
+```
+
+### 连接串解释必须讲给用户听
+
+你要明确告诉用户，后面 `platform-api` 用的是这种格式：
+
+```text
+postgresql+psycopg://agent:<你的数据库密码>@127.0.0.1:5432/agent_platform
+```
+
+并解释每一段的含义：
+
+- `agent`：数据库用户名
+- `<你的数据库密码>`：数据库密码
+- `127.0.0.1:5432`：数据库地址和端口
+- `agent_platform`：数据库名
 
 ### 连接成功后要明确告诉用户
 
@@ -432,6 +491,24 @@ JWT_ACCESS_SECRET=local-access-secret-change-me
 JWT_REFRESH_SECRET=local-refresh-secret-change-me
 BOOTSTRAP_ADMIN_USERNAME=admin
 BOOTSTRAP_ADMIN_PASSWORD=admin123456
+```
+
+### 这里必须额外提醒用户
+
+你要明确提醒用户：
+
+- `DATABASE_URL` 里的用户名默认就是前面确认过的 `agent`
+- `DATABASE_URL` 里的密码必须和 PostgreSQL 创建时使用的密码完全一致
+- 如果用户名或密码不一致，`platform-api` 就无法连接数据库
+
+建议解释话术：
+
+```text
+这里最容易出错的地方就是数据库用户名和密码不一致。
+
+我们前面创建 PostgreSQL 时，如果用户名是 `agent`，密码是你刚才设置的那个值，那么这里的 `DATABASE_URL` 也必须完全对应。
+
+只要用户名或密码有一个不一致，`platform-api` 启动时就会连不上 PostgreSQL。
 ```
 
 ### 如果缺失 `.env`
