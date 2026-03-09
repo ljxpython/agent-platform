@@ -35,6 +35,7 @@ AITestLab/
 - `docs/local-dev.md`
 - `docs/env-matrix.md`
 - `docs/migration-notes.md`
+- `docs/frontend-capability-plan.md`
 - `docs/planning/apps-split-migration-plan.md`
 
 ## 3. 当前约定
@@ -55,8 +56,8 @@ AITestLab/
 
 ## 5. 旧代码说明
 
-旧版 `AITestLab` 代码已整体归档到：
+旧版 `AITestLab` 代码已不再保留在当前工作分支目录中。
 
-- `archive/legacy-aitestlab/root/`
+如需回看旧版代码，请切换到远端备份分支：
 
-当前根目录不再直接承载旧版业务代码。
+- `origin/backup/main-before-apps-split-20260309`
