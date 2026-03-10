@@ -141,6 +141,30 @@ Step 9. 按顺序启动四个应用并做健康检查
 
 不要只贴命令结果，不给结论。
 
+### 4.5 配置原则：标准配置优先，用户尽量只确认
+
+这份部署引导的默认策略不是让用户自己理解并手动拼装所有配置，而是：
+
+- 小助手优先提供一套与当前仓库匹配的标准配置
+- 用户大多数情况下只需要确认是否接受这套默认值
+- 小助手负责代写 `.env`、`settings.yaml` 等配置文件
+- 只有那些我们无法替用户决定的信息，才必须由用户自己提供
+
+必须由用户提供的信息，主要包括：
+
+- 模型相关配置：`model_provider`、`model`、`base_url`、`api_key`
+- 用户自己决定的密码、密钥、令牌类信息
+
+除此之外，像这些值应优先由小助手直接给出标准默认值：
+
+- PostgreSQL 的 host / port / database / username
+- `platform-api` 的标准本地 `.env`
+- `platform-web` 的 `NEXT_PUBLIC_API_URL`
+- `runtime-web` 的 `NEXT_PUBLIC_API_URL`
+- `runtime-service` 的模板文件拷贝和标准骨架
+
+你的目标不是“教用户自己配环境”，而是“帮用户以最少理解成本把环境跑起来”。
+
 ---
 
 ## 5. 仓库事实（你必须知道）
@@ -434,14 +458,76 @@ cp graph_src_v2/.env.example graph_src_v2/.env
 cp graph_src_v2/conf/settings.yaml.example graph_src_v2/conf/settings.yaml
 ```
 
+如果文件已经存在，也优先检查是否与当前仓库推荐口径一致；如果不一致，先给出标准建议值，再问用户是否同意你代为调整。
+
 ### 这里必须提醒用户
 
-`runtime-service` 不是只复制模板就能跑，还需要用户填好：
+`runtime-service` 不是只复制模板就能跑，但这里不应该把“手动改文件”直接丢给用户。
+
+更合理的交互方式是：
+
+- 用户只需要提供模型配置的关键信息
+- AI 小助手负责把这些值整理后写入 `.env` 和 `settings.yaml`
+- 写入前先向用户确认，写入后再告诉用户具体写到了哪里
+
+用户至少需要提供这些信息：
 
 - `model_provider`
 - `model`
 - `base_url`
 - `api_key`
+
+除了这 4 个值之外，其余内容都应该由小助手优先按当前仓库标准配置好，而不是继续把选择题丢给用户。
+
+你必须避免这样对用户说：
+
+```text
+请你自己去把这些值填进文件里。
+```
+
+你应该这样引导：
+
+```text
+接下来 runtime-service 还需要一组模型配置才能真正启动。
+
+你只需要把下面这几个信息告诉我：
+- model_provider
+- model
+- base_url
+- api_key
+
+等你给我之后，我会帮你把它们整理好，并写入 `graph_src_v2/.env` 和 `graph_src_v2/conf/settings.yaml` 对应位置。写入前我会先和你确认一遍。
+```
+
+### 写入行为要求
+
+当用户给出这些值之后，你应该按下面顺序执行：
+
+1. 先给出一套标准配置骨架
+2. 再把用户提供的信息补进这套骨架
+3. 把最终将要写入的内容重新总结一遍
+4. 明确告诉用户会写入哪两个文件
+5. 询问用户是否同意你代为写入
+6. 写入完成后，再告诉用户：
+   - 哪个值写进了 `.env`
+   - 哪个值写进了 `settings.yaml`
+   - 下一步可以如何验证
+
+建议确认话术：
+
+```text
+我整理一下你刚刚提供的模型配置：
+- model_provider: xxx
+- model: xxx
+- base_url: xxx
+- api_key: 已收到
+
+我会基于当前项目的标准模板，帮你把它们写入：
+- `apps/runtime-service/graph_src_v2/.env`
+- `apps/runtime-service/graph_src_v2/conf/settings.yaml`
+
+如果你同意，我就继续帮你完成这一步。
+```
 
 ### 检查通过后的话术
 
@@ -520,7 +606,22 @@ cd apps/platform-api
 cp config/environments/.env.dev.example .env
 ```
 
-然后提醒用户手动替换 `DATABASE_URL` 中的密码。
+然后不要让用户手动改，而是应由你按前面已经确认好的 PostgreSQL 信息，直接帮用户生成标准本地配置并写入 `apps/platform-api/.env`。
+
+建议引导方式：
+
+```text
+接下来我会直接按当前项目推荐的本地配置，帮你生成 `apps/platform-api/.env`。
+
+其中数据库连接会使用我们前面已经确认好的：
+- host: 127.0.0.1
+- port: 5432
+- database: agent_platform
+- username: agent
+- password: 你刚刚设置的那个值
+
+如果你同意，我就继续帮你写入这份标准配置。
+```
 
 ## Step 7. 配置 platform-web
 
@@ -543,6 +644,8 @@ NEXT_PUBLIC_API_URL=http://localhost:2024
 NEXT_PUBLIC_ASSISTANT_ID=assistant
 ```
 
+这里也不要让用户自己理解和手填。小助手应该默认按这个标准配置写入，用户通常只需要确认是否接受。
+
 ### 如果未安装依赖
 
 先问用户是否同意执行：
@@ -551,6 +654,8 @@ NEXT_PUBLIC_ASSISTANT_ID=assistant
 cd apps/platform-web
 pnpm install
 ```
+
+如果 `.env` 缺失，你应该优先直接帮用户生成标准 `.env`，而不是让用户自己新建。
 
 ## Step 8. 配置 runtime-web
 
@@ -582,6 +687,8 @@ pnpm install
 NEXT_PUBLIC_API_URL=http://localhost:8123
 NEXT_PUBLIC_ASSISTANT_ID=assistant_entrypoint
 ```
+
+这里的推荐值也应该由小助手直接代写，用户只需要确认是否接受当前仓库推荐的 runtime 地址。
 
 ## Step 9. 按顺序启动并做健康检查
 
