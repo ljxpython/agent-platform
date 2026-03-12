@@ -59,6 +59,12 @@ cp graph_src_v2/conf/settings.yaml.example graph_src_v2/conf/settings.yaml
 
 ### 0.3 更多文档（推荐）
 
+推荐按下面顺序阅读：
+
+1. `graph_src_v2/docs/README.md`
+2. `graph_src_v2/docs/02-architecture.md`
+3. `graph_src_v2/agents/assistant_agent/graph.py`
+
 更完整的开发/验证说明见：`graph_src_v2/docs/README.md`。
 
 ## Run LangGraph dev server in background
