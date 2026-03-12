@@ -10,7 +10,7 @@
   "graphs": {
     "assistant": {
       "path": "./graph_src_v2/agents/assistant_agent/graph.py:graph",
-      "description": "默认助手主入口：create_agent + 运行时动态工具装配，适合作为 OAuth 鉴权模式下的通用入口。"
+      "description": "默认助手主入口：OAuth 鉴权模式下的推荐 assistant 范式，内置 HITL 与多模态中间件。"
     },
     "deepagent_demo": {
       "path": "./graph_src_v2/agents/deepagent_agent/graph.py:graph",

@@ -7,11 +7,7 @@
   "graphs": {
     "assistant": {
       "path": "./graph_src_v2/agents/assistant_agent/graph.py:graph",
-      "description": "默认助手主入口：create_agent + 运行时动态工具装配，适合作为通用对话与工具调用入口。"
-    },
-    "assistant_entrypoint": {
-      "path": "./graph_src_v2/agents/assistant_agent/graph_entrypoint.py:make_graph",
-      "description": "assistant 的 HITL 入口变体：内置 HumanInTheLoopMiddleware，演示高影响动作审批流程。"
+      "description": "默认助手主入口：基于 create_agent 的推荐范式，内置 HumanInTheLoopMiddleware 与多模态处理中间件。"
     },
     "customer_support_handoffs_demo": {
       "path": "./graph_src_v2/agents/customer_support_agent/graph.py:graph",
