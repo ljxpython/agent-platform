@@ -1,152 +1,120 @@
-# LangGraph Transparent Proxy (FastAPI)
+# Platform API
 
-This service is a transparent proxy in front of a LangGraph API server.
+`apps/platform-api` 是当前平台控制面后端。
 
-The goal is full API passthrough so `agent-chat-ui` can point to this service
-without changing its request paths.
+它不再是“所有路径透明透传”的代理服务，而是一个同时承担以下职责的 FastAPI 应用：
 
-## Environment variables
+- 管理面 API：`/_management/*`
+- LangGraph SDK 风格运行时网关：`/api/langgraph/*`
+- 平台数据库与自建认证/RBAC
+- 运行时对象目录同步、项目边界治理、审计中间件
 
-- `LANGGRAPH_UPSTREAM_URL` (default: `http://127.0.0.1:8123`)
-- `LANGGRAPH_UPSTREAM_API_KEY` (optional, injected as `x-api-key` to upstream)
-- `PROXY_TIMEOUT_SECONDS` (default: `300`)
-- `PROXY_CORS_ALLOW_ORIGINS` (default: `*`, comma-separated)
-- `PROXY_UPSTREAM_RETRIES` (default: `1`)
-- `PROXY_LOG_LEVEL` (default: `INFO`)
-- `PLATFORM_DB_ENABLED` (default: `false`)
-- `PLATFORM_DB_AUTO_CREATE` (default: `false`)
-- `DATABASE_URL` (required when `PLATFORM_DB_ENABLED=true`)
-- `AUTH_REQUIRED` (default: `true`, protects non-public routes)
-- `LANGGRAPH_AUTH_REQUIRED` (default: `false`, protects `/api/langgraph/*` routes)
-- `LANGGRAPH_SCOPE_GUARD_ENABLED` (default: `false`, enforces `x-project-id` boundary checks on LangGraph resources)
-- `JWT_ACCESS_SECRET` (default: insecure dev fallback; set explicitly outside local throwaway envs)
-- `JWT_REFRESH_SECRET` (default: insecure dev fallback; set explicitly outside local throwaway envs)
-- `JWT_ACCESS_TTL_SECONDS` (default: `1800`)
-- `JWT_REFRESH_TTL_SECONDS` (default: `604800`)
-- `BOOTSTRAP_ADMIN_USERNAME` (default: `admin`)
-- `BOOTSTRAP_ADMIN_PASSWORD` (default: `admin123456`)
-- `API_DOCS_ENABLED` (default: `false`, exposes `/docs`, `/redoc`, `/openapi.json`)
-- `LOGS_DIR` (default: `logs`)
-- `BACKEND_LOG_FILE` (default: `backend.log`)
-- `BACKEND_LOG_MAX_BYTES` (default: `10485760`)
-- `BACKEND_LOG_BACKUP_COUNT` (default: `5`)
-- `LANGGRAPH_GRAPH_SOURCE_ROOT` (optional, overrides dynamic graph schema source discovery)
+## 当前职责边界
 
-## Notes on old variables
+### 负责
 
-- Current backend uses self-hosted auth and project RBAC.
-- Old `KEYCLOAK_*`, `OPENFGA_*`, `DEV_AUTH_BYPASS_*`, `RUNTIME_ROLE_ENFORCEMENT_ENABLED`, and `REQUIRE_TENANT_CONTEXT` variables are no longer part of the active backend config path.
+- 用户、项目、成员、审计等平台管理能力
+- Assistant 管理与 LangGraph assistant 映射
+- Runtime catalog 同步（graph / model / tool）
+- LangGraph 线程、run、assistant、graph 查询的受控代理
+- `x-project-id` 驱动的项目边界治理
 
-## Run
+### 不负责
+
+- 浏览器 UI 渲染（由 `apps/platform-web` 负责）
+- Graph 真正执行（由 `apps/runtime-service` 负责）
+- 已退休的 catch-all transparent passthrough 路由
+
+## 当前公开路由面
+
+- `/_management/*`：平台管理面
+- `/api/langgraph/*`：LangGraph SDK 风格代理
+- `/_proxy/health`：健康检查
+
+当前应用装配以 `app/factory.py` 为准；历史 passthrough 路由已经 retired，不再作为当前接口基线。
+
+## 5 分钟本地启动
+
+1. 准备环境文件
+
+```bash
+cp .env.example .env
+```
+
+2. 准备 PostgreSQL，并把 `.env` 中的 `DATABASE_URL` 改成你的真实密码
+
+3. 启动服务
 
 ```bash
 uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload
 ```
 
-## Environment loading
-
-- Runtime only reads the repo-root `.env` file.
-- The loading path is `main.py -> app/factory.py -> load_dotenv() -> app/config.py`.
-- `config/environments/*.example` are profile templates for humans to copy into the repo-root `.env` when switching environments.
-
-### Recommended switching workflow
-
-```bash
-# Minimal local runnable setup
-cp .env.example .env
-
-# Local code + local PostgreSQL
-cp config/environments/.env.dev.example .env
-
-# Local code + remote infra over SSH tunnel
-cp config/environments/.env.dev.tunnel.example .env
-
-# Staging / production-like profile
-cp config/environments/.env.staging.example .env
-```
-
-## Recommended profiles
-
-### Local development (no login required)
-
-```env
-PLATFORM_DB_ENABLED=true
-PLATFORM_DB_AUTO_CREATE=true
-DATABASE_URL=postgresql+psycopg://agent:<pg-password>@127.0.0.1:5432/agent_platform
-
-AUTH_REQUIRED=false
-LANGGRAPH_AUTH_REQUIRED=false
-LANGGRAPH_SCOPE_GUARD_ENABLED=false
-
-API_DOCS_ENABLED=true
-
-JWT_ACCESS_SECRET=local-access-secret-change-me
-JWT_REFRESH_SECRET=local-refresh-secret-change-me
-JWT_ACCESS_TTL_SECONDS=1800
-JWT_REFRESH_TTL_SECONDS=604800
-
-BOOTSTRAP_ADMIN_USERNAME=admin
-BOOTSTRAP_ADMIN_PASSWORD=admin123456
-```
-
-### Staging/Production (strict auth)
-
-```env
-API_DOCS_ENABLED=false
-
-AUTH_REQUIRED=true
-LANGGRAPH_AUTH_REQUIRED=true
-LANGGRAPH_SCOPE_GUARD_ENABLED=true
-
-JWT_ACCESS_SECRET=<set-a-strong-secret>
-JWT_REFRESH_SECRET=<set-a-strong-secret>
-
-BOOTSTRAP_ADMIN_USERNAME=admin
-BOOTSTRAP_ADMIN_PASSWORD=<set-a-strong-password>
-```
-
-## Health check
+4. 检查健康状态
 
 ```bash
 curl http://127.0.0.1:2024/_proxy/health
 ```
 
-## Notes
+5. 如启用了数据库与 bootstrap admin，可使用 `.env` 中的管理员账号登录管理面
 
-- All incoming paths and methods are forwarded as-is.
-- Status code and response headers are preserved (except hop-by-hop headers).
-- SSE and long responses are streamed through directly.
+## 最重要的环境变量
 
-## Docs
+- `LANGGRAPH_UPSTREAM_URL`
+- `PLATFORM_DB_ENABLED`
+- `PLATFORM_DB_AUTO_CREATE`
+- `DATABASE_URL`
+- `AUTH_REQUIRED`
+- `LANGGRAPH_AUTH_REQUIRED`
+- `LANGGRAPH_SCOPE_GUARD_ENABLED`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `BOOTSTRAP_ADMIN_USERNAME`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+- `API_DOCS_ENABLED`
 
-- `docs/README.md`
-- `docs/dev-tunnel-guide.md`
-- `docs/langgraph-passthrough-guide.md`
-- `docs/chat-file-upload-guide.md`
-- `docs/management-console-overview.md`
-- `docs/self-hosted-auth-rbac-mvp.md`
+完整说明以 `app/config.py` 和 `docs/local-dev.md` 为准。
+
+## 推荐阅读顺序
+
+1. `README.md`
+2. `docs/README.md`
+3. `docs/onboarding.md`
+4. `docs/current-architecture.md`
+5. `docs/local-dev.md`
+6. `docs/testing.md`
+
+如果你要改具体专题，再读：
+
 - `docs/postgres-operations.md`
-- `docs/code-architecture.md`
 - `docs/error-playbook.md`
-- `docs/testing.md`
-- `docs/ci-troubleshooting.md`
-- `docs/logging-system.md`
-- `docs/archive/`（历史文档）
+- `docs/assistant-management-design.md`
+- `docs/runtime-object-catalog-design.md`
 
-## Data migration status
+## 当前代码入口
 
-- 平台库已经统一切到 PostgreSQL。
-- 旧的本地 SQLite 数据已迁入远端 PostgreSQL，并不再作为运行时数据源。
-- 如需再次导入历史 SQLite，请使用 `scripts/migrate_sqlite_to_postgres.py`。
-- 迁移前备份位于 `backups/agent_platform_pre_schema_align.dump` 与 `backups/agent_platform_pre_data_migration.dump`。
-- 历史遗留表 `memberships`、`runtime_bindings` 已从远端 PostgreSQL 清理。
+- `main.py`：启动壳层，只负责 `app = create_app()`
+- `app/factory.py`：应用装配入口
+- `app/bootstrap/lifespan.py`：启动/关闭、DB、bootstrap admin、共享 HTTP client
+- `app/api/management/`：管理面路由
+- `app/api/langgraph/`：LangGraph 网关路由
+- `app/services/`：runtime catalog、LangGraph service、schema 生成等服务逻辑
+- `app/db/`：模型、访问层、session、初始化
 
-## Environment templates
+## 与其他应用的关系
 
-- `.env.example`: 最小可运行模板，适合快速本地启动。
-- `config/environments/.env.dev.example`：本地代码 + 本地 PostgreSQL（通常 `127.0.0.1:5432`）
-- `config/environments/.env.dev.tunnel.example`：本地代码 + SSH 隧道远端 PostgreSQL（通常 `127.0.0.1:15432`）
-- `config/environments/.env.staging.example`
-- `config/environments/.env.prod.example`
+```text
+apps/platform-web
+  -> /_management/*
+  -> /api/langgraph/*
+       apps/platform-api
+         -> platform postgres
+         -> apps/runtime-service (LangGraph upstream)
+```
 
-这些文件不会被程序直接自动读取；真正生效的是你复制出来的根目录 `.env`。
+## 文档目录
+
+- `docs/README.md`：文档导航
+- `docs/onboarding.md`：开发者上手路径
+- `docs/current-architecture.md`：当前真实架构与路由面
+- `docs/local-dev.md`：本地开发与环境配置
+- `docs/testing.md`：测试策略与命令
