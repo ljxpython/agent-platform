@@ -12,9 +12,9 @@ from app.db.session import session_scope
 from app.schemas.usecases import CreateUseCaseRequest, UpdateUseCaseRequest
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from .common import require_db_session_factory
+from app.api.common import require_db_session_factory
 
-router = APIRouter(prefix="/use-cases", tags=["use-cases"])
+router = APIRouter(prefix="/use-cases", tags=["usecase-generation"])
 
 
 def _serialize_use_case(row) -> dict[str, object]:

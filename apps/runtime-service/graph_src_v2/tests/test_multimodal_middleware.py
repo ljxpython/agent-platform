@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# pyright: reportMissingImports=false
+
 import asyncio
 import base64
 import sys
@@ -8,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import patch
 
+import pytest
 from langchain.agents.middleware import ModelRequest, ModelResponse
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -21,12 +24,19 @@ from graph_src_v2.middlewares.multimodal import (  # noqa: E402
     MULTIMODAL_SUMMARY_KEY,
     AttachmentArtifact,
     MultimodalMiddleware,
+    _extract_openai_response_text,
     _extract_pdf_text,
     _parse_model_response,
     _resolve_parser_transport,
     build_attachment_artifact,
     build_multimodal_system_message,
     normalize_messages,
+)
+
+from graph_src_v2.devtools.multimodal_frontend_compat import (  # noqa: E402
+    build_human_message,
+    decode_block_bytes,
+    file_path_to_frontend_content_block,
 )
 
 
@@ -133,11 +143,13 @@ def test_multimodal_middleware_wrap_model_call_augments_request() -> None:
         assert MULTIMODAL_SUMMARY_KEY in state
         assert state[MULTIMODAL_ATTACHMENTS_KEY][0]["status"] == "parsed"
         assert "PDF 已解析" in state[MULTIMODAL_SUMMARY_KEY]
+        assert "关键要点" in state[MULTIMODAL_SUMMARY_KEY]
         content = cast(list[dict[str, Any]], updated_request.messages[0].content)
         assert isinstance(content, list)
         assert content[1]["type"] == "text"
         assert "PDF 已解析" in content[1]["text"]
-        assert "测试 PDF 文本" in content[1]["text"]
+        assert "关键要点" in content[1]["text"]
+        assert "测试 PDF 文本" not in content[1]["text"]
         return ModelResponse(result=[AIMessage(content="ok")])
 
     response = middleware.wrap_model_call(request, handler)
@@ -425,6 +437,76 @@ def test_parse_model_response_never_uses_raw_json_as_summary() -> None:
     assert parsed["structured_data"] == {"key_points": ["头像"]}
 
 
+def test_extract_openai_response_text_rejects_null_choices() -> None:
+    class FakeResponse:
+        choices = None
+        status = 400
+        msg = "upstream gateway error"
+        body = {"detail": "choices missing"}
+
+    with pytest.raises(ValueError, match="Malformed OpenAI-compatible response"):
+        _extract_openai_response_text(FakeResponse())
+
+
+def test_multimodal_middleware_marks_malformed_openai_response_as_failed() -> None:
+    class FakeCompletions:
+        @staticmethod
+        def create(*args: Any, **kwargs: Any) -> Any:
+            del args, kwargs
+
+            class FakeResponse:
+                choices = None
+                status = 502
+                msg = "bad gateway"
+                body = {"detail": "choices missing"}
+
+            return FakeResponse()
+
+    class FakeClient:
+        chat = type("FakeChat", (), {"completions": FakeCompletions()})()
+
+    class FakeModel:
+        model_name = "fake-openai-compatible"
+        root_client = FakeClient()
+        root_async_client = object()
+
+    middleware = MultimodalMiddleware()
+    request = ModelRequest(
+        model=cast(BaseChatModel, object()),
+        messages=[
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": "请分析这张图片"},
+                    {
+                        "type": "image",
+                        "mimeType": "image/png",
+                        "data": "imgbase64",
+                        "metadata": {"name": "screen.png"},
+                    },
+                ]
+            )
+        ],
+        system_message=SystemMessage(content="Base prompt"),
+        state=cast(Any, {}),
+    )
+
+    def handler(updated_request: ModelRequest) -> ModelResponse:
+        state = cast(dict[str, Any], updated_request.state)
+        attachment = state[MULTIMODAL_ATTACHMENTS_KEY][0]
+        assert attachment["status"] == "failed"
+        assert "Malformed OpenAI-compatible response" in attachment["summary_for_model"]
+        assert "bad gateway" in attachment["summary_for_model"]
+        return ModelResponse(result=[AIMessage(content="ok")])
+
+    with patch(
+        "graph_src_v2.middlewares.multimodal.resolve_model_by_id",
+        return_value=FakeModel(),
+    ):
+        response = middleware.wrap_model_call(request, handler)
+
+    assert response.result[0].text == "ok"
+
+
 def test_resolve_parser_transport_uses_openai_clients() -> None:
 
     class FakeModel:
@@ -442,3 +524,32 @@ def test_resolve_parser_transport_uses_openai_clients() -> None:
     assert model_name == "qwen3-vl-plus"
     assert root_client is FakeModel.root_client
     assert root_async_client is FakeModel.root_async_client
+
+
+def test_frontend_compat_pdf_fixture_roundtrips_and_extracts_text() -> None:
+    test_data_dir = Path(__file__).resolve().parents[1] / "test_data"
+    pdf_path = next(test_data_dir.glob("*.pdf"), None)
+    assert pdf_path is not None
+
+    pdf_block = file_path_to_frontend_content_block(pdf_path)
+    message = build_human_message("请解析这个 PDF", blocks=[pdf_block])
+    normalized = normalize_messages([message])
+    content = cast(list[dict[str, Any]], normalized[0].content)
+
+    normalized_pdf_block = content[1]
+    assert decode_block_bytes(normalized_pdf_block) == pdf_path.read_bytes()
+
+    parsed_text, metadata = _extract_pdf_text(normalized_pdf_block)
+    assert parsed_text is not None
+    assert parsed_text.strip()
+    assert metadata is not None
+    assert metadata.get("page_count", 0) > 0
+
+
+def test_frontend_compat_image_fixture_roundtrips_bytes() -> None:
+    test_data_dir = Path(__file__).resolve().parents[1] / "test_data"
+    image_path = next(test_data_dir.glob("*.jpeg"), None)
+    assert image_path is not None
+
+    image_block = file_path_to_frontend_content_block(image_path)
+    assert decode_block_bytes(image_block) == image_path.read_bytes()

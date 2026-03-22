@@ -243,40 +243,41 @@ scripts/dev-down.sh
 
 ## AI 助手文档
 
-这一组文档不是单纯给人阅读的说明书，而是给 AI 助手、开发者代理或自动化协作流程使用的操作指令。后续如果继续增加新的 AI 助手说明，也统一放在这里，方便用户和开发者快速找到与项目配套的 AI 能力入口。
+这一组文档不是单纯给人阅读的说明书，而是给 AI 助手、开发者代理或自动化协作流程使用的仓库操作指令。目标不是介绍某个 AI 产品怎么接入，而是让代理先理解当前仓库的真实本地结构，再直接完成本地最小部署、联调和验证。
 
-- `docs/ai-deployment-assistant-instruction.md`：给 AI 助手使用的最小本地部署执行指令
+- `docs/ai-deployment-assistant-instruction.md`：面向 LLM 代理的本地部署执行手册
 
-### 如何把这份文档交给 AI
+### 让你的代理来做
 
-如果你希望 AI 直接帮你完成本地环境部署，最简单的做法就是：
-
-1. 先让它阅读 `docs/ai-deployment-assistant-instruction.md`
-2. 要求它严格按文档执行
-3. 如果你已经有 model 配置材料，就一次性贴给它
-
-### 推荐对话范例
-
-保留这一条就够用，适合“先把本地环境都配起来，但当前还差真实 model 配置”的场景。
+如果你希望 AI 直接帮你处理当前仓库的本地环境，可以把下面这段话直接贴给它：
 
 ```text
-请先阅读 `docs/ai-deployment-assistant-instruction.md`，然后严格按这份文档帮我完成当前项目的本地最小部署。
+请先阅读 `README.md`、`docs/local-dev.md`、`docs/env-matrix.md`、`docs/startup-verification-guide.md`、`docs/ai-deployment-assistant-instruction.md`，然后严格按当前仓库的真实结构帮我完成本地最小部署与验证。
 
 要求：
-1. 你必须始终以姐姐的身份自称
-2. 默认直接执行，不要把流程拆成很多轮确认
-3. 先帮我安装和确认 Python 3.13、uv、Node 22、pnpm 10.5.1、PostgreSQL 和前后端依赖
-4. 直接帮我写 platform-api、platform-web、runtime-web 的最小本地配置
-5. runtime-service 也先把模板和配置骨架准备好
-6. model 配置这一块先不要编造，如果我还没给真实的 model_provider、model、base_url、api_key，你要明确告诉我现在缺什么
-7. 其他能完成的步骤继续完成，包括启动和验证不依赖真实 model 的部分
-8. 最后告诉我：你做了哪些事、哪些服务已经成功、哪些还卡在 model 配置、访问地址是什么、登录账号密码是什么
+1. 严格以当前四应用本地结构为准：`runtime-service:8123`、`platform-api:2024`、`platform-web:3000`、`runtime-web:3001`
+2. 平台链路按 `platform-web -> platform-api -> runtime-service` 处理，调试链路按 `runtime-web -> runtime-service` 处理
+3. 只使用各应用自己的本地配置文件，不要假设存在根目录统一 `.env`
+4. `runtime-web` 本地调试默认直连 `http://localhost:8123`
+5. 不要编造模型配置；如果缺少真实 `model_provider`、`model`、`base_url`、`api_key`，请明确指出缺失项
+6. 能直接完成的步骤直接完成，包括依赖检查、配置整理、启动、健康检查和结果汇总
+7. 最后告诉我：你改了哪些文件、用了哪些配置文件、哪些服务成功、哪些步骤仍受真实模型配置限制、访问地址是什么、默认登录方式是什么
 ```
+
+### 面向 LLM 代理
+
+如果你在编写或调试一个代理来执行这个仓库的本地部署任务，可以直接把 `docs/ai-deployment-assistant-instruction.md` 当成执行手册。它应该解决的是：
+
+- 先读哪些仓库文档，避免沿用旧记忆
+- 当前本地部署的唯一有效口径是什么
+- 配置文件应该写到哪里，哪些旧说法不能再用
+- 启动、健康检查和结果汇报应该怎么做
+- 模型配置缺失时应该如何收尾，而不是伪造配置
 
 ### 使用这份文档时的几个提醒
 
-- `docs/ai-deployment-assistant-instruction.md` 现在面向的是“AI 直接执行最小部署”，不是旧的逐步确认模式
-- 模型配置仍然必须使用你自己的真实信息，AI 不能替你编造
+- 这套 AI 助手文档服务的是当前仓库的本地部署与验证，不是外部插件接入说明
+- `/init-deep` 不是当前任务的前置步骤
 - `platform-api` 的本地配置以 `apps/platform-api/.env` 为准
 - `runtime-web` 本地最小联调应直连 `http://localhost:8123`
 - 默认本地 bootstrap 账号是 `admin / admin123456`，仅适合临时本地环境

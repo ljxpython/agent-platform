@@ -24,19 +24,63 @@ def create_requirement_document(
     session: Session,
     *,
     project_id: uuid.UUID,
+    workflow_id: uuid.UUID | None,
     filename: str,
     content_type: str,
     storage_path: str | None,
+    source_kind: str,
+    parse_status: str,
+    summary_for_model: str,
+    parsed_text: str | None,
+    structured_data: dict | None,
+    provenance: dict,
+    confidence: float | None,
+    error: dict | None,
 ) -> RequirementDocument:
     row = RequirementDocument(
         project_id=project_id,
+        workflow_id=workflow_id,
         filename=filename,
         content_type=content_type,
         storage_path=storage_path,
+        source_kind=source_kind,
+        parse_status=parse_status,
+        summary_for_model=summary_for_model,
+        parsed_text=parsed_text,
+        structured_data=structured_data,
+        provenance=provenance,
+        confidence=confidence,
+        error=error,
     )
     session.add(row)
     session.flush()
     return row
+
+
+def list_requirement_documents(
+    session: Session,
+    *,
+    project_id: uuid.UUID | None,
+    workflow_id: uuid.UUID | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[RequirementDocument], int]:
+    base_stmt = select(RequirementDocument)
+    if project_id is not None:
+        base_stmt = base_stmt.where(RequirementDocument.project_id == project_id)
+    if workflow_id is not None:
+        base_stmt = base_stmt.where(RequirementDocument.workflow_id == workflow_id)
+    stmt = base_stmt.order_by(desc(RequirementDocument.created_at)).offset(offset).limit(limit)
+    count_stmt = select(func.count()).select_from(base_stmt.subquery())
+    rows = list(session.scalars(stmt).all())
+    total = int(session.scalar(count_stmt) or 0)
+    return rows, total
+
+
+def get_requirement_document(
+    session: Session, document_id: uuid.UUID
+) -> RequirementDocument | None:
+    return session.get(RequirementDocument, document_id)
 
 
 def create_usecase_workflow(

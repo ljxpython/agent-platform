@@ -1,19 +1,20 @@
-import React, {
+import {
   createContext,
+  type FC,
+  type ReactNode,
   useContext,
-  ReactNode,
   useState,
   useEffect,
+  useCallback,
 } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
-import { type Message } from "@langchain/langgraph-sdk";
+import type { Message } from "@langchain/langgraph-sdk";
 import {
   uiMessageReducer,
   isUIMessage,
   isRemoveUIMessage,
-  type UIMessage,
-  type RemoveUIMessage,
 } from "@langchain/langgraph-sdk/react-ui";
+import type { RemoveUIMessage, UIMessage } from "@langchain/langgraph-sdk/react-ui";
 import { useQueryState } from "nuqs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { getApiKey } from "@/lib/api-key";
 import { useThreads } from "./Thread";
 import { toast } from "sonner";
+import { buildThreadTargetMetadata, resolveThreadTarget, type ThreadTargetType } from "./thread-target";
 
 export type StateType = { messages: Message[]; ui?: UIMessage[] };
 
@@ -71,11 +73,15 @@ const StreamSession = ({
   apiKey,
   apiUrl,
   assistantId,
+  targetId,
+  targetType,
 }: {
   children: ReactNode;
   apiKey: string | null;
   apiUrl: string;
   assistantId: string;
+  targetId: string;
+  targetType: ThreadTargetType;
 }) => {
   const [threadId, setThreadId] = useQueryState("threadId");
   const { getThreads, setThreads } = useThreads();
@@ -100,6 +106,25 @@ const StreamSession = ({
       sleep().then(() => getThreads().then(setThreads).catch(console.error));
     },
   });
+  const submit: StreamContextType["submit"] = useCallback(
+    (values, submitOptions) => {
+      const metadata = {
+        ...(submitOptions?.metadata ?? {}),
+        ...buildThreadTargetMetadata(targetType, targetId),
+      };
+
+      return streamValue.submit(values, {
+        ...submitOptions,
+        metadata,
+      });
+    },
+    [streamValue, targetId, targetType],
+  );
+
+  const streamContextValue: StreamContextType = {
+    ...streamValue,
+    submit,
+  };
 
   useEffect(() => {
     checkGraphStatus(apiUrl, apiKey).then((ok) => {
@@ -120,7 +145,7 @@ const StreamSession = ({
   }, [apiKey, apiUrl]);
 
   return (
-    <StreamContext.Provider value={streamValue}>
+    <StreamContext.Provider value={streamContextValue}>
       {children}
     </StreamContext.Provider>
   );
@@ -130,7 +155,7 @@ const StreamSession = ({
 const DEFAULT_API_URL = "http://localhost:2024";
 const DEFAULT_ASSISTANT_ID = "agent";
 
-export const StreamProvider: React.FC<{ children: ReactNode }> = ({
+export const StreamProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
   // Get environment variables
@@ -144,6 +169,12 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   });
   const [assistantId, setAssistantId] = useQueryState("assistantId", {
     defaultValue: envAssistantId || "",
+  });
+  const [graphId] = useQueryState("graphId", {
+    defaultValue: "",
+  });
+  const [targetType] = useQueryState("targetType", {
+    defaultValue: "",
   });
 
   // For API key, use localStorage with env var fallback
@@ -160,6 +191,12 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   // Determine final values to use, prioritizing URL params then env vars
   const finalApiUrl = apiUrl || envApiUrl;
   const finalAssistantId = assistantId || envAssistantId;
+  const resolvedTarget = resolveThreadTarget({
+    assistantId,
+    graphId,
+    targetType,
+    envAssistantId,
+  });
 
   // Show the form if we: don't have an API URL, or don't have an assistant ID
   if (!finalApiUrl || !finalAssistantId) {
@@ -266,8 +303,10 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   return (
     <StreamSession
       apiKey={apiKey}
-      apiUrl={apiUrl}
-      assistantId={assistantId}
+      apiUrl={finalApiUrl}
+      assistantId={resolvedTarget.targetId || finalAssistantId}
+      targetId={resolvedTarget.targetId || finalAssistantId}
+      targetType={resolvedTarget.targetType}
     >
       {children}
     </StreamSession>

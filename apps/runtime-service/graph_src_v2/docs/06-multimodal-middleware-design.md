@@ -16,6 +16,19 @@
 
 对应测试：`graph_src_v2/tests/test_multimodal_middleware.py`
 
+### 本地自测（devtools，开发期使用）
+
+为了在不依赖前端的情况下复现/自测多模态输入，可以使用：
+
+- `graph_src_v2/devtools/multimodal_frontend_compat.py`：构造/编码与前端一致形状的 content blocks（模拟 `{type,mimeType,data,metadata}`）。
+- `graph_src_v2/devtools/dump_multimodal_fixtures.py`：从本地 fixtures 生成/导出可复用的多模态测试数据。
+
+运行：
+
+```bash
+./.venv/bin/python -m graph_src_v2.devtools.dump_multimodal_fixtures
+```
+
 ## 2. 已完成范围
 
 当前 Phase 1 已完成：

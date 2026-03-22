@@ -1,400 +1,359 @@
 # 用例生成工作流设计稿
 
-本文定义一个真实业务案例：
+本文描述的是用例生成工作流的目标设计稿，用来约束后续 `runtime-service` 与 `interaction-data-service` 之间的结果契约。
 
-> 用户上传需求文档，系统通过多智能体协作生成候选用例，按规范评审，支持人工查看与反复修改，最终在人工确认后落库，并在平台提供正式 CRUD 管理页面。
+需要特别说明：
 
-这份文档不是补充聊天体验，而是在 `interaction-data-service` 的总设计上，给出第一条可落地的业务工作流。
+- 这里描述的是“目标优化方向”
+- 它不等于“当前代码已经全部如此”
+- 当前代码真实状态请同时参考：
+  - `apps/runtime-service/graph_src_v2/services/usecase_workflow_agent/README.md`
+  - `apps/runtime-service/graph_src_v2/services/usecase_workflow_agent/refactor-plan.md`
 
 ## 1. 业务目标
 
-目标不是“一次对话生成用例”，而是建立一条受控工作流：
+目标不是一次对话里随手吐出一版用例，而是建立一条受控、可追踪、可反复修订的业务工作流：
 
 1. 上传需求文档
 2. 需求分析
 3. 生成候选用例
 4. 用例评审
-5. 人工查看与提出修改意见
-6. 多轮修订
-7. 人工确认
-8. 正式落库
-9. 在平台 CRUD 管理
+5. 向用户展示评审结果与修订建议
+6. 用户决定继续修改还是确认可落库
+7. 人工确认后执行正式落库
+8. 在平台对正式用例做 CRUD 管理
 
 核心原则：
 
-- 草稿与正式数据分离
-- 评审结果结构化保存
-- 只有人工确认后才允许落库
-- 聊天页负责协作，CRUD 页负责管理正式数据
+- 草稿和正式数据分离
+- review 先于 confirmation
+- confirmation 先于 persistence
+- 附件解析产物保留并可追踪
+- 最终正式数据仍由人工把关后写入
 
-## 2. 系统边界
+## 2. 目标系统边界
 
-### 2.1 `runtime-service`
+### 2.1 runtime-service
 
 负责：
 
-- deepagent 工作流编排
-- 文档理解、需求分析、用例生成、用例评审
-- 调用本地 LangGraph tools 访问 `interaction-data-service`
+- 主 orchestrator 调度整条流程
+- 调用四个业务 subagent
+- 在每个阶段后给用户明确汇报
+- 在需要人工确认时停下来等待用户决定
+- 通过本地 tools 调用 `interaction-data-service`
 
 不负责：
 
 - 平台鉴权
-- 最终业务数据主权
-- 前端页面状态管理
+- 平台 CRUD 页面本身
+- 让数据库替代对话内状态流转
 
-### 2.2 `interaction-data-service`
-
-负责：
-
-- 工作流记录、快照、评审报告存储
-- 正式用例数据存储
-- 统一 HTTP 契约
-- `record_type` / `workflow_type` 路由和 schema 校验
-
-不负责：
-
-- 用户鉴权与项目权限判定
-- 智能体执行
-
-### 2.3 `platform-api`
+### 2.2 interaction-data-service
 
 负责：
 
-- 当前用户、项目上下文、权限控制
-- 对 `runtime-service` 和 `interaction-data-service` 做平台级聚合
-- 向 `platform-web` 暴露统一管理接口
+- 保存附件解析产物
+- 保存最终正式用例
+- 对外提供稳定 HTTP 契约
+- 为平台后续查询和管理提供结果域
 
-### 2.4 `platform-web`
+当前这一轮目标里，不再把它当成“中间 workflow/snapshot/review 的推荐主存储中心”。
+
+### 2.3 platform-api
 
 负责：
 
-- 用例生成工作台
-- 正式用例 CRUD 页面
-- 用户确认、重跑、落库入口
+- 用户和项目上下文
+- 权限控制
+- 聚合 `runtime-service` 与 `interaction-data-service`
 
-## 3. 目标产品形态
+### 2.4 platform-web
 
-推荐拆成两个页面面：
+负责：
 
-### 3.1 用例生成工作台
+- 上传文档
+- 查看当前工作流汇报
+- 查看候选用例与评审意见
+- 输入修订意见
+- 最终确认落库
+- 管理正式用例
 
-建议路由：
+## 3. 目标 agent 拓扑
 
-- `/workspace/usecase-agent`
+目标拓扑是：
 
-页面职责：
+- 一个主 orchestrator
+- 四个 subagent
+
+四个 subagent：
+
+1. `requirement_analysis_subagent`
+2. `usecase_generation_subagent`
+3. `usecase_review_subagent`
+4. `usecase_persist_subagent`
+
+职责说明：
+
+- requirement analysis
+  - 提炼功能点、规则、前置条件、边界和异常
+- usecase generation
+  - 根据需求分析结果和用户补充意见生成候选用例
+- usecase review
+  - 审查候选用例覆盖性、规范性和修订建议
+- usecase persist
+  - 在人工确认后执行最终持久化相关动作
+
+注意：
+
+- persist subagent 不是无边界自由思考 agent
+- 它更像一个受控执行边界，内部工具应该很少、很明确
+
+## 4. 目标阶段模型
+
+目标阶段建议统一为：
+
+- `analysis`
+- `generation`
+- `review`
+- `awaiting_user_confirmation`
+- `revision_requested`
+- `persisting`
+- `completed`
+
+推荐主链路：
+
+```text
+upload/input
+  -> analysis
+  -> generation
+  -> review
+  -> user-visible summary
+  -> awaiting_user_confirmation
+  -> persisting
+  -> completed
+```
+
+推荐修订链路：
+
+```text
+awaiting_user_confirmation
+  -> revision_requested
+  -> generation
+  -> review
+  -> awaiting_user_confirmation
+```
+
+## 5. 用户可见交互规则
+
+这条工作流必须保证“每一步都能让用户看懂当前发生了什么”。
+
+### 5.1 analysis 后
+
+主 orchestrator 必须说明：
+
+- 识别到哪些核心需求
+- 当前有哪些不明确项
+- 接下来要生成候选用例
+
+### 5.2 generation 后
+
+主 orchestrator 必须说明：
+
+- 当前生成的候选用例范围
+- 是否已经准备进入评审
+
+### 5.3 review 后
+
+主 orchestrator 必须说明：
+
+- 当前候选用例摘要
+- 评审结论
+- 需要改什么
+- 现在是否建议用户确认
+
+### 5.4 persist 后
+
+主 orchestrator 必须说明：
+
+- 附件解析产物是否已入库
+- 最终用例是否已入库
+- 当前工作流是否完成
+
+## 6. 人工确认机制
+
+本流程有两层确认：
+
+### 6.1 review 后的业务确认
+
+review 完成后，用户先看：
+
+- 当前候选用例
+- 当前评审意见
+- 当前修订建议
+
+然后用户决定：
+
+- 继续修改
+- 再来一轮生成/评审
+- 确认进入持久化
+
+### 6.2 persist 前的执行确认
+
+即使用户在业务层面说“可以落库”，执行层仍保留最终 HITL。
+
+也就是说：
+
+- review 后的确认是业务动作确认
+- persist 前的 HITL 是最终执行防线
+
+## 7. runtime-service 内部工具边界
+
+推荐把工具分成四组，与四个 subagent 对齐。
+
+### 7.1 requirement analysis 工具
+
+- `run_requirement_analysis_subagent`
+- `record_requirement_analysis_snapshot`
+
+### 7.2 usecase generation 工具
+
+- `run_usecase_generation_subagent`
+- `record_candidate_usecases_snapshot`
+
+### 7.3 usecase review 工具
+
+- `run_usecase_review_subagent`
+- `record_usecase_review_snapshot`
+
+### 7.4 usecase persist 工具
+
+- `persist_requirement_documents`
+- `persist_final_usecases`
+- 或一个组合 persist 工具，但内部职责必须明确拆分
+
+推荐原则：
+
+- 每个阶段用自己的工具
+- 主 orchestrator 不直接承担重型业务推理
+- 持久化工具只处理最终结果，不接管中间流程控制
+
+## 8. interaction-data-service 数据与接口边界
+
+这一轮目标保留两个结果域：
+
+1. 附件解析产物
+2. 最终正式用例
+
+因此，当前目标保留的接口主面是：
+
+- `POST /api/usecase-generation/workflows/documents`
+- `GET /api/usecase-generation/workflows/documents`
+- `GET /api/usecase-generation/workflows/documents/{document_id}`
+- `GET /api/usecase-generation/use-cases`
+- `POST /api/usecase-generation/use-cases`
+- `GET /api/usecase-generation/use-cases/{use_case_id}`
+- `PATCH /api/usecase-generation/use-cases/{use_case_id}`
+- `DELETE /api/usecase-generation/use-cases/{use_case_id}`
+
+这些接口分别支撑：
+
+- 追踪解析产物
+- 写入和管理最终正式用例
+
+## 9. 清理候选接口
+
+当前代码里仍存在一组 workflow/snapshot/review 相关接口：
+
+- `POST /api/usecase-generation/workflows`
+- `GET /api/usecase-generation/workflows`
+- `GET /api/usecase-generation/workflows/{workflow_id}`
+- `GET /api/usecase-generation/workflows/{workflow_id}/snapshots`
+- `POST /api/usecase-generation/workflows/{workflow_id}/snapshots`
+- `POST /api/usecase-generation/workflows/{workflow_id}/review`
+- `POST /api/usecase-generation/workflows/{workflow_id}/approve`
+- `POST /api/usecase-generation/workflows/{workflow_id}/persist`
+
+但在本轮目标里：
+
+- 它们不是推荐主路径
+- 后续是否删除，取决于 runtime 代码是否已经完全不依赖它们
+
+文档先把它们标记为“清理候选”，而不是假装它们已经不存在。
+
+## 10. 附件解析产物为什么要保留
+
+这个点已经明确：保留。
+
+原因：
+
+- 方便回查 PDF / 图片解析质量
+- 方便排查多模态链路问题
+- 方便后续展示“当前用例来自哪些附件输入”
+- 方便后续做追溯和审计
+
+当前重点字段仍然是：
+
+- `summary_for_model`
+- `parsed_text`
+- `structured_data`
+- `provenance`
+- `confidence`
+- `error`
+
+## 11. 平台产品形态
+
+推荐仍然拆成两个页面：
+
+### 11.1 用例生成工作台
+
+职责：
 
 - 上传需求文档
-- 发起智能体分析
-- 展示候选用例
-- 展示评审意见
-- 输入补充说明
-- 触发重新生成/重新评审
-- 点击确认落库
+- 查看 analysis / generation / review 各阶段汇报
+- 查看候选用例与评审意见
+- 输入修订意见
+- 最终确认是否落库
 
-这个页面基于现有：
+### 11.2 用例管理页
 
-- `apps/platform-web/src/components/chat-template/base-chat-template.tsx`
-- `apps/platform-web/src/hooks/use-file-upload.tsx`
-- `apps/platform-web/src/components/thread/artifact.tsx`
+职责：
 
-### 3.2 用例管理页
-
-建议路由：
-
-- `/workspace/usecases`
-- `/workspace/usecases/[usecaseId]`
-- `/workspace/usecases/new`
-
-页面职责：
-
-- 查看正式用例列表
-- 查询、分页、过滤
+- 查看正式用例
+- 搜索、分页、过滤
 - 查看详情
 - 修改
 - 删除
 
-这个页面复用现有管理页模式，例如：
+工作台展示过程结果，管理页只展示正式数据。
 
-- `apps/platform-web/src/app/workspace/projects/page.tsx`
-- `apps/platform-web/src/lib/management-api/projects.ts`
+## 12. 实施方式
 
-## 4. runtime-service 工作流设计
+本设计稿不会要求“一次性全部落完”。
 
-## 4.1 父智能体
+后续执行顺序以：
 
-建议新增一个 graph：
+- `apps/runtime-service/graph_src_v2/services/usecase_workflow_agent/refactor-plan.md`
 
-- `usecase_workflow_agent`
+为准，按步骤逐步实现。
 
-它不是单轮聊天 agent，而是 deepagent 父智能体，负责整条流程编排。
+## 13. 最终结论
 
-### 4.2 子智能体建议
+这条工作流的目标最优解，不是“一个会聊天的单 agent”，也不是“把所有中间过程都塞进数据库”。
 
-建议至少有两个真正的业务子智能体：
+更合适的结构是：
 
-- `requirement_analysis_subagent`
-  - 解析需求文档
-  - 提炼功能点、规则、前置条件、边界场景、异常场景
-- `usecase_review_subagent`
-  - 审查候选用例
-  - 输出缺失点、歧义点、规范问题、改进建议
-
-不建议把“落库”实现成一个自由思考的子智能体。
-
-落库更适合做成：
-
-- 一个明确的本地 tool
-- 或一个确定性的 workflow step
-
-### 4.3 工作流阶段
-
-建议父智能体按显式状态推进：
-
-- `uploaded`
-- `analyzing`
-- `generated`
-- `reviewed`
-- `awaiting_user_confirmation`
-- `revision_requested`
-- `approved_for_persistence`
-- `persisted`
-- `failed`
-
-### 4.4 推荐步骤
-
-1. `ingest_requirement_document`
-2. `analyze_requirement`
-3. `generate_candidate_usecases`
-4. `review_candidate_usecases`
-5. `build_revision_summary`
-6. `await_user_confirmation`
-7. `persist_final_usecases`
-
-## 5. 人工确认机制
-
-这个案例的关键不是“能生成”，而是“不能自动变正式数据”。
-
-必须保证：
-
-- 评审后只生成候选版本
-- 用户可以继续给意见
-- 用户可以触发再次修订
-- 只有用户明确确认后，才能执行持久化
-
-因此系统需要区分三类内容：
-
-- 当前候选用例
-- 当前评审报告
-- 当前是否允许落库的判断
-
-推荐由后端返回明确字段，例如：
-
-- `workflow_status`
-- `latest_snapshot_id`
-- `persistable`
-- `review_summary`
-- `deficiency_count`
-
-## 6. interaction-data-service 数据设计
-
-这个场景不适合只靠一张通用记录表。
-
-建议分成“工作流表”和“正式业务表”两层。
-
-### 6.1 工作流过程表
-
-- `requirement_documents`
-  - 上传的原始需求文档元数据
-- `usecase_workflows`
-  - 一次从需求到用例的任务主记录
-- `usecase_workflow_snapshots`
-  - 每轮生成后的候选版本
-- `usecase_review_reports`
-  - 每轮评审报告
-
-### 6.2 正式业务表
-
-- `use_cases`
-- `use_case_steps`（如需要）
-- `test_cases`（若与 use case 分离）
-
-### 6.3 公共登记层
-
-如果继续保留 `interaction_records` 的统一入口思路，建议：
-
-- 工作流快照和评审报告仍登记到公共记录层
-- 正式用例数据落专有业务表
-
-也就是说：
-
-- 公共记录层解决统一索引与追踪
-- 业务表解决正式数据表达
-
-## 7. 建议表关系
-
-```text
-requirement_documents
-  -> usecase_workflows
-       -> usecase_workflow_snapshots
-       -> usecase_review_reports
-       -> use_cases
-            -> use_case_steps
-            -> test_cases
-```
-
-说明：
-
-- 一个 workflow 可以有多个 snapshot
-- 一个 snapshot 可以对应一个 review report
-- 只有被批准的 snapshot 才能提升为正式 use cases
-
-## 8. HTTP API 设计
-
-建议按两类资源暴露接口。
-
-### 8.1 工作流接口
-
-- `POST /api/workflows`
-  - 创建工作流，挂接需求文档
-- `GET /api/workflows`
-  - 查询工作流列表
-- `GET /api/workflows/{workflow_id}`
-  - 获取工作流详情
-- `GET /api/workflows/{workflow_id}/snapshots`
-  - 获取历史候选版本
-- `POST /api/workflows/{workflow_id}/revision`
-  - 提交用户反馈并触发新一轮修订
-- `POST /api/workflows/{workflow_id}/approve`
-  - 标记用户确认通过
-- `POST /api/workflows/{workflow_id}/persist`
-  - 将已确认 snapshot 提升为正式数据
-
-### 8.2 正式用例 CRUD 接口
-
-- `GET /api/use-cases`
-- `POST /api/use-cases`
-- `GET /api/use-cases/{usecase_id}`
-- `PATCH /api/use-cases/{usecase_id}`
-- `DELETE /api/use-cases/{usecase_id}`
-
-如业务需要，再补：
-
-- `GET /api/test-cases`
-- `PATCH /api/test-cases/{testcase_id}`
-
-## 9. runtime-service 本地 tools 设计
-
-这类工具不进入公共 `tools registry`。
-
-每个业务 agent 自己在本地定义高语义工具。
-
-推荐工具分为两类：
-
-### 9.1 工作流过程工具
-
-- `create_usecase_workflow`
-- `save_requirement_analysis_snapshot`
-- `save_usecase_review_report`
-- `get_current_workflow_snapshot`
-- `mark_workflow_ready_for_confirmation`
-
-### 9.2 最终落库工具
-
-- `persist_final_usecases`
-
-这些工具内部调用不同 HTTP 接口，而不是统一落到一个模糊入口。
-
-## 10. 前端交互设计
-
-### 10.1 工作台页面要展示什么
-
-至少展示三类内容：
-
-- 需求分析结果
-- 当前候选用例
-- 当前评审报告
-
-建议 UI 操作包括：
-
-- 上传文档
-- 发起生成
-- 查看当前版本
-- 录入补充说明
-- 重新生成
-- 重新评审
-- 确认落库
-
-### 10.2 CRUD 页面要展示什么
-
-正式用例管理页建议支持：
-
-- 列表
-- 搜索
-- 分页
-- 详情
-- 修改
-- 删除
-
-它只展示正式数据，不展示未确认草稿。
-
-## 11. 平台职责划分
-
-### 11.1 `platform-api`
-
-建议作为唯一平台入口：
-
-- 接收前端请求
-- 校验当前用户和项目权限
-- 调用 `runtime-service`
-- 调用 `interaction-data-service`
-- 向前端返回统一视图
-
-### 11.2 `platform-web`
-
-继续只调用 `platform-api`，不要直接访问 `interaction-data-service`。
-
-## 12. 第一阶段建议实施范围
-
-为了尽快闭环，第一期建议只做：
-
-1. 一个 `usecase_workflow_agent`
-2. 两个 subagent：需求分析、用例评审
-3. 一套工作流状态机
-4. 四张核心表：
-   - `requirement_documents`
-   - `usecase_workflows`
-   - `usecase_workflow_snapshots`
-   - `use_cases`
-5. 一个工作台页面
-6. 一个正式用例列表页
-7. 一个人工确认后落库动作
-
-## 13. 第二阶段建议
-
-第二期再扩展：
-
-- 版本 diff
-- 审批轨迹
-- review 标准配置化
-- `test_cases` 独立管理
-- 详情页/编辑页
-
-## 14. 最终结论
-
-这个真实案例最优解不是“单个用例生成 agent”，而是：
-
-- 一个 deepagent 驱动的工作流
-- 一个保存工作流过程和正式结果的 `interaction-data-service`
-- 一个聊天式工作台页面
-- 一个正式用例 CRUD 页面
-- 一个必须由人工触发的最终落库关口
+- 一个主 orchestrator
+- 四个阶段职责明确的 subagent
+- review 先于 confirmation
+- confirmation 先于 persistence
+- 保留附件解析产物落库
+- 最终正式用例由人工确认后落库
 
 只有这样，系统才能同时满足：
 
-- 智能生成
-- 规范评审
+- 智能协作
+- 阶段透明
 - 人工把关
 - 结果可追溯
 - 正式数据可管理

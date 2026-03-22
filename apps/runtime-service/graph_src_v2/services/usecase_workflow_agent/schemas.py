@@ -3,12 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from graph_src_v2.middlewares.multimodal import MultimodalAgentState
+
 WorkflowStage = Literal[
     "workflow_initialized",
     "requirement_analysis",
+    "generated_candidate_usecases",
     "reviewed_candidate_usecases",
     "awaiting_user_confirmation",
     "persisted",
+]
+
+WorkflowToolStage = Literal[
+    "analysis",
+    "generation",
+    "review",
+    "awaiting_user_confirmation",
+    "completed",
 ]
 
 DEFAULT_AGENT_NAME = "usecase_workflow_agent"
@@ -34,6 +45,13 @@ class UsecaseDraftPayload(dict[str, Any]):
 
 class UsecaseReviewPayload(dict[str, Any]):
     pass
+
+
+class UsecaseWorkflowState(MultimodalAgentState):
+    current_stage: WorkflowToolStage | None
+    workflow_id: str | None
+    latest_snapshot: dict[str, Any] | None
+    ready_for_persist: bool | None
 
 
 def build_workflow_snapshot(

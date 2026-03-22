@@ -7,9 +7,18 @@ from pydantic import BaseModel, Field
 
 class CreateRequirementDocumentRequest(BaseModel):
     project_id: str
+    workflow_id: str | None = None
     filename: str = Field(min_length=1, max_length=255)
     content_type: str = Field(min_length=1, max_length=128)
     storage_path: str | None = None
+    source_kind: str = Field(default="upload", min_length=1, max_length=64)
+    parse_status: str = Field(default="unprocessed", min_length=1, max_length=64)
+    summary_for_model: str = ""
+    parsed_text: str | None = None
+    structured_data: dict[str, Any] | None = None
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    confidence: float | None = None
+    error: dict[str, Any] | None = None
 
 
 class CreateWorkflowRequest(BaseModel):
@@ -61,4 +70,27 @@ class WorkflowSnapshotResponse(BaseModel):
 
 class WorkflowListResponse(BaseModel):
     items: list[WorkflowSummaryResponse]
+    total: int
+
+
+class RequirementDocumentResponse(BaseModel):
+    id: str
+    project_id: str
+    workflow_id: str | None
+    filename: str
+    content_type: str
+    storage_path: str | None
+    source_kind: str
+    parse_status: str
+    summary_for_model: str
+    parsed_text: str | None
+    structured_data: dict[str, Any] | None
+    provenance: dict[str, Any]
+    confidence: float | None
+    error: dict[str, Any] | None
+    created_at: str
+
+
+class RequirementDocumentListResponse(BaseModel):
+    items: list[RequirementDocumentResponse]
     total: int

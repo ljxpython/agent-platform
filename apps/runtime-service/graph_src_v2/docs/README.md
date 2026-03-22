@@ -32,6 +32,7 @@
 - `customer_support_handoffs_demo`：步骤式状态流范式
 - `personal_assistant_demo`：supervisor + subagent 范式
 - `skills_sql_assistant_demo`：middleware + skills 范式
+- `usecase_workflow_agent`：业务工作流范式，当前实现见 `services/usecase_workflow_agent/README.md`，后续重构计划见 `services/usecase_workflow_agent/refactor-plan.md`
 
 graph 注册以 `graph_src_v2/langgraph.json` 和 `graph_src_v2/langgraph_auth.json` 为准。
 
@@ -50,6 +51,21 @@ curl -sS -X POST http://127.0.0.1:8123/assistants/search -H "Content-Type: appli
 curl -sS http://127.0.0.1:8123/internal/capabilities/tools
 curl -sS http://127.0.0.1:8123/internal/capabilities/models
 ```
+
+## 多模态自测（devtools）
+
+`graph_src_v2/devtools/` 是开发期自测用的辅助脚本集合，不属于生产运行时逻辑；它的目标是让后端在不依赖前端的情况下复现/检查多模态输入。
+
+- `graph_src_v2/devtools/multimodal_frontend_compat.py`：把 PDF / 图片等原始输入编码为「前端形状」的 content blocks，便于本地自测。
+- `graph_src_v2/devtools/dump_multimodal_fixtures.py`：遍历并输出 fixtures 的原始 bytes 与（如有）PDF 文本提取结果。
+
+运行命令：
+
+```bash
+./.venv/bin/python -m graph_src_v2.devtools.dump_multimodal_fixtures
+```
+
+fixtures 存放在 `graph_src_v2/test_data/`。
 
 ## 运行时最小心智模型
 

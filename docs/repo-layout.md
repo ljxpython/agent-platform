@@ -54,6 +54,7 @@
 
 - 每个应用自己的 `docs/`：只放该应用内部开发文档
 - 根目录 `docs/`：只放全局文档
+- 开发规范：见 `docs/development-guidelines.md`
 
 ## 4. 后续演进原则
 

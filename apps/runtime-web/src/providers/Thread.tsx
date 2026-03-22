@@ -1,17 +1,17 @@
-import { validate } from "uuid";
 import { getApiKey } from "@/lib/api-key";
-import { Thread } from "@langchain/langgraph-sdk";
+import type { Thread } from "@langchain/langgraph-sdk";
 import { useQueryState } from "nuqs";
 import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
   createContext,
   useContext,
-  ReactNode,
   useCallback,
   useState,
-  Dispatch,
-  SetStateAction,
 } from "react";
 import { createClient } from "./client";
+import { buildThreadTargetMetadata, resolveThreadTarget } from "./thread-target";
 
 interface ThreadContextType {
   getThreads: () => Promise<Thread[]>;
@@ -23,35 +23,48 @@ interface ThreadContextType {
 
 const ThreadContext = createContext<ThreadContextType | undefined>(undefined);
 
-function getThreadSearchMetadata(
-  assistantId: string,
-): { graph_id: string } | { assistant_id: string } {
-  if (validate(assistantId)) {
-    return { assistant_id: assistantId };
-  } else {
-    return { graph_id: assistantId };
-  }
-}
-
 export function ThreadProvider({ children }: { children: ReactNode }) {
-  const [apiUrl] = useQueryState("apiUrl");
-  const [assistantId] = useQueryState("assistantId");
+  const envApiUrl: string | undefined = process.env.NEXT_PUBLIC_API_URL;
+  const envAssistantId: string | undefined = process.env.NEXT_PUBLIC_ASSISTANT_ID;
+  const [apiUrl] = useQueryState("apiUrl", {
+    defaultValue: envApiUrl || "",
+  });
+  const [assistantId] = useQueryState("assistantId", {
+    defaultValue: envAssistantId || "",
+  });
+  const [graphId] = useQueryState("graphId", {
+    defaultValue: "",
+  });
+  const [targetType] = useQueryState("targetType", {
+    defaultValue: "",
+  });
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
 
   const getThreads = useCallback(async (): Promise<Thread[]> => {
-    if (!apiUrl || !assistantId) return [];
-    const client = createClient(apiUrl, getApiKey() ?? undefined);
+    const finalApiUrl = apiUrl || envApiUrl || "";
+    const resolvedTarget = resolveThreadTarget({
+      assistantId,
+      graphId,
+      targetType,
+      envAssistantId,
+    });
+    if (!finalApiUrl || !resolvedTarget.targetId) return [];
+
+    const client = createClient(finalApiUrl, getApiKey() ?? undefined);
 
     const threads = await client.threads.search({
       metadata: {
-        ...getThreadSearchMetadata(assistantId),
+        ...buildThreadTargetMetadata(
+          resolvedTarget.targetType,
+          resolvedTarget.targetId,
+        ),
       },
       limit: 100,
     });
 
     return threads;
-  }, [apiUrl, assistantId]);
+  }, [apiUrl, assistantId, envApiUrl, envAssistantId, graphId, targetType]);
 
   const value = {
     getThreads,

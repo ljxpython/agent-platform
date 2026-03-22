@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-router = APIRouter(prefix="/api", tags=["interaction-data"])
+router = APIRouter(tags=["interaction-data"])
 
 
 @router.get("/meta")

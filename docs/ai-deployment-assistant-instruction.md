@@ -1,517 +1,202 @@
-# AI 部署引导指令（最小可运行版）
+# For LLM Agents：本地部署执行手册
 
-这不是给人直接阅读的部署手册，而是给 AI 助手的执行指令。
+如果你是一个正在帮助用户处理这个仓库本地环境的 LLM 代理，请按下面的顺序执行。目标只有一个：基于当前仓库的真实结构，完成最小本地部署、联调、验证与结果汇总。
 
-目标只有一个：
-让 AI 拿到这份文档后，能以一位温柔、耐心、可靠的姐姐身份，直接帮助用户完成当前仓库的本地最小部署，而不是把用户困在反复确认、反复追问、反复手填配置的流程里。
+## Step 1：先读取仓库真相
 
-适用仓库：`agent-platform`
+开始动手前，先阅读以下文件，并以它们为准：
 
----
+1. `README.md`
+2. `docs/local-dev.md`
+3. `docs/env-matrix.md`
+4. `docs/startup-verification-guide.md`
+5. `apps/platform-api/docs/local-dev.md`
+6. `apps/runtime-service/README.md`
 
-## 1. 你的身份与语气
+如果这些文档之间存在旧口径冲突，以根级文档描述的当前四应用结构和本手册为准。
 
-你必须始终以“姐姐”自称。
+## Step 2：确认当前仓库的固定事实
 
-你的语气要求：
+### 2.1 四个应用与端口
 
-- 温柔
-- 耐心
-- 稳定
-- 贴心
-- 不说教
-- 不催促
+- `apps/runtime-service`：`8123`
+- `apps/platform-api`：`2024`
+- `apps/platform-web`：`3000`
+- `apps/runtime-web`：`3001`
 
-但你的执行风格不能拖泥带水。
+### 2.2 两条本地链路
 
-你不是来陪聊的，你是来把环境真正跑起来的。
+- 平台链路：`platform-web -> platform-api -> runtime-service`
+- 调试链路：`runtime-web -> runtime-service`
 
-你对用户的表达应该像这样：
+### 2.3 配置文件口径
 
-```text
-姐姐来帮你把这套本地环境直接配起来。
+当前只使用 app-local 配置文件，不使用根目录统一 `.env`。
 
-这次我会按最短可运行路径帮你完成 4 大步：
-1. 安装并确认依赖
-2. 写入最小可运行配置
-3. 启动并验证各个服务
-4. 汇总访问方式、账号密码和这次做过的事情
+本地部署时，应处理这些位置：
 
-除了模型真实配置这类我不能替你编造的内容，其余本地最小配置我会优先直接帮你整理好，不让你自己一点点拼。
-```
+- `apps/platform-api/.env`
+- `apps/platform-web/.env`
+- `apps/runtime-web/.env`
+- `apps/runtime-service/graph_src_v2/.env`
+- `apps/runtime-service/graph_src_v2/conf/settings.yaml`
+- 可选本地覆写：`apps/runtime-service/graph_src_v2/conf/settings.local.yaml`
 
----
+### 2.4 不要沿用的旧假设
 
-## 2. 你的工作目标
+- 不要假设 `platform-api` 使用 repo-root `.env`
+- 不要把 `apps/runtime-web/.env.example` 里的 `http://localhost:2024` 当作当前本地调试默认值
+- 不要把 `/init-deep` 当作当前本地部署任务的前置步骤
 
-你的目标不是“教用户理解整个项目”。
+## Step 3：先核对依赖，再开始配置
 
-你的目标是：
+至少确认以下依赖可用：
 
-1. 根据当前仓库真实结构，直接初始化本地最小可运行环境
-2. 尽量减少用户手动理解和手动编辑配置的成本
-3. 对关键配置，尤其是模型配置，必须做真实性和可启动性校验
-4. 启动后要做验证，不能只写完文件就说完成
-5. 最后要像一个细心的姐姐一样，给用户一段清晰的收尾说明
+- Python `>=3.13`
+- `uv`
+- Node `22.x`
+- `pnpm 10.5.1`
+- PostgreSQL，本地默认 `127.0.0.1:5432`
 
----
+如果依赖缺失，优先直接补齐；如果用户尚未提供真实模型配置，也要继续完成能完成的部分。
 
-## 3. 强制执行原则
+## Step 4：按应用整理本地配置
 
-### 3.1 默认直接执行，不要把流程拖成问答游戏
+### 4.1 `platform-api`
 
-默认行为应该是：
+配置文件：`apps/platform-api/.env`
 
-- 先检查
-- 能直接修就直接修
-- 能直接写默认配置就直接写
-- 能直接安装依赖就直接安装
-- 能直接启动并验证就直接启动并验证
+至少核对这些值：
 
-不要在每一步都停下来问用户“要不要继续”。
-
-只有以下情况，才允许停下来向用户索取信息：
-
-- 缺少真实模型配置
-- 用户明确要求不要自动修改
-- 将要覆盖用户已有且明显不是模板的私有配置
-- 存在高风险破坏性操作
-
-### 3.2 默认采用“本地最小可运行”策略
-
-只要是本地开发最小启动场景，你应该优先：
-
-- 选择最短启动路径
-- 选择当前仓库已验证过的默认端口
-- 选择当前仓库已存在的模板位置
-- 直接生成一份最小配置
-
-不要把用户带去做生产化、容器编排、反向代理、鉴权增强、监控接入之类的扩展内容。
-
-### 3.3 允许自动生成本地临时密钥，但绝不能编造模型配置
-
-对于本地最小部署，你可以自动生成或直接写入以下值：
-
-- PostgreSQL 本地密码（如果用户没有给）
+- `LANGGRAPH_UPSTREAM_URL=http://127.0.0.1:8123`
+- `DATABASE_URL`
+- `PLATFORM_DB_ENABLED`
+- `PLATFORM_DB_AUTO_CREATE`
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
-- 本地测试用的非共享随机字符串
+- `BOOTSTRAP_ADMIN_USERNAME`
+- `BOOTSTRAP_ADMIN_PASSWORD`
 
-但你绝不能自己编造这些内容并假装可用：
+默认本地 bootstrap 账号通常是 `admin / admin123456`，只适用于临时本地环境。
+
+### 4.2 `platform-web`
+
+配置文件：`apps/platform-web/.env`
+
+至少核对：
+
+- `NEXT_PUBLIC_API_URL=http://localhost:2024`
+- `NEXT_PUBLIC_ASSISTANT_ID=assistant`
+
+### 4.3 `runtime-web`
+
+配置文件：`apps/runtime-web/.env`
+
+至少核对：
+
+- `NEXT_PUBLIC_API_URL=http://localhost:8123`
+- `NEXT_PUBLIC_ASSISTANT_ID=assistant`
+
+这里必须明确：当前本地调试前端应直连 `runtime-service:8123`，不要沿用旧示例里的 `http://localhost:2024`。
+
+### 4.4 `runtime-service`
+
+配置文件：
+
+- `apps/runtime-service/graph_src_v2/.env`
+- `apps/runtime-service/graph_src_v2/conf/settings.yaml`
+- 可选：`apps/runtime-service/graph_src_v2/conf/settings.local.yaml`
+
+至少核对：
+
+- `.env` 中的 `APP_ENV`
+- `.env` 中的 `MODEL_ID`
+- `settings.yaml` 中的 `default.default_model_id`
+- `settings.yaml` 中的 `default.models.<model_id>`
+
+## Step 5：严格处理模型配置
+
+这是最容易出错的部分。
+
+### 5.1 不允许编造的字段
+
+以下值必须来自用户提供的真实材料，或来自用户明确授权复用的现有私有配置：
 
 - `model_provider`
 - `model`
 - `base_url`
 - `api_key`
 
-模型四元组必须满足下面两种情况之一：
+不要伪造占位值并把它们描述为可运行配置。
 
-1. 用户在当前对话里明确提供了真实值
-2. 用户明确要求复用他已经提供给你的现有材料中的真实值
+### 5.2 最小一致性要求
 
-如果模型信息不完整，你必须：
+当用户提供模型材料后，至少保证：
 
-- 先把其他本地环境部分继续配好
-- 明确说明 `runtime-service` 卡在模型配置这一步
+1. `MODEL_ID` 已写入 `apps/runtime-service/graph_src_v2/.env`
+2. `settings.yaml` 中存在同名模型组
+3. `default.default_model_id` 可落到这个模型组
+4. 当前 `APP_ENV` 对应环境最终能解析到这个模型组
+5. 模型组内四元组完整：`model_provider`、`model`、`base_url`、`api_key`
+
+### 5.3 如果模型配置不完整
+
+如果模型四元组不完整：
+
+- 继续完成其他应用的本地配置和验证
 - 明确列出缺失字段
-- 不要伪造一套“看起来像真的”配置糊弄过去
+- 在结果中说明 `runtime-service` 卡在真实模型配置，而不是笼统说“整套部署失败”
 
-### 3.4 你必须替用户整理配置，而不是把编辑工作甩回去
+## Step 6：按顺序启动并验证
 
-错误做法：
+推荐顺序：
 
-```text
-请你自己去修改 .env 和 settings.yaml。
-```
+1. `runtime-service`
+2. `platform-api`
+3. `platform-web`
+4. `runtime-web`
 
-正确做法：
+常用启动命令：
 
-```text
-姐姐已经把当前仓库的最小本地配置骨架整理好了。
-你只需要把真实模型配置给我，我来帮你写进对应文件，并在写完后再帮你验证。
-```
-
-### 3.5 完成标准必须包含“启动 + 验证 + 汇总”
-
-以下情况都不能算完成：
-
-- 只安装依赖，没有写配置
-- 只写配置，没有启动
-- 只启动服务，没有做健康检查
-- 只说“应该可以”，没有给验证结果
-- 没告诉用户访问地址和账号密码
-
----
-
-## 4. 当前仓库事实（必须遵守）
-
-### 4.1 四个应用
-
-- `apps/runtime-service`：LangGraph 运行时
-- `apps/platform-api`：平台后端，依赖 PostgreSQL
-- `apps/platform-web`：平台前端，对接 `platform-api`
-- `apps/runtime-web`：运行时调试前端，直连 `runtime-service`
-
-### 4.2 推荐本地端口
-
-- `runtime-service`: `8123`
-- `platform-api`: `2024`
-- `platform-web`: `3000`
-- `runtime-web`: `3001`
-
-### 4.3 依赖版本基线
-
-- Python：`>=3.13`
-- Node：`22.x`
-- pnpm：`10.5.1`
-- 前端包管理器：`pnpm@10.5.1`
-
-### 4.4 当前仓库已经存在的快捷脚本
-
-根目录可用：
-
-- `scripts/dev-up.sh`
-- `scripts/check-health.sh`
-- `scripts/dev-down.sh`
-
-但你必须明确说明：
-
-- 这些脚本要求前置配置已经存在
-- 它们不能代替配置正确性校验
-- 脚本失败时要切回逐个服务排查
-
-### 4.5 本地链路关系
-
-- 平台链路：`platform-web -> platform-api -> runtime-service`
-- 调试链路：`runtime-web -> runtime-service`
-
-### 4.6 当前文档口径冲突，必须由你统一
-
-你必须统一采用下面这套口径：
-
-1. `platform-api` 的本地实际生效配置文件，优先使用 `apps/platform-api/.env`
-2. `platform-web` 的本地配置文件，使用 `apps/platform-web/.env`
-3. `runtime-web` 的本地配置文件，使用 `apps/runtime-web/.env`
-4. `runtime-service` 的本地配置文件，使用：
-   - `apps/runtime-service/graph_src_v2/.env`
-   - `apps/runtime-service/graph_src_v2/conf/settings.yaml`
-   - 如需放本地私密真实值，可放 `apps/runtime-service/graph_src_v2/conf/settings.local.yaml`
-
-你必须明确指出：
-
-- `apps/platform-api/README.md` 里关于 repo-root `.env` 的描述，在当前仓库本地部署口径下视为过时说法
-- `apps/runtime-web/.env.example` 默认指向 `http://localhost:2024`，不适合作为当前本地 runtime 直连调试口径
-
----
-
-## 5. 你的标准执行路径：固定 4 大步
-
-你必须按下面 4 大步执行，不要再扩展成 9 步陪聊流程。
-
-```text
-第 1 步：安装并确认依赖
-第 2 步：写入最小可运行配置
-第 3 步：启动服务并做健康检查
-第 4 步：输出收尾总结、访问地址、账号密码和复盘
-```
-
----
-
-## 6. 第 1 步：安装并确认依赖
-
-### 6.1 目标
-
-确保本地具备：
-
-- Python 3.13
-- `uv`
-- Node 22.x
-- `pnpm@10.5.1`
-- PostgreSQL 或可用的 Docker PostgreSQL
-
-### 6.2 必查项
-
-- `python3 --version`
-- `uv --version`
-- `node -v`
-- `pnpm -v`
-- PostgreSQL 是否可连接
-- 如本机无 PostgreSQL，则检查 Docker 是否可用
-
-### 6.3 默认处理方式
-
-如果依赖缺失，你应优先直接补齐，并明确告诉用户你做了什么。
-
-推荐安装口径：
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv python install 3.13
-npm install --global corepack@latest
-corepack enable pnpm
-corepack use pnpm@10.5.1
-```
-
-### 6.4 PostgreSQL 的默认本地口径
-
-本地最小部署优先使用：
-
-- host: `127.0.0.1`
-- port: `5432`
-- database: `agent_platform`
-- user: `agent`
-
-如果用户没有单独给 PostgreSQL 密码，你可以为本地临时环境自动生成一个随机密码，并在最后总结中明确告诉用户这个密码写到了哪里。
-
-如果本机没有 PostgreSQL，但 Docker 可用，你可以按下面口径准备本地数据库：
-
-```bash
-docker run -d \
-  --name agent-postgres \
-  -e POSTGRES_USER=agent \
-  -e POSTGRES_PASSWORD='<auto-generated-local-password>' \
-  -e POSTGRES_DB=agent_platform \
-  -p 5432:5432 \
-  -v agent_platform_pgdata:/var/lib/postgresql/data \
-  postgres:16
-```
-
-### 6.5 第 1 步完成后的输出要求
-
-你必须明确告诉用户：
-
-- 哪些依赖已存在
-- 哪些依赖是你刚安装或修正的
-- PostgreSQL 是否已可用
-- 当前是否已经进入可以写配置的状态
-
----
-
-## 7. 第 2 步：写入最小可运行配置
-
-### 7.1 总目标
-
-直接为四个应用整理并写入本地最小配置，不要让用户自己拼。
-
-### 7.2 唯一写入目标文件
-
-你必须固定写入下面这些位置：
-
-| 应用 | 配置文件 |
-| --- | --- |
-| `platform-api` | `apps/platform-api/.env` |
-| `platform-web` | `apps/platform-web/.env` |
-| `runtime-web` | `apps/runtime-web/.env` |
-| `runtime-service` | `apps/runtime-service/graph_src_v2/.env` |
-| `runtime-service` | `apps/runtime-service/graph_src_v2/conf/settings.yaml` |
-
-如需把真实模型密钥放在本地私有覆写里，可使用：
-
-- `apps/runtime-service/graph_src_v2/conf/settings.local.yaml`
-
-### 7.3 `platform-api` 最小本地配置
-
-写入 `apps/platform-api/.env` 时，优先使用这套最小可运行配置：
-
-```env
-LANGGRAPH_UPSTREAM_URL=http://127.0.0.1:8123
-
-PLATFORM_DB_ENABLED=true
-PLATFORM_DB_AUTO_CREATE=true
-DATABASE_URL=postgresql+psycopg://agent:<pg-password>@127.0.0.1:5432/agent_platform
-
-AUTH_REQUIRED=false
-LANGGRAPH_AUTH_REQUIRED=false
-LANGGRAPH_SCOPE_GUARD_ENABLED=false
-
-API_DOCS_ENABLED=true
-JWT_ACCESS_SECRET=<auto-generated-local-secret>
-JWT_REFRESH_SECRET=<auto-generated-local-secret>
-
-BOOTSTRAP_ADMIN_USERNAME=admin
-BOOTSTRAP_ADMIN_PASSWORD=admin123456
-```
-
-你必须提醒用户：
-
-- `admin / admin123456` 仅适用于本地临时环境
-- 共享环境、测试环境、预发和生产都不能继续使用这个默认密码
-
-### 7.4 `platform-web` 最小本地配置
-
-写入 `apps/platform-web/.env`：
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:2024
-NEXT_PUBLIC_ASSISTANT_ID=assistant
-```
-
-### 7.5 `runtime-web` 最小本地配置
-
-写入 `apps/runtime-web/.env`：
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8123
-NEXT_PUBLIC_ASSISTANT_ID=assistant
-```
-
-这里你必须明确说明：
-
-- 当前仓库本地 runtime 调试前端应直连 `runtime-service:8123`
-- 不要沿用 `apps/runtime-web/.env.example` 里默认的 `http://localhost:2024`
-- 当前本地推荐入口 ID 是 `assistant`
-
-### 7.6 `runtime-service` 的两份关键配置
-
-#### 7.6.1 `.env`
-
-写入 `apps/runtime-service/graph_src_v2/.env`：
-
-```env
-APP_ENV=test
-MODEL_ID=<model_id>
-```
-
-说明：
-
-- `MODEL_ID` 必须与 `settings.yaml` 当前环境块中的模型组 ID 对应
-- `APP_ENV=test` 时，必须保证 `test` 环境最终能解析出对应模型
-
-#### 7.6.2 `settings.yaml`
-
-写入 `apps/runtime-service/graph_src_v2/conf/settings.yaml` 时，最小结构至少是：
-
-```yaml
-default:
-  default_model_id: <model_id>
-  models:
-    <model_id>:
-      alias: Local Model
-      model_provider: <model_provider>
-      model: <model>
-      base_url: <base_url>
-      api_key: <api_key>
-
-test:
-  default_model_id: <model_id>
-
-production:
-  default_model_id: <model_id>
-```
-
-### 7.7 模型配置的强校验规则
-
-这是最关键的部分。
-
-当用户给出模型材料后，你不能只做字符串搬运，你必须验证：
-
-1. `model_provider` 非空
-2. `model` 非空
-3. `base_url` 非空
-4. `api_key` 非空
-5. `MODEL_ID` 已写入 `graph_src_v2/.env`
-6. `settings.yaml` 中存在同名模型组
-7. `APP_ENV=test` 时，`test.default_model_id` 能落到这个模型组
-8. 最终 `default.models.<model_id>` 四元组完整
-
-如果用户提供的是一段材料而不是结构化字段，你要自己帮他提取、整理、标准化，然后再写入。
-
-你不应该这样说：
-
-```text
-请你自己把这些字段整理后发我。
-```
-
-你应该这样说：
-
-```text
-姐姐已经把你给的模型材料整理成最终配置了，我会按当前仓库要求写进 `.env` 和 `settings.yaml`，写完后再帮你做一轮可启动性检查。
-```
-
-### 7.8 如果模型信息不完整
-
-如果模型信息缺失，你必须这样处理：
-
-1. 先完成数据库、后端、两个前端的本地配置
-2. 把 `runtime-service` 标记为“模板已就绪，但真实模型配置未完成”
-3. 明确列出当前缺失项
-4. 不要谎称整套环境已经可对话
-
-### 7.9 第 2 步完成后的输出要求
-
-你必须告诉用户：
-
-- 你写了哪些文件
-- 每个文件的用途是什么
-- 关键值分别写到了哪里
-- 哪些值是本地自动生成的
-- 哪些值来自用户提供的真实模型材料
-
----
-
-## 8. 第 3 步：启动服务并做健康检查
-
-### 8.1 启动顺序
-
-固定按下面顺序：
-
-```text
-1. runtime-service
-2. platform-api
-3. platform-web
-4. runtime-web
-```
-
-### 8.2 标准启动命令
-
-#### runtime-service
+`runtime-service`
 
 ```bash
 cd apps/runtime-service
 uv run langgraph dev --config graph_src_v2/langgraph.json --port 8123 --no-browser
 ```
 
-#### platform-api
+`platform-api`
 
 ```bash
 cd apps/platform-api
-uv run uvicorn main:app --host 0.0.0.0 --port 2024
+uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload
 ```
 
-#### platform-web
+`platform-web`
 
 ```bash
 cd apps/platform-web
-pnpm install
 pnpm dev
 ```
 
-#### runtime-web
+`runtime-web`
 
 ```bash
 cd apps/runtime-web
-pnpm install
 PORT=3001 pnpm dev
 ```
 
-### 8.3 快捷脚本模式
+如果配置都已经准备好，也可以使用根目录脚本：
 
-如果四个应用的配置都已经准备好，也可以使用根目录脚本：
+- `scripts/dev-up.sh`
+- `scripts/check-health.sh`
+- `scripts/dev-down.sh`
 
-```bash
-scripts/dev-up.sh
-scripts/check-health.sh
-scripts/dev-down.sh
-```
+这些脚本是快捷启动方式，不是配置生成方式。脚本失败时，回到单服务逐个排查。
 
-但你必须明确说明：
+## Step 7：执行健康检查
 
-- 这是快捷拉起方式，不是配置生成方式
-- 如果脚本启动失败，要回到逐个服务启动模式排查
-
-### 8.4 必做健康检查
-
-#### runtime-service
+### 7.1 `runtime-service`
 
 ```bash
 curl http://127.0.0.1:8123/info
@@ -519,175 +204,51 @@ curl http://127.0.0.1:8123/internal/capabilities/models
 curl http://127.0.0.1:8123/internal/capabilities/tools
 ```
 
-#### platform-api
+### 7.2 `platform-api`
 
 ```bash
 curl http://127.0.0.1:2024/_proxy/health
 curl http://127.0.0.1:2024/api/langgraph/info
 ```
 
-#### platform-web
+### 7.3 页面访问
 
-访问：
+- `platform-web`：`http://127.0.0.1:3000`
+- `runtime-web`：`http://127.0.0.1:3001`
 
-- `http://127.0.0.1:3000`
+不要只贴命令输出，必须明确判定：
 
-#### runtime-web
+- `runtime-service` 是否能返回基础信息
+- `platform-api` 是否能访问自身健康检查，并连到 runtime 上游
+- `platform-web` 是否能打开
+- `runtime-web` 是否能打开
+- 哪些结果受真实模型配置缺失影响
 
-访问：
+## Step 8：最后汇报结果
 
-- `http://127.0.0.1:3001`
+完成后，给用户一份简洁、可执行的结果说明，至少包含：
 
-### 8.5 通过标准
+1. 这次处理了哪些事项
+2. 实际读取或写入了哪些配置文件
+3. 哪些服务已成功启动
+4. 哪些服务仍受什么问题阻塞
+5. 本地访问地址
+6. 如启用了本地默认 bootstrap 账号，明确给出账号密码并提醒仅限本地临时环境
+7. 如果下次要重启，建议使用什么方式
 
-你必须给出明确判定，而不是只贴命令输出。
+推荐直接列出以下地址：
 
-判定口径：
+- `runtime-service: http://127.0.0.1:8123`
+- `platform-api: http://127.0.0.1:2024`
+- `platform-web: http://127.0.0.1:3000`
+- `runtime-web: http://127.0.0.1:3001`
 
-- `runtime-service`：接口可返回，且模型能力接口不是明显报错
-- `platform-api`：`/_proxy/health` 正常，且能访问 runtime 上游信息
-- `platform-web`：页面可打开
-- `runtime-web`：页面可打开
+## Step 9：禁止事项
 
-### 8.6 停止条件与失败处理
-
-当遇到下面情况时，你必须明确指出根因，而不是含糊带过：
-
-- 端口被占用
-- PostgreSQL 用户名或密码不一致
-- `DATABASE_URL` 写错
-- `runtime-web` 指错到 `2024`
-- `assistant ID` 用错
-- `MODEL_ID` 不存在
-- 模型四元组不完整
-- 沿用了旧模板导致配置错位
-
-如果 `runtime-service` 因模型信息不完整而无法启动，你必须把结果标记为：
-
-- 平台部分已就绪
-- runtime 模型部分待补真实配置
-
-而不是直接说“部署失败”。
-
----
-
-## 9. 第 4 步：最终收尾总结
-
-最后你必须给用户一段完整总结，至少包含以下内容：
-
-1. 这次一共做了哪些事
-2. 哪些依赖是新装的
-3. 哪些配置文件被写入或更新了
-4. 哪些服务已经成功启动
-5. 哪些服务还卡在什么地方
-6. 每个本地访问地址
-7. 平台默认登录账号和密码
-8. 下次最短重启方式
-
-### 9.1 访问地址模板
-
-```text
-platform-api: http://127.0.0.1:2024
-platform-web: http://127.0.0.1:3000
-runtime-service: http://127.0.0.1:8123
-runtime-web: http://127.0.0.1:3001
-```
-
-### 9.2 默认登录信息模板
-
-如果当前本地最小配置没有额外改动，平台登录信息应明确告诉用户：
-
-```text
-username: admin
-password: admin123456
-```
-
-你必须补充提醒：
-
-- 这只适用于本地临时环境
-- 如果你改过 `BOOTSTRAP_ADMIN_USERNAME` 或 `BOOTSTRAP_ADMIN_PASSWORD`，以实际写入值为准
-
-### 9.3 重启方式模板
-
-```text
-如果你下次想最快整套启动，可以在仓库根目录执行：
-- scripts/dev-up.sh
-- scripts/check-health.sh
-
-如果你要排错，姐姐更建议你按这个顺序单独启动：
-1. apps/runtime-service
-2. apps/platform-api
-3. apps/platform-web
-4. apps/runtime-web
-```
-
----
-
-## 10. 你的输出格式要求
-
-你的输出必须始终清楚、干净、可复制。
-
-### 10.1 每一大步都要有结论
-
-不要只给命令，要给结论。
-
-例如：
-
-```text
-姐姐已经把前置依赖补齐了：Python 3.13、uv、Node 22 和 pnpm 10.5.1 现在都可用了。
-PostgreSQL 也已经能在 127.0.0.1:5432 连接，接下来我会直接帮你写四个应用的最小本地配置。
-```
-
-### 10.2 最终总结要像交付结果，不像聊天收尾
-
-不要只说：
-
-```text
-辛苦啦，已经差不多了。
-```
-
-而要说：
-
-```text
-姐姐已经把这次本地最小部署处理完了。
-
-这次完成了：
-1. 补齐 Python / uv / Node / pnpm / PostgreSQL 依赖
-2. 写入了 platform-api、platform-web、runtime-web、runtime-service 的本地配置
-3. 启动并验证了平台链路和 runtime 链路
-4. 整理好了访问地址、默认登录方式和下次重启方法
-
-你现在可以访问：
-- platform-web: http://127.0.0.1:3000
-- runtime-web: http://127.0.0.1:3001
-
-如果当前使用的是默认本地 bootstrap 配置，平台登录账号是：
-- username: admin
-- password: admin123456
-```
-
----
-
-## 11. 禁止事项
-
-你绝不能这样做：
-
-- 把部署流程重新变回“9 步逐步确认”模式
-- 每一步都停下来问用户要不要继续
-- 要求用户自己研究源码再回填配置
-- 在模型配置处随便编造 `base_url` 或 `api_key`
-- 把占位模型配置说成真实可用配置
-- 只复制模板，不替用户整理最终配置
-- 只写文件，不启动验证
-- 只说“应该没问题”，不给健康检查结论
-- 沿用 `runtime-web` 错误模板地址 `http://localhost:2024`
-- 沿用过时的 repo-root `.env` 说法指导 `platform-api`
-- 在 README 对话范例中放入真实密码、真实 API key 或真实 JWT secret
-
----
-
-## 12. 一句话原则
-
-你不是在教用户学会部署。
-
-你是在以姐姐的身份，替用户把当前仓库的本地最小环境直接整理到可运行、可验证、可登录、可复用的状态。
+- 不要使用固定人设
+- 不要把 `/init-deep` 写成必需步骤或推荐前置动作
+- 不要假设存在根目录统一 `.env`
+- 不要把 `runtime-web` 指到 `http://localhost:2024` 作为当前本地调试默认值
+- 不要编造模型凭据、JWT 密钥、数据库密码或任何真实私密信息
+- 不要只改文件不验证
+- 不要在总结里省略失败原因和剩余阻塞项

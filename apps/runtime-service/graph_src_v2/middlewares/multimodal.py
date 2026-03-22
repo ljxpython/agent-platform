@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportMissingModuleSource=false
 from __future__ import annotations
 
 import base64
@@ -11,7 +12,7 @@ from graph_src_v2.runtime.modeling import resolve_model_by_id
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import HumanMessage, SystemMessage
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 AttachmentKind = Literal["image", "pdf", "doc", "docx", "xlsx", "file", "other"]
 AttachmentStatus = Literal["unprocessed", "parsed", "unsupported", "failed"]
@@ -62,8 +63,8 @@ AsyncAttachmentParser = Callable[
 
 
 class MultimodalAgentState(AgentState):
-    multimodal_attachments: NotRequired[list[AttachmentArtifact]]
-    multimodal_summary: NotRequired[str]
+    multimodal_attachments: list[AttachmentArtifact] | None
+    multimodal_summary: str | None
 
 
 def _get_message_content(message: Any) -> Any:
@@ -179,15 +180,14 @@ def _artifact_model_text(artifact: AttachmentArtifact) -> str:
     if isinstance(summary, str) and summary.strip():
         lines.append(f"摘要: {summary.strip()}")
 
-    parsed_text = artifact.get("parsed_text")
-    if isinstance(parsed_text, str) and parsed_text.strip():
-        lines.append(f"解析文本摘录:\n{parsed_text.strip()[:4000]}")
-
     structured_data = artifact.get("structured_data")
     if isinstance(structured_data, Mapping) and structured_data:
-        lines.append(
-            "结构化要点: " + json.dumps(dict(structured_data), ensure_ascii=False)
-        )
+        key_points = structured_data.get("key_points")
+        if isinstance(key_points, list) and key_points:
+            trimmed_points = [str(item).strip() for item in key_points[:6] if str(item).strip()]
+            if trimmed_points:
+                lines.append("关键要点:")
+                lines.extend([f"- {item}" for item in trimmed_points])
 
     return "\n".join(lines)
 
@@ -362,8 +362,16 @@ def build_multimodal_summary(artifacts: Sequence[AttachmentArtifact]) -> str | N
             lines.append(f"- 附件暂不支持：{summary}")
         else:
             lines.append(f"- {summary}")
+            structured_data = artifact.get("structured_data")
+            if isinstance(structured_data, Mapping):
+                key_points = structured_data.get("key_points")
+                if isinstance(key_points, list) and key_points:
+                    trimmed_points = [str(item).strip() for item in key_points[:3] if str(item).strip()]
+                    if trimmed_points:
+                        lines.append("  关键要点:")
+                        lines.extend([f"  - {item}" for item in trimmed_points])
     lines.append(
-        "请以原始附件块为事实来源；解析结果属于增强信息，可能存在误差，需要和原始附件一起判断。"
+        "请优先基于高层摘要和关键要点理解附件；更长的原始解析文本应由工具在需要时从状态中读取，而不是由模型直接搬运为工具参数。"
     )
     return "\n".join(lines)
 
@@ -646,13 +654,42 @@ def _resolve_parser_transport(model_id: str) -> tuple[str, Any, Any]:
 
 
 def _extract_openai_response_text(response: Any) -> str:
-    try:
-        choices = getattr(response, "choices")
-        first = choices[0]
-        message = first.message
-        content = getattr(message, "content", None)
-    except Exception:
-        return str(response)
+    def _response_field(name: str) -> Any:
+        if hasattr(response, name):
+            return getattr(response, name)
+        if isinstance(response, Mapping):
+            return response.get(name)
+        return None
+
+    def _build_malformed_response_error(reason: str) -> ValueError:
+        detail_parts = [reason]
+        status = _response_field("status")
+        if status is not None:
+            detail_parts.append(f"status={status}")
+        msg = _response_field("msg")
+        if msg is not None:
+            detail_parts.append(f"msg={msg}")
+        body = _response_field("body")
+        if body is not None:
+            detail_parts.append(f"body={body}")
+        raise ValueError("Malformed OpenAI-compatible response: " + "; ".join(detail_parts))
+
+    choices = _response_field("choices")
+    if choices is None:
+        _build_malformed_response_error("choices is null")
+    if not isinstance(choices, list) or not choices:
+        _build_malformed_response_error("choices is empty")
+
+    first = choices[0]
+    message = getattr(first, "message", None)
+    if message is None and isinstance(first, Mapping):
+        message = first.get("message")
+    if message is None:
+        _build_malformed_response_error("first choice has no message")
+
+    content = getattr(message, "content", None)
+    if content is None and isinstance(message, Mapping):
+        content = message.get("content")
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -762,7 +799,16 @@ def _parse_attachment_with_model(
             if pdf_meta is not None:
                 failed["structured_data"] = pdf_meta
             return failed
-        parsed = _parse_model_response(_extract_openai_response_text(response))
+        try:
+            parsed = _parse_model_response(_extract_openai_response_text(response))
+        except Exception as exc:
+            failed = _build_failed_artifact(
+                artifact, f"PDF 摘要生成失败：{exc}", model_id=model_id
+            )
+            failed["parsed_text"] = extracted_text[:12000]
+            if pdf_meta is not None:
+                failed["structured_data"] = pdf_meta
+            return failed
         structured_data = dict(parsed.get("structured_data") or {})
         if pdf_meta is not None:
             structured_data.update(pdf_meta)
@@ -780,7 +826,12 @@ def _parse_attachment_with_model(
         return _build_failed_artifact(
             artifact, f"附件解析失败：{exc}", model_id=model_id
         )
-    parsed = _parse_model_response(_extract_openai_response_text(response))
+    try:
+        parsed = _parse_model_response(_extract_openai_response_text(response))
+    except Exception as exc:
+        return _build_failed_artifact(
+            artifact, f"附件解析失败：{exc}", model_id=model_id
+        )
     return _apply_parser_result(artifact, parsed, model_id=model_id)
 
 
@@ -812,7 +863,16 @@ async def _aparse_attachment_with_model(
             if pdf_meta is not None:
                 failed["structured_data"] = pdf_meta
             return failed
-        parsed = _parse_model_response(_extract_openai_response_text(response))
+        try:
+            parsed = _parse_model_response(_extract_openai_response_text(response))
+        except Exception as exc:
+            failed = _build_failed_artifact(
+                artifact, f"PDF 摘要生成失败：{exc}", model_id=model_id
+            )
+            failed["parsed_text"] = extracted_text[:12000]
+            if pdf_meta is not None:
+                failed["structured_data"] = pdf_meta
+            return failed
         structured_data = dict(parsed.get("structured_data") or {})
         if pdf_meta is not None:
             structured_data.update(pdf_meta)
@@ -830,7 +890,12 @@ async def _aparse_attachment_with_model(
         return _build_failed_artifact(
             artifact, f"附件解析失败：{exc}", model_id=model_id
         )
-    parsed = _parse_model_response(_extract_openai_response_text(response))
+    try:
+        parsed = _parse_model_response(_extract_openai_response_text(response))
+    except Exception as exc:
+        return _build_failed_artifact(
+            artifact, f"附件解析失败：{exc}", model_id=model_id
+        )
     return _apply_parser_result(artifact, parsed, model_id=model_id)
 
 
