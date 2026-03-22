@@ -341,7 +341,7 @@ curl http://127.0.0.1:2024/api/langgraph/info
 这意味着：
 
 - 如果你在 `apps/platform-api` 目录下启动，最稳妥的做法是把 `.env` 放在 `apps/platform-api/.env`
-- 这也与 `docs/startup-verification-guide.md`、`docs/env-matrix.md` 当前写法一致
+- 这也与 `docs/local-dev.md`、`docs/env-matrix.md` 当前写法一致
 
 因此，本文建议：
 
@@ -510,7 +510,7 @@ PORT=3001 pnpm dev
 当前仓库内存在明显冲突：
 
 - `apps/runtime-web/.env.example` 默认写的是 `NEXT_PUBLIC_API_URL=http://localhost:2024`
-- 但根 README 与 `docs/startup-verification-guide.md` 当前推荐的是 `runtime-web -> runtime-service`
+- 但根 README 与 `docs/local-dev.md` 当前推荐的是 `runtime-web -> runtime-service`
 - 且 `runtime-service` 当前默认端口是 `8123`
 
 因此本文建议实际部署时：
@@ -678,6 +678,6 @@ PLATFORM_DB_ENABLED=true
 - `README.md`
 - `docs/local-dev.md`
 - `docs/env-matrix.md`
-- `docs/startup-verification-guide.md`
+- `docs/ai-deployment-assistant-instruction.md`
 - `apps/platform-api/docs/postgres-operations.md`
 - `apps/runtime-service/graph_src_v2/docs/README.md`

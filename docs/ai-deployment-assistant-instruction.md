@@ -9,7 +9,7 @@
 1. `README.md`
 2. `docs/local-dev.md`
 3. `docs/env-matrix.md`
-4. `docs/startup-verification-guide.md`
+4. `docs/deployment-guide.md`
 5. `apps/platform-api/docs/local-dev.md`
 6. `apps/runtime-service/README.md`
 
