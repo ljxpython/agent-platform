@@ -57,34 +57,59 @@
 
 ### 4.2 模型配置缺失
 
-要想把这套本地环境真实跑起来，用户必须先提供可用的模型接入材料。至少需要：
+要想把这套本地环境真实跑起来，用户必须先提供这个仓库实际会落地的 runtime 模型配置，而不是只给零散的 AK/SK、API Key、`base_url` 或模型名。
 
-- 凭证材料：AK/SK 或 API Key（按模型供应商实际要求提供）
-- `base_url`
-- 推理模型信息
-- 多模态模型信息
+至少要一次性补齐两部分：
 
-如果这些材料没有提供完整，`runtime-service` 就不能被视为真正可运行，真实部署也不能算完成。
+- `apps/runtime-service/graph_src_v2/.env` 中可用的 `MODEL_ID`
+- `apps/runtime-service/graph_src_v2/conf/settings.yaml` 中与这个 `MODEL_ID` 对应的模型配置块
+
+如果这些内容没有提供完整，`runtime-service` 就不能被视为真正可运行，真实部署也不能算完成。
 
 此时应按下面的方式处理：
 
 - 继续完成其他能完成的配置和验证
-- 立刻一次性向用户索要完整缺失材料，不要拆成多轮零散追问
-- 明确列出缺失字段
+- 立刻一次性向用户索要完整缺失配置，不要拆成多轮零散追问
+- 直接按仓库期望的文件形状索要，不要把问题拆成“AK/SK / base_url / 模型名”这种泛化问法
+- 明确列出缺失文件位点和字段
 - 把阻塞明确归因到 `runtime-service`
 - 明确告诉用户：当前还不能完成真实部署，不要把这种情况表述成“整套部署失败且原因未知”
 
 推荐直接这样问用户：
 
 ```text
-我先继续帮你处理其他不受影响的检查和配置；不过要让 runtime-service 真正跑起来，我这边还缺几项你必须提供的材料。请你一次性给我下面这些内容：
-1. 凭证材料：AK/SK 或 API Key（按你的模型供应商实际要求提供）
-2. base_url
-3. 推理模型信息
-4. 多模态模型信息
+我先继续帮你处理其他不受影响的检查；不过要让 runtime-service 真正跑起来，我这边还缺这个仓库实际需要写入的模型配置。请你一次性按下面格式回复：
+
+# apps/runtime-service/graph_src_v2/.env
+MODEL_ID=<your_model_id>
+
+# apps/runtime-service/graph_src_v2/conf/settings.yaml
+default:
+  default_model_id: <your_model_id>
+  models:
+    <your_model_id>:
+      alias: <optional_display_name>
+      model_provider: <provider>
+      model: <model_name>
+      base_url: <provider_base_url>
+      api_key: <your_api_key>
+
+如果你希望一次给多个模型，也可以把多个 `models.<model_id>` 配置块一起发给我，并标清默认使用哪个。
 ```
 
-### 4.3 快捷脚本失败
+### 4.3 前端导入或 500 误判
+
+如果 `platform-web` 或 `runtime-web` 出现前端构建失败、500，或“缺少 import / 缺少源码文件”之类的判断，不要第一时间把问题归因为仓库源码缺文件。
+
+至少先核实三件事：
+
+- 报错里指向的目标文件路径是否真实存在
+- 对应 app 的 `tsconfig.json` 是否已声明 `@/* -> ./src/*`
+- 当前诊断是否真的给出了 unresolved import / module not found
+
+在没有核实这三件事前，不要向用户下结论说“仓库缺了 `src/lib/*` 整块源码”。
+
+### 4.4 快捷脚本失败
 
 如果 `scripts/dev-up.sh`、`scripts/check-health.sh` 或 `scripts/dev-down.sh` 失败，回到 contract 里声明的单服务启动方式逐个排查。
 
