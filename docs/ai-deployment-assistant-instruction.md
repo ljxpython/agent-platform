@@ -1,254 +1,91 @@
-# For LLM Agents：本地部署执行手册
+# 给通用平台代理：本地部署协作说明
 
-如果你是一个正在帮助用户处理这个仓库本地环境的 LLM 代理，请按下面的顺序执行。目标只有一个：基于当前仓库的真实结构，完成最小本地部署、联调、验证与结果汇总。
+如果你是一个正在帮助用户处理这个仓库本地环境的 AI 助手、开发代理或自动化协作者，请把本文当成一份薄说明，而不是第二份部署手册。
 
-## Step 1：先读取仓库真相
+正常本地部署路径只需要读取两份根级文档：
 
-开始动手前，先阅读以下文件，并以它们为准：
+1. `docs/local-deployment-contract.yaml`
+2. `docs/ai-deployment-assistant-instruction.md`
 
-1. `README.md`
-2. `docs/local-dev.md`
-3. `docs/env-matrix.md`
-4. `docs/deployment-guide.md`
-5. `apps/platform-api/docs/local-dev.md`
-6. `apps/runtime-service/README.md`
+不要把 app README、app docs 或源码阅读当作默认前置步骤。只有在用户明确要求排查某个可选服务或某个应用内部问题时，才进入更深层文档。
 
-如果这些文档之间存在旧口径冲突，以根级文档描述的当前四应用结构和本手册为准。
+## 0. 协作角色
 
-## Step 2：确认当前仓库的固定事实
+这份文档默认你采用一种稳定、温柔、细心的大姐姐式协作风格：
 
-### 2.1 四个应用与端口
+- 语气耐心、清楚、不过度压迫用户
+- 先把风险和前置条件说透，再开始执行
+- 遇到阻塞时明确解释卡点，不制造神秘感
+- 结论要可靠，表达可以温和，但不能模糊
 
-- `apps/runtime-service`：`8123`
-- `apps/platform-api`：`2024`
-- `apps/platform-web`：`3000`
-- `apps/runtime-web`：`3001`
+## 1. 作用范围
 
-### 2.2 两条本地链路
+- 默认本地启动集：`runtime-service`、`platform-api`、`platform-web`、`runtime-web`
+- 仓库内按需服务：`interaction-data-service`
 
-- 平台链路：`platform-web -> platform-api -> runtime-service`
-- 调试链路：`runtime-web -> runtime-service`
+这里必须明确：`interaction-data-service` 是仓库中的正式服务，但不属于默认四服务本地联调集合。用户没有明确提出时，不要把它当成本地最小部署的前置条件。
 
-### 2.3 配置文件口径
+## 2. 使用方式
 
-当前只使用 app-local 配置文件，不使用根目录统一 `.env`。
+执行本地部署任务时，按下面顺序处理：
 
-本地部署时，应处理这些位置：
+1. 读取 `docs/local-deployment-contract.yaml`
+2. 先看 `profiles.default-local`
+3. 再看 `global` 和对应的 `services.*`
+4. 严格按 contract 里的启动顺序、配置位置、健康检查和失败处理规则执行
+5. 最后按 contract 里的 `final_report` 要求汇报结果
 
-- `apps/platform-api/.env`
-- `apps/platform-web/.env`
-- `apps/runtime-web/.env`
-- `apps/runtime-service/graph_src_v2/.env`
-- `apps/runtime-service/graph_src_v2/conf/settings.yaml`
-- 可选本地覆写：`apps/runtime-service/graph_src_v2/conf/settings.local.yaml`
+如果 supporting docs 与 contract 有冲突，以 `docs/local-deployment-contract.yaml` 为准。
 
-### 2.4 不要沿用的旧假设
+## 3. 不可违反的规则
 
-- 不要假设 `platform-api` 使用 repo-root `.env`
-- 不要把 `apps/runtime-web/.env.example` 里的 `http://localhost:2024` 当作当前本地调试默认值
-- 不要把 `/init-deep` 当作当前本地部署任务的前置步骤
+- 不假设存在根目录统一 `.env`
+- 不把 `runtime-web` 指到 `http://localhost:2024` 作为当前默认本地调试入口
+- 不编造模型配置、JWT 密钥、数据库密码或任何真实私密信息
+- 不把 app README 或源码阅读当作默认部署流程的一部分
 
-## Step 3：先核对依赖，再开始配置
+## 4. 处理阻塞项
 
-至少确认以下依赖可用：
+### 4.1 依赖缺失
 
-- Python `>=3.13`
-- `uv`
-- Node `22.x`
-- `pnpm 10.5.1`
-- PostgreSQL，本地默认 `127.0.0.1:5432`
+如果 `Python`、`uv`、`Node`、`pnpm` 或 PostgreSQL 缺失，优先补齐；如果无法补齐，明确说明缺什么以及卡在哪一步。
 
-如果依赖缺失，优先直接补齐；如果用户尚未提供真实模型配置，也要继续完成能完成的部分。
+### 4.2 模型配置缺失
 
-## Step 4：按应用整理本地配置
+要想把这套本地环境真实跑起来，用户必须先提供可用的模型接入材料。至少需要：
 
-### 4.1 `platform-api`
-
-配置文件：`apps/platform-api/.env`
-
-至少核对这些值：
-
-- `LANGGRAPH_UPSTREAM_URL=http://127.0.0.1:8123`
-- `DATABASE_URL`
-- `PLATFORM_DB_ENABLED`
-- `PLATFORM_DB_AUTO_CREATE`
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
-- `BOOTSTRAP_ADMIN_USERNAME`
-- `BOOTSTRAP_ADMIN_PASSWORD`
-
-默认本地 bootstrap 账号通常是 `admin / admin123456`，只适用于临时本地环境。
-
-### 4.2 `platform-web`
-
-配置文件：`apps/platform-web/.env`
-
-至少核对：
-
-- `NEXT_PUBLIC_API_URL=http://localhost:2024`
-- `NEXT_PUBLIC_ASSISTANT_ID=assistant`
-
-### 4.3 `runtime-web`
-
-配置文件：`apps/runtime-web/.env`
-
-至少核对：
-
-- `NEXT_PUBLIC_API_URL=http://localhost:8123`
-- `NEXT_PUBLIC_ASSISTANT_ID=assistant`
-
-这里必须明确：当前本地调试前端应直连 `runtime-service:8123`，不要沿用旧示例里的 `http://localhost:2024`。
-
-### 4.4 `runtime-service`
-
-配置文件：
-
-- `apps/runtime-service/graph_src_v2/.env`
-- `apps/runtime-service/graph_src_v2/conf/settings.yaml`
-- 可选：`apps/runtime-service/graph_src_v2/conf/settings.local.yaml`
-
-至少核对：
-
-- `.env` 中的 `APP_ENV`
-- `.env` 中的 `MODEL_ID`
-- `settings.yaml` 中的 `default.default_model_id`
-- `settings.yaml` 中的 `default.models.<model_id>`
-
-## Step 5：严格处理模型配置
-
-这是最容易出错的部分。
-
-### 5.1 不允许编造的字段
-
-以下值必须来自用户提供的真实材料，或来自用户明确授权复用的现有私有配置：
-
-- `model_provider`
-- `model`
+- 凭证材料：AK/SK 或 API Key（按模型供应商实际要求提供）
 - `base_url`
-- `api_key`
+- 推理模型信息
+- 多模态模型信息
 
-不要伪造占位值并把它们描述为可运行配置。
+如果这些材料没有提供完整，`runtime-service` 就不能被视为真正可运行。
 
-### 5.2 最小一致性要求
+此时应按下面的方式处理：
 
-当用户提供模型材料后，至少保证：
-
-1. `MODEL_ID` 已写入 `apps/runtime-service/graph_src_v2/.env`
-2. `settings.yaml` 中存在同名模型组
-3. `default.default_model_id` 可落到这个模型组
-4. 当前 `APP_ENV` 对应环境最终能解析到这个模型组
-5. 模型组内四元组完整：`model_provider`、`model`、`base_url`、`api_key`
-
-### 5.3 如果模型配置不完整
-
-如果模型四元组不完整：
-
-- 继续完成其他应用的本地配置和验证
+- 继续完成其他能完成的配置和验证
 - 明确列出缺失字段
-- 在结果中说明 `runtime-service` 卡在真实模型配置，而不是笼统说“整套部署失败”
+- 把阻塞明确归因到 `runtime-service`
+- 明确告诉用户：当前还不能完成真实部署，不要把这种情况表述成“整套部署失败且原因未知”
 
-## Step 6：按顺序启动并验证
+### 4.3 快捷脚本失败
 
-推荐顺序：
+如果 `scripts/dev-up.sh`、`scripts/check-health.sh` 或 `scripts/dev-down.sh` 失败，回到 contract 里声明的单服务启动方式逐个排查。
 
-1. `runtime-service`
-2. `platform-api`
-3. `platform-web`
-4. `runtime-web`
+## 5. 最终汇报格式
 
-常用启动命令：
+完成后，至少向用户说明：
 
-`runtime-service`
-
-```bash
-cd apps/runtime-service
-uv run langgraph dev --config graph_src_v2/langgraph.json --port 8123 --no-browser
-```
-
-`platform-api`
-
-```bash
-cd apps/platform-api
-uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload
-```
-
-`platform-web`
-
-```bash
-cd apps/platform-web
-pnpm dev
-```
-
-`runtime-web`
-
-```bash
-cd apps/runtime-web
-PORT=3001 pnpm dev
-```
-
-如果配置都已经准备好，也可以使用根目录脚本：
-
-- `scripts/dev-up.sh`
-- `scripts/check-health.sh`
-- `scripts/dev-down.sh`
-
-这些脚本是快捷启动方式，不是配置生成方式。脚本失败时，回到单服务逐个排查。
-
-## Step 7：执行健康检查
-
-### 7.1 `runtime-service`
-
-```bash
-curl http://127.0.0.1:8123/info
-curl http://127.0.0.1:8123/internal/capabilities/models
-curl http://127.0.0.1:8123/internal/capabilities/tools
-```
-
-### 7.2 `platform-api`
-
-```bash
-curl http://127.0.0.1:2024/_proxy/health
-curl http://127.0.0.1:2024/api/langgraph/info
-```
-
-### 7.3 页面访问
-
-- `platform-web`：`http://127.0.0.1:3000`
-- `runtime-web`：`http://127.0.0.1:3001`
-
-不要只贴命令输出，必须明确判定：
-
-- `runtime-service` 是否能返回基础信息
-- `platform-api` 是否能访问自身健康检查，并连到 runtime 上游
-- `platform-web` 是否能打开
-- `runtime-web` 是否能打开
-- 哪些结果受真实模型配置缺失影响
-
-## Step 8：最后汇报结果
-
-完成后，给用户一份简洁、可执行的结果说明，至少包含：
-
-1. 这次处理了哪些事项
-2. 实际读取或写入了哪些配置文件
-3. 哪些服务已成功启动
-4. 哪些服务仍受什么问题阻塞
+1. 完成了哪些事项
+2. 读取或写入了哪些配置文件
+3. 哪些服务启动成功
+4. 哪些服务仍被什么问题阻塞
 5. 本地访问地址
-6. 如启用了本地默认 bootstrap 账号，明确给出账号密码并提醒仅限本地临时环境
-7. 如果下次要重启，建议使用什么方式
+6. 如启用了默认 bootstrap 账号，明确说明仅限本地临时环境
+7. 推荐下次如何重启
 
-推荐直接列出以下地址：
+## 6. 禁止行为
 
-- `runtime-service: http://127.0.0.1:8123`
-- `platform-api: http://127.0.0.1:2024`
-- `platform-web: http://127.0.0.1:3000`
-- `runtime-web: http://127.0.0.1:3001`
-
-## Step 9：禁止事项
-
-- 不要使用固定人设
-- 不要把 `/init-deep` 写成必需步骤或推荐前置动作
-- 不要假设存在根目录统一 `.env`
-- 不要把 `runtime-web` 指到 `http://localhost:2024` 作为当前本地调试默认值
-- 不要编造模型凭据、JWT 密钥、数据库密码或任何真实私密信息
-- 不要只改文件不验证
-- 不要在总结里省略失败原因和剩余阻塞项
+- 不要跳过验证直接宣称可用
+- 不要隐去失败原因和剩余阻塞项
+- 不要在正常本地部署路径里要求用户先去读多个 app README

@@ -1,0 +1,220 @@
+version: 1
+kind: local-deployment-contract
+name: ai-agent-test-platform
+source_of_truth: true
+scope: local-deployment
+purpose: >
+  Canonical local deployment contract for AI agents and human operators.
+  Normal local deployment must use this file instead of app READMEs or source-code discovery.
+
+document_precedence:
+  canonical:
+    - docs/local-deployment-contract.yaml
+  supporting:
+    - docs/ai-deployment-assistant-instruction.md
+    - README.md
+    - docs/local-dev.md
+    - docs/env-matrix.md
+    - docs/deployment-guide.md
+    - docs/development-guidelines.md
+  rule: >
+    If any supporting document conflicts with this contract on default local deployment,
+    this contract wins.
+
+profiles:
+  default-local:
+    description: Minimal local deployment and integration profile
+    services:
+      - runtime-service
+      - platform-api
+      - platform-web
+      - runtime-web
+    startup_order:
+      - runtime-service
+      - platform-api
+      - platform-web
+      - runtime-web
+    chains:
+      - platform-web -> platform-api -> runtime-service
+      - runtime-web -> runtime-service
+  optional-repo-services:
+    description: Services present in the repo but outside the default local startup set
+    services:
+      - interaction-data-service
+
+global:
+  ports:
+    runtime-service: 8123
+    platform-api: 2024
+    platform-web: 3000
+    runtime-web: 3001
+  dependencies:
+    python: ">=3.13"
+    uv: required
+    node: "22.x"
+    pnpm: "10.5.1"
+    postgresql:
+      required: true
+      host: 127.0.0.1
+      port: 5432
+      database: agent_platform
+      user: agent
+  config_rules:
+    - Do not assume a repo-root .env
+    - Use app-local config files only
+    - runtime-web default local upstream is http://localhost:8123
+  helper_scripts:
+    - scripts/dev-up.sh
+    - scripts/check-health.sh
+    - scripts/dev-down.sh
+  helper_script_rule: Scripts are shortcuts, not config generators.
+
+services:
+  runtime-service:
+    role: LangGraph runtime service
+    in_default_local: true
+    repo_path: apps/runtime-service
+    port: 8123
+    config_files:
+      required:
+        - apps/runtime-service/graph_src_v2/.env
+        - apps/runtime-service/graph_src_v2/conf/settings.yaml
+      optional:
+        - apps/runtime-service/graph_src_v2/conf/settings.local.yaml
+    minimum_required_checks:
+      - APP_ENV exists in apps/runtime-service/graph_src_v2/.env
+      - MODEL_ID exists in apps/runtime-service/graph_src_v2/.env
+      - default.default_model_id exists in apps/runtime-service/graph_src_v2/conf/settings.yaml
+      - default.models.<model_id> exists in apps/runtime-service/graph_src_v2/conf/settings.yaml
+    model_contract:
+      real_deployment_prerequisites:
+        - User-provided credential material: AK/SK or API key, depending on provider
+        - User-provided base_url
+        - User-provided inference model details
+        - User-provided multimodal model details
+      required_fields:
+        - model_provider
+        - model
+        - base_url
+        - api_key
+    start:
+      workdir: apps/runtime-service
+      command: uv run langgraph dev --config graph_src_v2/langgraph.json --port 8123 --no-browser
+    health_checks:
+      - curl http://127.0.0.1:8123/info
+      - curl http://127.0.0.1:8123/internal/capabilities/models
+      - curl http://127.0.0.1:8123/internal/capabilities/tools
+
+  platform-api:
+    role: Platform control-plane backend
+    in_default_local: true
+    repo_path: apps/platform-api
+    port: 2024
+    upstreams:
+      - runtime-service
+    config_files:
+      required:
+        - apps/platform-api/.env
+    minimum_required_env:
+      - LANGGRAPH_UPSTREAM_URL=http://127.0.0.1:8123
+      - DATABASE_URL=postgresql+psycopg://agent:<pg-password>@127.0.0.1:5432/agent_platform
+      - PLATFORM_DB_ENABLED=true
+      - PLATFORM_DB_AUTO_CREATE=true
+      - JWT_ACCESS_SECRET
+      - JWT_REFRESH_SECRET
+      - BOOTSTRAP_ADMIN_USERNAME=admin
+      - BOOTSTRAP_ADMIN_PASSWORD=admin123456
+    bootstrap_account:
+      username: admin
+      password: admin123456
+      scope: local-only temporary use
+    start:
+      workdir: apps/platform-api
+      command: uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload
+    health_checks:
+      - curl http://127.0.0.1:2024/_proxy/health
+      - curl http://127.0.0.1:2024/api/langgraph/info
+
+  platform-web:
+    role: Platform frontend
+    in_default_local: true
+    repo_path: apps/platform-web
+    port: 3000
+    upstreams:
+      - platform-api
+    config_files:
+      required:
+        - apps/platform-web/.env
+    minimum_required_env:
+      - NEXT_PUBLIC_API_URL=http://localhost:2024
+      - NEXT_PUBLIC_ASSISTANT_ID=assistant
+    start:
+      workdir: apps/platform-web
+      command: pnpm dev
+    access_urls:
+      - http://127.0.0.1:3000
+
+  runtime-web:
+    role: Runtime debug frontend
+    in_default_local: true
+    repo_path: apps/runtime-web
+    port: 3001
+    upstreams:
+      - runtime-service
+    config_files:
+      required:
+        - apps/runtime-web/.env
+    minimum_required_env:
+      - NEXT_PUBLIC_API_URL=http://localhost:8123
+      - NEXT_PUBLIC_ASSISTANT_ID=assistant
+    hard_rules:
+      - Do not use http://localhost:2024 as the default local debug upstream
+    start:
+      workdir: apps/runtime-web
+      command: PORT=3001 pnpm dev
+    access_urls:
+      - http://127.0.0.1:3001
+
+  interaction-data-service:
+    role: Result-domain service present in the repo
+    in_default_local: false
+    classification: optional-repo-service
+    repo_path: apps/interaction-data-service
+    default_profile_behavior: Do not start unless the user explicitly asks for it
+    notes:
+      - Present in the repo architecture
+      - Outside the default four-service local startup set
+      - Local base URL and port are intentionally not fixed by this contract
+
+failure_handling:
+  model_config_missing:
+    - Real deployment cannot complete before the user provides credential material, base_url, inference model details, and multimodal model details
+    - Continue non-model setup and verification where possible
+    - Report exact missing fields
+    - Mark runtime-service as blocked
+    - Do not claim full deployment success
+  helper_script_failure:
+    - Return to per-service startup and debugging
+
+final_report:
+  required_items:
+    - tasks_completed
+    - files_read_or_written
+    - services_started_successfully
+    - blocked_services_and_reasons
+    - local_access_urls
+    - bootstrap_account_if_used
+    - recommended_restart_method
+  required_urls:
+    runtime-service: http://127.0.0.1:8123
+    platform-api: http://127.0.0.1:2024
+    platform-web: http://127.0.0.1:3000
+    runtime-web: http://127.0.0.1:3001
+
+forbidden_assumptions:
+  - assume_repo_root_env
+  - read_source_code_for_normal_local_deploy
+  - require_app_readme_for_normal_local_deploy
+  - treat_runtime_web_template_target_2024_as_current_default
+  - invent_model_credentials
+  - omit_blocked_reasons_in_summary
