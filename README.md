@@ -10,6 +10,8 @@
 - 想快速验证 LangGraph Runtime、Agent 行为和前端交互的开发者
 - 希望把 AI 协同开发真正纳入工程流程的团队
 
+> 想先理解当前项目为什么这么设计、后续应该按什么范式继续开发，可先看 [当前项目开发范式说明](docs/development-paradigm.md)。
+
 ## 这个项目解决什么问题
 
 很多 Agent 项目能跑 demo，但一到真实工程场景就容易混乱：平台治理、运行时执行、调试入口、环境配置全耦在一起，后面越改越难受。
@@ -162,6 +164,7 @@ AITestLab/
 
 重点看：
 
+- `docs/development-paradigm.md`
 - `docs/development-guidelines.md`
 - `docs/project-story.md`
 
