@@ -1,6 +1,20 @@
-# 企业级 AI Agent 平台架构
+<h1 align="center">企业级 AI Agent 平台架构</h1>
 
-[English](README.en.md) | 中文
+<p align="center"><strong>Platform Governance + Agent Runtime + MCP + LangGraph 的企业级 AI Agent 平台基础骨架</strong></p>
+
+<p align="center">[English](README.en.md) | 中文</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/LangGraph-1.0%2B-0E9F6E" alt="LangGraph" />
+  <img src="https://img.shields.io/badge/LangChain-1.2%2B-1C7ED6" alt="LangChain" />
+  <img src="https://img.shields.io/badge/FastAPI-0.133%2B-009688" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Next.js-15.5-black" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19.1-61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/MCP-Enabled-7C3AED" alt="MCP" />
+  <img src="https://img.shields.io/badge/README-EN%2FZH-F59E0B" alt="README EN/ZH" />
+</p>
+
+<p align="center">[系统总览](#system-overview) · [快速开始](#quick-start) · [部署文档](docs/deployment-guide.md) · [AI代理部署](#ai-deploy)</p>
 
 基于 `LangGraph / LangChain` 的企业级 AI 平台架构，可在此基础上进行二次开发。  
 它把**平台治理层**和**Agent Runtime 执行层**拆开，既支持平台侧的认证、项目管理、审计、catalog 管理，也支持 Agent 侧的图编排、模型装配、Tools / MCP / Skills 接入与快速调试，适合作为企业内部 AI 平台和智能体应用的基础骨架。
@@ -35,6 +49,8 @@
 
 ![平台前端效果展示](docs/assets/image-20260325161139758.png)
 
+<a id="system-overview"></a>
+
 ## 系统总览
 
 当前默认本地联调由五个应用组成：
@@ -58,6 +74,8 @@
 ## 架构图
 
 ![系统架构图](docs/assets/system-architecture.zh.svg)
+
+<a id="quick-start"></a>
 
 ## 快速开始
 
@@ -129,6 +147,8 @@ AITestLab/
 - `scripts/`：统一启动、停止、健康检查脚本
 - `archive/`：历史归档说明
 
+<a id="docs-by-goal"></a>
+
 ## 按目标阅读文档
 
 ![文档导航图](docs/assets/readme-doc-navigation.zh.svg)
@@ -154,6 +174,8 @@ AITestLab/
 - `docs/development-paradigm.md`
 - `docs/development-guidelines.md`
 - `docs/project-story.md`
+
+<a id="ai-deploy"></a>
 
 ### 我想让 AI 代理帮我部署
 
