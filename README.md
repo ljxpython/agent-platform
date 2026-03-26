@@ -184,10 +184,38 @@ AITestLab/
 
 - `docs/ai-deployment-assistant-instruction.md`
 
-你甚至可以直接把这句话发给代理：
+如果你只是想触发标准本地部署，这句话就够了：
 
 ```text
 阅读 `docs/ai-deployment-assistant-instruction.md` 帮我部署环境。
+```
+
+如果你已经知道本地要用哪套模型，建议把模型配置也一次性发给代理。这样代理更容易一次把环境配好，而不是启动到一半再回头追问 runtime 模型配置。
+
+更推荐直接发这段（把占位符替换成你自己的真实配置，且只让代理写入本地 `settings.local.yaml`，不要把真实 key 提交回仓库）：
+
+```text
+阅读 `docs/ai-deployment-assistant-instruction.md` 帮我部署环境。
+
+默认推理模型使用 `<YOUR_REASONING_MODEL_ID>`。
+当前多模态链路需要的模型一并配置为 `<YOUR_MULTIMODAL_MODEL_ID>`。
+如果本地缺少 runtime 模型配置，请把下面内容写入 `apps/runtime-service/graph_src_v2/conf/settings.local.yaml`，并继续完成部署、启动与验证；不要把真实 API Key 提交回仓库。
+
+default:
+  default_model_id: <YOUR_REASONING_MODEL_ID>
+  models:
+    <YOUR_MULTIMODAL_MODEL_ID>:
+      alias: <OPTIONAL_MULTIMODAL_ALIAS>
+      model_provider: openai
+      model: <YOUR_MULTIMODAL_MODEL_NAME>
+      base_url: <YOUR_PROVIDER_BASE_URL>
+      api_key: <YOUR_API_KEY>
+    <YOUR_REASONING_MODEL_ID>:
+      alias: <OPTIONAL_REASONING_ALIAS>
+      model_provider: openai
+      model: <YOUR_REASONING_MODEL_NAME>
+      base_url: <YOUR_PROVIDER_BASE_URL>
+      api_key: <YOUR_API_KEY>
 ```
 
 ## 实操参考

@@ -65,9 +65,20 @@
 
 至少要一次性补齐核心模型配置：
 
-- `apps/runtime-service/graph_src_v2/conf/settings.yaml` 中与这个 `MODEL_ID` 对应的模型配置块
+- 优先提供 `apps/runtime-service/graph_src_v2/conf/settings.local.yaml`；如果用户明确要直接改仓库默认配置，也可以提供 `apps/runtime-service/graph_src_v2/conf/settings.yaml`
+- 上述配置文件中，与这个 `MODEL_ID` 对应的模型配置块必须完整可用
 
-补充规则：`apps/runtime-service/graph_src_v2/.env` 中的 `MODEL_ID` 默认可以留空；留空时应使用 `settings.yaml` 当前环境块里的 `default_model_id`。只有当用户明确需要覆盖默认模型时，才要求提供 `MODEL_ID`。
+补充规则：`apps/runtime-service/graph_src_v2/.env` 中的 `MODEL_ID` 默认可以留空；留空时应使用 `settings.yaml` 与 `settings.local.yaml` 合并后的当前环境块里的 `default_model_id`。只有当用户明确需要覆盖默认模型时，才要求提供 `MODEL_ID`。
+
+如果用户已经一次性给出 repo 形状的模型配置，不要重复追问。直接把它落到本地配置文件后继续部署、启动和验证。
+
+当前仓库的多模态中间件默认会使用一个固定的附件解析模型，具体默认值见 `graph_src_v2/middlewares/multimodal.py` 中的 `DEFAULT_MULTIMODAL_MODEL_ID`。因此：
+
+- 如果用户希望当前默认多模态链路也能直接工作，`models` 中除了默认推理模型外，最好还同时包含“当前默认多模态模型”对应的配置块
+- 如果用户一次给两套模型，推荐按下面这种泛指结构提供：
+  - `default.default_model_id = <your_reasoning_model_id>`
+  - `default.models.<your_reasoning_model_id> = 推理模型配置`
+  - `default.models.<your_multimodal_model_id> = 多模态模型配置`
 
 如果这些内容没有提供完整，`runtime-service` 就不能被视为真正可运行，真实部署也不能算完成。
 
@@ -91,7 +102,7 @@
 # Leave MODEL_ID empty to use default_model_id.
 MODEL_ID=
 
-# apps/runtime-service/graph_src_v2/conf/settings.yaml
+# apps/runtime-service/graph_src_v2/conf/settings.local.yaml
 default:
   default_model_id: <your_model_id>
   models:
@@ -103,6 +114,27 @@ default:
       api_key: <your_api_key>
 
 如果你希望一次给多个模型，也可以把多个 `models.<model_id>` 配置块一起发给我，并标清默认使用哪个。
+
+如果你要让我直接按“两套模型一起补齐”的方式处理，也可以直接一次性这样给我：
+
+# apps/runtime-service/graph_src_v2/conf/settings.local.yaml
+default:
+  default_model_id: <your_reasoning_model_id>
+  models:
+    <your_multimodal_model_id>:
+      alias: <optional_multimodal_alias>
+      model_provider: openai
+      model: <your_multimodal_model_name>
+      base_url: <your_provider_base_url>
+      api_key: <your_api_key>
+    <your_reasoning_model_id>:
+      alias: <optional_reasoning_alias>
+      model_provider: openai
+      model: <your_reasoning_model_name>
+      base_url: <your_provider_base_url>
+      api_key: <your_api_key>
+
+注意：这里应该由用户提供真实 `api_key`，不要编造，也不要把私密 key 回写进仓库文档。
 ```
 
 ### 4.3 前端导入或 500 误判
