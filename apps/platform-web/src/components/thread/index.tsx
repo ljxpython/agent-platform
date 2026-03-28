@@ -37,6 +37,7 @@ import { useWorkspaceContext } from "@/providers/WorkspaceContext";
 import { ArtifactContent, ArtifactTitle, useArtifactContext, useArtifactOpen } from "./artifact";
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import ThreadHistory from "./history";
+import { TasksFilesPanel } from "./tasks-files-panel";
 import { ThreadIdCopyable } from "./agent-inbox/components/thread-id";
 import { AssistantMessage, AssistantMessageLoading } from "./messages/ai";
 import { HumanMessage } from "./messages/human";
@@ -835,6 +836,9 @@ export function Thread({
                       onSubmit={handleSubmit}
                       className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
+                      <TasksFilesPanel
+                        values={stream.values as Record<string, unknown> | undefined}
+                      />
                       <ContentBlocksPreview
                         blocks={contentBlocks}
                         onRemove={removeBlock}

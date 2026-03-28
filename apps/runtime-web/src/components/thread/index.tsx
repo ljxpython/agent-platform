@@ -39,6 +39,7 @@ import {
 } from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
+import { TasksFilesPanel } from "./tasks-files-panel";
 import {
   useArtifactOpen,
   ArtifactContent,
@@ -458,6 +459,9 @@ export function Thread() {
                       onSubmit={handleSubmit}
                       className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
+                      <TasksFilesPanel
+                        values={stream.values as Record<string, unknown> | undefined}
+                      />
                       <ContentBlocksPreview
                         blocks={contentBlocks}
                         onRemove={removeBlock}
