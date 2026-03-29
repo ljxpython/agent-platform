@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,21 @@ from runtime_service.tools.registry import build_tools
 from langchain_core.runnables import RunnableConfig
 from langgraph_sdk.runtime import ServerRuntime
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+def _resolve_filesystem_backend_root_dir(
+    private_config: dict[str, Any], *, agent_name: str
+) -> str:
+    override = private_config.get("deepagents_backend_root_dir")
+    if isinstance(override, str) and override.strip():
+        path = Path(override).expanduser()
+    else:
+        path = (
+            Path(tempfile.gettempdir())
+            / "ai-agent-platform"
+            / "deepagents"
+            / agent_name
+        )
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def _parse_bool(value: Any, default: bool) -> bool:
@@ -77,7 +92,12 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
         tools=tools,
         middleware=[multimodal_middleware],
         system_prompt=options.system_prompt or SYSTEM_PROMPT,
-        backend=FilesystemBackend(root_dir=str(ROOT_DIR), virtual_mode=False),
+        backend=FilesystemBackend(
+            root_dir=_resolve_filesystem_backend_root_dir(
+                private_config, agent_name="research-demo"
+            ),
+            virtual_mode=False,
+        ),
         skills=list_research_agent_skills(),
         subagents=subagents,
         context_schema=RuntimeContext,
