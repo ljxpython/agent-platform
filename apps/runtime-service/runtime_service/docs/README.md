@@ -31,6 +31,7 @@
 - `deepagent_demo`：深任务分解范式
 - `customer_support_handoffs_demo`：步骤式状态流范式
 - `personal_assistant_demo`：supervisor + subagent 范式
+- `research_demo`：deepagent 研究范式（research_agent 私有 skills + 可选 Tavily MCP）
 - `skills_sql_assistant_demo`：middleware + skills 范式
 - `usecase_workflow_agent`：业务工作流范式，当前实现见 `services/usecase_workflow_agent/README.md`，后续重构计划见 `services/usecase_workflow_agent/refactor-plan.md`
 

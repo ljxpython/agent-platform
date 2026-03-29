@@ -21,6 +21,10 @@
       "path": "./runtime_service/agents/personal_assistant_agent/graph.py:graph",
       "description": "个人助理演示：calendar/email 子代理协同，由 supervisor 统一调度。"
     },
+    "research_demo": {
+      "path": "./runtime_service/agents/research_agent/graph.py:graph",
+      "description": "研究助手演示：基于 deepagent 的研究任务分解流程，支持 research_agent 私有 skills 与可选 Tavily MCP 检索工具。"
+    },
     "skills_sql_assistant_demo": {
       "path": "./runtime_service/agents/skills_sql_assistant_agent/graph.py:graph",
       "description": "SQL 技能助手演示：middleware 注入技能目录，按需 load_skill 加载 schema 与业务规则。"
@@ -38,12 +42,7 @@
     "app": "./runtime_service/custom_routes/app.py:app",
     "cors": {
       "allow_origins": [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://localhost",
-        "http://127.0.0.1"
+        "*"
       ],
       "allow_methods": ["*"],
       "allow_headers": ["*"],

@@ -14,6 +14,7 @@ _GRAPH_EXPORTS = {
         "runtime_service.agents.personal_assistant_agent.graph",
         "graph",
     ),
+    "research_graph": ("runtime_service.agents.research_agent.graph", "graph"),
     "skills_sql_assistant_graph": (
         "runtime_service.agents.skills_sql_assistant_agent.graph",
         "graph",

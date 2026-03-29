@@ -19,7 +19,7 @@ from runtime_service.runtime.options import AppRuntimeConfig, ModelSpec  # noqa:
 
 
 def build_iflow_deepseek_v3_options() -> AppRuntimeConfig:
-    resolved_model_id, raw_spec = require_model_spec("iflow_qwen3-vl-plus")
+    resolved_model_id, raw_spec = require_model_spec("iflow_kimi-k2")
     return AppRuntimeConfig(
         environment="test",
         model_id=resolved_model_id,
