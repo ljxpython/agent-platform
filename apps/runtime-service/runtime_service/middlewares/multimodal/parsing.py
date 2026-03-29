@@ -4,11 +4,22 @@ from __future__ import annotations
 import base64
 import json
 import re
+import tempfile
 from collections.abc import Callable, Mapping
 from typing import Any
 
 import pymupdf4llm as _pymupdf4llm
 import runtime_service.middlewares.multimodal as multimodal_pkg
+
+try:
+    from langchain_community.document_loaders.parsers import LLMImageBlobParser as _LLMImageBlobParser
+except Exception:  # pragma: no cover
+    _LLMImageBlobParser = None
+
+try:
+    from langchain_pymupdf4llm import PyMuPDF4LLMLoader as _PyMuPDF4LLMLoader
+except Exception:  # pragma: no cover
+    _PyMuPDF4LLMLoader = None
 
 from .protocol import _resolve_mime_type
 from .types import (
@@ -204,7 +215,7 @@ def _build_parser_prompt(artifact: AttachmentArtifact) -> str:
 
 
 def _extract_pdf_text_with_chunks(
-    block: Mapping[str, Any]
+    block: Mapping[str, Any], *, model_id: str | None = None
 ) -> tuple[str | None, dict[str, Any] | None, list[Mapping[str, Any]] | None]:
     payload = block.get("base64") or block.get("data")
     if not isinstance(payload, str) or not payload.strip():
@@ -215,6 +226,100 @@ def _extract_pdf_text_with_chunks(
     except Exception:
         return None, {"page_count": 0, "extraction": "invalid_base64"}, None
 
+    multimodal_available = (
+        model_id is not None
+        and _PyMuPDF4LLMLoader is not None
+        and _LLMImageBlobParser is not None
+    )
+
+    page_count: int | None = None
+    images_count: int | None = None
+    try:
+        doc_probe = _pymupdf4llm.pymupdf.open(stream=raw_bytes, filetype="pdf")
+        page_count = int(getattr(doc_probe, "page_count", 0) or 0)
+        try:
+            images_count = 0
+            for page in doc_probe:
+                images_count += len(page.get_images(full=True))
+        except Exception:
+            images_count = None
+    except Exception:
+        return None, {"page_count": 0, "extraction": "document_open_error"}, None
+    finally:
+        try:
+            doc_probe.close()
+        except Exception:
+            pass
+
+    if multimodal_available:
+        resolver = getattr(multimodal_pkg, "resolve_model_by_id", _default_resolve_model_by_id)
+        try:
+            image_model = resolver(model_id)
+            if hasattr(image_model, "bind"):
+                image_model = image_model.bind(max_tokens=1024)
+        except Exception:
+            multimodal_available = False
+
+    if multimodal_available:
+        tmp_path: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as fp:
+                fp.write(raw_bytes)
+                fp.flush()
+                tmp_path = fp.name
+
+            loader = _PyMuPDF4LLMLoader(
+                tmp_path,
+                mode="single",
+                extract_images=True,
+                images_parser=_LLMImageBlobParser(model=image_model),
+                table_strategy="lines",
+            )
+            docs = loader.load()
+            if not docs:
+                return None, {"page_count": page_count or 0, "extraction": "pymupdf4llm_empty_docs"}, None
+
+            merged_text = "\n\n".join(
+                [doc.page_content for doc in docs if isinstance(getattr(doc, "page_content", None), str)]
+            ).strip()
+            doc_meta: dict[str, Any] = {}
+            first_meta = getattr(docs[0], "metadata", None)
+            if isinstance(first_meta, Mapping):
+                doc_meta.update(first_meta)
+            metadata: dict[str, Any] = {
+                "page_count": page_count or int(doc_meta.get("total_pages") or 0) or 0,
+                "extraction": "langchain_pymupdf4llm_single_multimodal" if merged_text else "langchain_pymupdf4llm_empty_text",
+                "images_count": images_count,
+                "toc_items": [],
+            }
+            title = doc_meta.get("title")
+            if isinstance(title, str) and title.strip():
+                metadata["title"] = title.strip()
+            author = doc_meta.get("author")
+            if isinstance(author, str) and author.strip():
+                metadata["author"] = author.strip()
+
+            chunks = [
+                {
+                    "page": 1,
+                    "text": merged_text,
+                    "metadata": doc_meta,
+                }
+            ]
+            return (merged_text or None), metadata, chunks
+        except Exception:
+            # 回退到纯文本抽取逻辑
+            multimodal_available = False
+        finally:
+            if tmp_path:
+                try:
+                    import os
+
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+    # fallback: 纯文本抽取（不含图片）
     try:
         doc = _pymupdf4llm.pymupdf.open(stream=raw_bytes, filetype="pdf")
     except Exception:
@@ -464,7 +569,9 @@ def _prepare_pdf_artifact_for_parsing(
     list[Mapping[str, Any]] | None,
     AttachmentArtifact | None,
 ]:
-    extracted_text, pdf_meta, pdf_chunks = _extract_pdf_text_with_chunks(block)
+    extracted_text, pdf_meta, pdf_chunks = _extract_pdf_text_with_chunks(
+        block, model_id=model_id
+    )
     if extracted_text:
         return extracted_text, pdf_meta, pdf_chunks, None
     failed = _build_failed_artifact_with_context(

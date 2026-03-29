@@ -23,6 +23,8 @@ cd apps/runtime-service
   uv run python runtime_service/tests/multimodal_selfcheck.py \
     --file "runtime_service/test_data/12-多轮对话中让AI保持长期记忆的8种优化方式篇.pdf" \
     --prepare-only
+    
+  uv run python runtime_service/tests/multimodal_selfcheck.py --file runtime_service/test_data/旅行日记2.pdf 
 
 ```
 
