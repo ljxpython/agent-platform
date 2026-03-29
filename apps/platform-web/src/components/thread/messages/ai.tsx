@@ -1,7 +1,7 @@
 import { parsePartialJson } from "@langchain/core/output_parsers";
 import { useStreamContext } from "@/providers/Stream";
 import { AIMessage, Checkpoint, Message, ToolMessage } from "@langchain/langgraph-sdk";
-import { getContentString } from "../utils";
+import { getContentString, getToolResultString } from "../utils";
 import { BranchSwitcher, CommandBar } from "./shared";
 import { MarkdownText } from "../markdown-text";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
@@ -80,7 +80,7 @@ function extractSubAgentCards(
       const matchingResult = toolMessages.find(
         (toolMessage) => toolMessage.tool_call_id === toolCall.id,
       );
-      const output = matchingResult ? getContentString(matchingResult.content) : "";
+      const output = matchingResult ? getToolResultString(matchingResult.content) : "";
       return {
         id,
         name: getSubAgentName(toolCall.args),
@@ -99,11 +99,14 @@ function SubAgentCards({ items }: { items: SubAgentCard[] }) {
   }
 
   return (
-    <div className="mx-auto grid max-w-3xl gap-2">
+    <div className="grid w-full max-w-3xl gap-2">
       {items.map((item) => {
-        const isOpen = openMap[item.id] ?? true;
+        const isOpen = openMap[item.id] ?? false;
         return (
-          <div key={item.id} className="overflow-hidden rounded-lg border border-border bg-card">
+          <div
+            key={item.id}
+            className="w-full overflow-hidden rounded-lg border border-border bg-card"
+          >
             <button
               type="button"
               className="flex w-full items-center justify-between px-3 py-2 text-left"
@@ -137,16 +140,16 @@ function SubAgentCards({ items }: { items: SubAgentCard[] }) {
               <div className="space-y-2 border-t border-border/80 px-3 py-2">
                 <div>
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Input</p>
-                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted/40 px-2 py-1.5 text-xs text-foreground">
-                    {item.input || "<empty>"}
-                  </pre>
+                  <div className="rounded-md border border-border/70 bg-card/70 p-2">
+                    <MarkdownText>{item.input || "<empty>"}</MarkdownText>
+                  </div>
                 </div>
                 {item.output ? (
                   <div>
                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Output</p>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted/40 px-2 py-1.5 text-xs text-foreground">
-                      {item.output}
-                    </pre>
+                    <div className="rounded-md border border-border/70 bg-card/70 p-2">
+                      <MarkdownText>{item.output}</MarkdownText>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -361,18 +364,21 @@ export function AssistantMessage({
                   <ToolCalls
                     toolCalls={message.tool_calls}
                     toolResultsByCallId={toolResultsByCallId}
+                    defaultExpanded={Boolean(isLoading)}
                   />
                 )) ||
                   (hasAnthropicToolCalls && (
                     <ToolCalls
                       toolCalls={anthropicStreamedToolCalls}
                       toolResultsByCallId={toolResultsByCallId}
+                      defaultExpanded={Boolean(isLoading)}
                     />
                   )) ||
                   (hasToolCalls && (
                     <ToolCalls
                       toolCalls={message.tool_calls}
                       toolResultsByCallId={toolResultsByCallId}
+                      defaultExpanded={Boolean(isLoading)}
                     />
                   ))}
               </>

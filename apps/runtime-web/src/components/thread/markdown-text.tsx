@@ -4,16 +4,12 @@ import "./markdown-styles.css";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeKatex from "rehype-katex";
-import remarkMath from "remark-math";
 import { FC, memo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { SyntaxHighlighter } from "@/components/thread/syntax-highlighter";
 
 import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
 import { cn } from "@/lib/utils";
-
-import "katex/dist/katex.min.css";
 
 interface CodeHeaderProps {
   language?: string;
@@ -194,13 +190,12 @@ const defaultComponents: any = {
     />
   ),
   pre: ({ className, ...props }: { className?: string }) => (
-    <pre
-      className={cn(
-        "max-w-4xl overflow-x-auto rounded-lg bg-black text-white",
-        className,
-      )}
-      {...props}
-    />
+    <div className={cn("my-4 max-w-full overflow-hidden last:mb-0", className)}>
+      <pre
+        className="m-0 max-w-full overflow-x-auto"
+        {...props}
+      />
+    </div>
   ),
   code: ({
     className,
@@ -234,7 +229,7 @@ const defaultComponents: any = {
 
     return (
       <code
-        className={cn("rounded font-semibold", className)}
+        className={cn("rounded bg-muted/50 px-1 py-0.5 font-semibold", className)}
         {...props}
       >
         {children}
@@ -247,8 +242,7 @@ const MarkdownTextImpl: FC<{ children: string }> = ({ children }) => {
   return (
     <div className="markdown-content">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        remarkPlugins={[remarkGfm]}
         components={defaultComponents}
       >
         {children}

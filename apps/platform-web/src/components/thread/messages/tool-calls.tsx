@@ -3,23 +3,12 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, CircleCheckBigIcon, Loader2, StopCircle } from "lucide-react";
 import { MarkdownText } from "../markdown-text";
 import { cn } from "@/lib/utils";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizeToolResultContent(content: ToolMessage["content"]): string {
-  if (typeof content === "string") {
-    return content;
-  }
-  try {
-    return JSON.stringify(content, null, 2);
-  } catch {
-    return String(content);
-  }
-}
+import { getToolResultString } from "../utils";
 
 function normalizeToolArgs(args: unknown): Record<string, unknown> {
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
   if (isRecord(args)) {
     return args;
   }
@@ -47,15 +36,17 @@ function getStatusIcon(hasResult: boolean) {
 function ToolCallCard({
   toolCall,
   toolResult,
+  defaultExpanded,
 }: {
   toolCall: NonNullable<AIMessage["tool_calls"]>[number];
   toolResult?: ToolMessage;
+  defaultExpanded: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [expandedArgs, setExpandedArgs] = useState<Record<string, boolean>>({});
   const args = useMemo(() => normalizeToolArgs(toolCall.args), [toolCall.args]);
   const hasArgs = Object.keys(args).length > 0;
-  const resultContent = toolResult ? normalizeToolResultContent(toolResult.content) : "";
+  const resultContent = toolResult ? getToolResultString(toolResult.content) : "";
   const hasResult = resultContent.trim().length > 0;
   const hasContent = hasArgs || hasResult;
 
@@ -161,9 +152,11 @@ function ToolCallCard({
 export function ToolCalls({
   toolCalls,
   toolResultsByCallId,
+  defaultExpanded = true,
 }: {
   toolCalls: AIMessage["tool_calls"];
   toolResultsByCallId?: Record<string, ToolMessage>;
+  defaultExpanded?: boolean;
 }) {
   if (!toolCalls || toolCalls.length === 0) return null;
 
@@ -182,6 +175,7 @@ export function ToolCalls({
             key={toolCallId || `${toolCall?.name || "tool"}-${index + 1}`}
             toolCall={toolCall}
             toolResult={toolResult}
+            defaultExpanded={defaultExpanded}
           />
         );
       })}
