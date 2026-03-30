@@ -210,3 +210,121 @@ cd apps/runtime-service
   --model-id deepseek_chat \
   --pdf runtime_service/test_data/12-多轮对话中让AI保持长期记忆的8种优化方式篇.pdf
 ```
+
+---
+
+## 当前持久化设计说明
+
+在修复 skills 和多模态问题后，`test_case_service` 已继续向“正式测试资产服务”收敛：
+
+- 不再复用 `usecase_workflow_agent` 的 workflow/snapshot/review 设计
+- 正式持久化只保留一个工具：`persist_test_case_results`
+- 远端只保留两个结果域：
+  - `documents`
+  - `test-cases`
+- `interaction-data-service` 当前主路径为：
+  - `/api/test-case-service/documents`
+  - `/api/test-case-service/test-cases`
+
+完整设计见：
+
+- `runtime_service/docs/10-test-case-service-persistence-design.md`
+
+---
+
+## 补充问题：持久化工具已被调用，但落库时报 runtime 注入异常
+
+### 问题现象
+
+在 `skills` 已能正确识别、模型也已经实际调用 `persist_test_case_results` 之后，真实链路仍然报错，且报错分两次暴露：
+
+第一次错误：
+
+```text
+RuntimeError: runtime is required
+```
+
+修正后第二次错误：
+
+```text
+TypeError: persist_test_case_results() missing 1 required positional argument: 'runtime'
+```
+
+### 真正根因
+
+根因不在 `interaction-data-service`，也不在 `test_case_service` 的整体架构，而是在工具定义方式：
+
+1. `persist_test_case_results` 最初把 `runtime` 写成了 `ToolRuntime | None = None`
+2. 这会破坏 LangGraph 对 `ToolRuntime` 的自动注入识别
+3. 同时该工具又显式传入了 `args_schema=PersistTestCaseResultsArgs`
+4. `langchain_core.tools.tool(...)` 在显式 `args_schema` 分支下，不会再按函数签名过滤 injected args
+5. 结果模型 schema 虽然看起来正常，但实际执行时 `runtime` 没有被框架注入
+
+一句话总结：
+
+- `ToolRuntime` 注入要依赖“函数签名推导 schema”
+- 不要把 `runtime` 写成可选参数
+- 这类工具尽量不要再显式绑定 `args_schema`
+
+### 修复方案
+
+修复位于：
+
+- `runtime_service/services/test_case_service/tools.py`
+
+核心改动：
+
+1. 把工具签名改回标准注入形式：
+
+```python
+def persist_test_case_results(
+    bundle_title: str,
+    runtime: ToolRuntime[...],
+    bundle_summary: str = "",
+    ...
+) -> str:
+```
+
+2. 删除显式 `args_schema=PersistTestCaseResultsArgs`
+3. 交给 `tool(...)` 按函数签名自动推导业务参数 schema
+4. 这样 `runtime` 会被正确识别为 injected arg，不暴露给模型，同时执行期可正常注入
+
+### 真实验证命令
+
+```bash
+cd apps/runtime-service
+uv run python runtime_service/tests/services_test_case_service_persistence_live.py \
+  --model-id deepseek_chat \
+  --timeout 900
+```
+
+### 真实验证结果
+
+验证时间：2026-03-30  
+验证方式：真实模型 + 真实 PDF + 真实 `interaction-data-service` + 远端查询校验
+
+关键结果：
+
+- `Graph Report.ok = true`
+- 工具调用包含：
+  - 6 次 `read_file`
+  - 1 次 `persist_test_case_results`
+- 远端查询结果：
+  - `documents_total = 1`
+  - `test_cases_total = 4`
+- 退出码：
+  - `EXIT_CODE=0`
+
+本次真实写入批次：
+
+- `project_id = 00000000-0000-0000-0000-000000000001`
+- `batch_id = test-case-service:de4a20f6-0d34-4f0f-9911-459117563bd7`
+
+### 额外观察
+
+虽然持久化链路已打通，但本次测试 PDF 首页几乎只有二维码，多模态摘要长期停留在：
+
+- `image contains only a QR code`
+
+因此当前生成的测试用例本质上更多依赖文档主题推断，而不是高质量正文解析。  
+这不影响“skills 识别 + 工具调用 + 落库链路”已经成功，但说明后续若要提升内容质量，还需要继续增强 PDF 语义解析阶段。

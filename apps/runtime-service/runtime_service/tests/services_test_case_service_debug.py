@@ -315,7 +315,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=120.0,
+        default=300.0,
         help="真实 graph 流式调用超时时间，单位秒。",
     )
     parser.add_argument(

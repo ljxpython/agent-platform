@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from runtime_service.runtime.options import read_configurable
 from langchain_core.runnables import RunnableConfig
+from pydantic import BaseModel, Field
+from runtime_service.runtime.options import read_configurable
 
 DEFAULT_MULTIMODAL_PARSER_MODEL_ID = "iflow_qwen3-vl-plus"
 DEFAULT_MULTIMODAL_DETAIL_MODE = False
 DEFAULT_MULTIMODAL_DETAIL_TEXT_MAX_CHARS = 2000
+DEFAULT_TEST_CASE_PROJECT_ID = "00000000-0000-0000-0000-000000000001"
+DEFAULT_TEST_CASE_PERSISTENCE_ENABLED = True
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,33 @@ class TestCaseServiceConfig:
     multimodal_parser_model_id: str = DEFAULT_MULTIMODAL_PARSER_MODEL_ID
     multimodal_detail_mode: bool = DEFAULT_MULTIMODAL_DETAIL_MODE
     multimodal_detail_text_max_chars: int = DEFAULT_MULTIMODAL_DETAIL_TEXT_MAX_CHARS
+    default_project_id: str = DEFAULT_TEST_CASE_PROJECT_ID
+    persistence_enabled: bool = DEFAULT_TEST_CASE_PERSISTENCE_ENABLED
+
+
+class PersistTestCaseItem(BaseModel):
+    case_id: str | None = None
+    title: str = Field(min_length=1, max_length=255)
+    description: str = ""
+    status: str = Field(default="active", min_length=1, max_length=64)
+    module_name: str | None = Field(default=None, max_length=255)
+    priority: str | None = Field(default=None, max_length=32)
+    test_type: str | None = Field(default=None, max_length=64)
+    design_technique: str | None = Field(default=None, max_length=64)
+    preconditions: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+    test_data: dict[str, Any] = Field(default_factory=dict)
+    expected_results: list[str] = Field(default_factory=list)
+    remarks: str | None = None
+    content_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class PersistTestCaseResultsArgs(BaseModel):
+    bundle_title: str = Field(min_length=1, max_length=255)
+    bundle_summary: str = ""
+    test_cases: list[PersistTestCaseItem] = Field(default_factory=list)
+    quality_review: dict[str, Any] = Field(default_factory=dict)
+    export_format: str | None = Field(default=None, max_length=32)
 
 
 def _parse_bool(value: Any, default: bool) -> bool:
@@ -52,6 +82,13 @@ def build_test_case_service_config(config: RunnableConfig) -> TestCaseServiceCon
             private_config.get("test_case_multimodal_detail_text_max_chars"),
             DEFAULT_MULTIMODAL_DETAIL_TEXT_MAX_CHARS,
         ),
+        default_project_id=str(
+            private_config.get("test_case_default_project_id") or DEFAULT_TEST_CASE_PROJECT_ID
+        ),
+        persistence_enabled=_parse_bool(
+            private_config.get("test_case_persistence_enabled"),
+            DEFAULT_TEST_CASE_PERSISTENCE_ENABLED,
+        ),
     )
 
 
@@ -61,4 +98,3 @@ def get_service_root() -> Path:
 
 def get_skills_root() -> Path:
     return get_service_root() / "skills"
-

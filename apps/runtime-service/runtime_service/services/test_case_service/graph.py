@@ -20,7 +20,9 @@ from runtime_service.services.test_case_service.prompts import SYSTEM_PROMPT
 from runtime_service.services.test_case_service.schemas import (
     build_test_case_service_config,
     get_service_root,
-    get_skills_root,
+)
+from runtime_service.services.test_case_service.tools import (
+    build_test_case_service_tools,
 )
 from runtime_service.tools.registry import build_tools
 from langchain_core.runnables import RunnableConfig
@@ -66,6 +68,7 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
 
     # 3. 工具装配（仅平台公共工具，服务无私有工具）
     tools = await build_tools(options)
+    tools.extend(build_test_case_service_tools(service_config))
 
     # 4. 多模态中间件（图片/PDF 解析，横切能力）
     multimodal_middleware = MultimodalMiddleware(

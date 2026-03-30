@@ -2,6 +2,12 @@
 
 本文定义 `apps/interaction-data-service` 的第一版正式设计。
 
+当前已落地的实现约束补充如下：
+
+- 每个 runtime 服务使用一个专属接口前缀
+- 当前真实前缀是 `/api/test-case-service`
+- 旧的 `/api/usecase-generation/*` 已退役，不再作为当前实现范式
+
 它的定位不是新的平台主后端，也不是通用数据库代理，而是：
 
 > 为 agent 与平台之间的结构化业务结果提供统一接入契约、类型路由、落库能力和查询能力。

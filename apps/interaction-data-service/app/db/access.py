@@ -2,13 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from app.db.models import (
-    RequirementDocument,
-    UseCase,
-    UsecaseReviewReport,
-    UsecaseWorkflow,
-    UsecaseWorkflowSnapshot,
-)
+from app.db.models import TestCaseDocument, TestCaseRecord
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
@@ -20,11 +14,11 @@ def parse_uuid(value: str) -> uuid.UUID | None:
         return None
 
 
-def create_requirement_document(
+def create_test_case_document(
     session: Session,
     *,
     project_id: uuid.UUID,
-    workflow_id: uuid.UUID | None,
+    batch_id: str | None,
     filename: str,
     content_type: str,
     storage_path: str | None,
@@ -36,10 +30,10 @@ def create_requirement_document(
     provenance: dict,
     confidence: float | None,
     error: dict | None,
-) -> RequirementDocument:
-    row = RequirementDocument(
+) -> TestCaseDocument:
+    row = TestCaseDocument(
         project_id=project_id,
-        workflow_id=workflow_id,
+        batch_id=batch_id,
         filename=filename,
         content_type=content_type,
         storage_path=storage_path,
@@ -57,171 +51,56 @@ def create_requirement_document(
     return row
 
 
-def list_requirement_documents(
+def list_test_case_documents(
     session: Session,
     *,
     project_id: uuid.UUID | None,
-    workflow_id: uuid.UUID | None,
+    batch_id: str | None,
     limit: int,
     offset: int,
-) -> tuple[list[RequirementDocument], int]:
-    base_stmt = select(RequirementDocument)
+) -> tuple[list[TestCaseDocument], int]:
+    base_stmt = select(TestCaseDocument)
     if project_id is not None:
-        base_stmt = base_stmt.where(RequirementDocument.project_id == project_id)
-    if workflow_id is not None:
-        base_stmt = base_stmt.where(RequirementDocument.workflow_id == workflow_id)
-    stmt = base_stmt.order_by(desc(RequirementDocument.created_at)).offset(offset).limit(limit)
+        base_stmt = base_stmt.where(TestCaseDocument.project_id == project_id)
+    if isinstance(batch_id, str) and batch_id.strip():
+        base_stmt = base_stmt.where(TestCaseDocument.batch_id == batch_id.strip())
+    stmt = base_stmt.order_by(desc(TestCaseDocument.created_at)).offset(offset).limit(limit)
     count_stmt = select(func.count()).select_from(base_stmt.subquery())
     rows = list(session.scalars(stmt).all())
     total = int(session.scalar(count_stmt) or 0)
     return rows, total
 
 
-def get_requirement_document(
+def get_test_case_document(
     session: Session, document_id: uuid.UUID
-) -> RequirementDocument | None:
-    return session.get(RequirementDocument, document_id)
+) -> TestCaseDocument | None:
+    return session.get(TestCaseDocument, document_id)
 
 
-def create_usecase_workflow(
+def create_test_case(
     session: Session,
     *,
     project_id: uuid.UUID,
-    title: str,
-    summary: str,
-    requirement_document_id: uuid.UUID | None,
-    workflow_type: str,
-    agent_key: str,
-    metadata_json: dict,
-) -> UsecaseWorkflow:
-    row = UsecaseWorkflow(
-        project_id=project_id,
-        title=title,
-        summary=summary,
-        requirement_document_id=requirement_document_id,
-        workflow_type=workflow_type,
-        agent_key=agent_key,
-        metadata_json=metadata_json,
-    )
-    session.add(row)
-    session.flush()
-    return row
-
-
-def list_usecase_workflows(
-    session: Session,
-    *,
-    project_id: uuid.UUID | None,
-    status: str | None,
-    limit: int,
-    offset: int,
-) -> tuple[list[UsecaseWorkflow], int]:
-    base_stmt = select(UsecaseWorkflow)
-    if project_id is not None:
-        base_stmt = base_stmt.where(UsecaseWorkflow.project_id == project_id)
-    if isinstance(status, str) and status.strip():
-        base_stmt = base_stmt.where(UsecaseWorkflow.status == status.strip())
-    stmt = base_stmt.order_by(desc(UsecaseWorkflow.created_at)).offset(offset).limit(limit)
-    count_stmt = select(func.count()).select_from(base_stmt.subquery())
-    rows = list(session.scalars(stmt).all())
-    total = int(session.scalar(count_stmt) or 0)
-    return rows, total
-
-
-def get_usecase_workflow(session: Session, workflow_id: uuid.UUID) -> UsecaseWorkflow | None:
-    return session.get(UsecaseWorkflow, workflow_id)
-
-
-def next_snapshot_version(session: Session, workflow_id: uuid.UUID) -> int:
-    stmt = select(func.max(UsecaseWorkflowSnapshot.version)).where(
-        UsecaseWorkflowSnapshot.workflow_id == workflow_id
-    )
-    latest = session.scalar(stmt)
-    return int(latest or 0) + 1
-
-
-def create_usecase_workflow_snapshot(
-    session: Session,
-    *,
-    workflow: UsecaseWorkflow,
-    status: str,
-    review_summary: str,
-    deficiency_count: int,
-    persistable: bool,
-    payload_json: dict,
-) -> UsecaseWorkflowSnapshot:
-    row = UsecaseWorkflowSnapshot(
-        workflow_id=workflow.id,
-        version=next_snapshot_version(session, workflow.id),
-        status=status,
-        review_summary=review_summary,
-        deficiency_count=deficiency_count,
-        payload_json=payload_json,
-    )
-    session.add(row)
-    session.flush()
-    workflow.latest_snapshot_id = row.id
-    workflow.status = status
-    workflow.persistable = "true" if persistable else "false"
-    session.flush()
-    return row
-
-
-def list_workflow_snapshots(
-    session: Session, workflow_id: uuid.UUID
-) -> list[UsecaseWorkflowSnapshot]:
-    stmt = (
-        select(UsecaseWorkflowSnapshot)
-        .where(UsecaseWorkflowSnapshot.workflow_id == workflow_id)
-        .order_by(desc(UsecaseWorkflowSnapshot.version))
-    )
-    return list(session.scalars(stmt).all())
-
-
-def create_review_report(
-    session: Session,
-    *,
-    workflow_id: uuid.UUID,
-    snapshot_id: uuid.UUID,
-    summary: str,
-    payload_json: dict,
-) -> UsecaseReviewReport:
-    row = UsecaseReviewReport(
-        workflow_id=workflow_id,
-        snapshot_id=snapshot_id,
-        summary=summary,
-        payload_json=payload_json,
-    )
-    session.add(row)
-    session.flush()
-    return row
-
-
-def mark_workflow_approved(session: Session, workflow: UsecaseWorkflow) -> UsecaseWorkflow:
-    workflow.status = "approved_for_persistence"
-    workflow.persistable = "true"
-    session.flush()
-    return workflow
-
-
-def create_use_case(
-    session: Session,
-    *,
-    project_id: uuid.UUID,
+    batch_id: str | None,
+    case_id: str | None,
     title: str,
     description: str,
     status: str,
-    workflow_id: uuid.UUID | None,
-    snapshot_id: uuid.UUID | None,
+    module_name: str | None,
+    priority: str | None,
+    source_document_ids: list[str],
     content_json: dict,
-) -> UseCase:
-    row = UseCase(
+) -> TestCaseRecord:
+    row = TestCaseRecord(
         project_id=project_id,
+        batch_id=batch_id,
+        case_id=case_id,
         title=title,
         description=description,
         status=status,
-        workflow_id=workflow_id,
-        snapshot_id=snapshot_id,
+        module_name=module_name,
+        priority=priority,
+        source_document_ids=source_document_ids,
         content_json=content_json,
     )
     session.add(row)
@@ -229,80 +108,63 @@ def create_use_case(
     return row
 
 
-def persist_workflow_as_use_case(
-    session: Session, workflow: UsecaseWorkflow
-) -> UseCase:
-    if workflow.latest_snapshot_id is None:
-        raise ValueError("workflow_has_no_snapshot")
-
-    snapshot = session.get(UsecaseWorkflowSnapshot, workflow.latest_snapshot_id)
-    if snapshot is None:
-        raise ValueError("workflow_snapshot_not_found")
-
-    payload = snapshot.payload_json or {}
-    title = str(payload.get("title") or workflow.title).strip() or workflow.title
-    description = str(payload.get("description") or workflow.summary).strip()
-
-    row = create_use_case(
-        session,
-        project_id=workflow.project_id,
-        title=title,
-        description=description,
-        status="active",
-        workflow_id=workflow.id,
-        snapshot_id=snapshot.id,
-        content_json=payload,
-    )
-    workflow.status = "persisted"
-    session.flush()
-    return row
-
-
-def list_use_cases(
+def list_test_cases(
     session: Session,
     *,
     project_id: uuid.UUID | None,
     status: str | None,
+    batch_id: str | None,
     limit: int,
     offset: int,
-) -> tuple[list[UseCase], int]:
-    base_stmt = select(UseCase)
+) -> tuple[list[TestCaseRecord], int]:
+    base_stmt = select(TestCaseRecord)
     if project_id is not None:
-        base_stmt = base_stmt.where(UseCase.project_id == project_id)
+        base_stmt = base_stmt.where(TestCaseRecord.project_id == project_id)
     if isinstance(status, str) and status.strip():
-        base_stmt = base_stmt.where(UseCase.status == status.strip())
-    stmt = base_stmt.order_by(desc(UseCase.created_at)).offset(offset).limit(limit)
+        base_stmt = base_stmt.where(TestCaseRecord.status == status.strip())
+    if isinstance(batch_id, str) and batch_id.strip():
+        base_stmt = base_stmt.where(TestCaseRecord.batch_id == batch_id.strip())
+    stmt = base_stmt.order_by(desc(TestCaseRecord.created_at)).offset(offset).limit(limit)
     count_stmt = select(func.count()).select_from(base_stmt.subquery())
     rows = list(session.scalars(stmt).all())
     total = int(session.scalar(count_stmt) or 0)
     return rows, total
 
 
-def get_use_case(session: Session, use_case_id: uuid.UUID) -> UseCase | None:
-    return session.get(UseCase, use_case_id)
+def get_test_case(session: Session, test_case_id: uuid.UUID) -> TestCaseRecord | None:
+    return session.get(TestCaseRecord, test_case_id)
 
 
-def update_use_case(
+def update_test_case(
     session: Session,
-    row: UseCase,
+    row: TestCaseRecord,
     *,
     title: str | None,
     description: str | None,
     status: str | None,
+    module_name: str | None,
+    priority: str | None,
+    source_document_ids: list[str] | None,
     content_json: dict | None,
-) -> UseCase:
+) -> TestCaseRecord:
     if title is not None:
         row.title = title
     if description is not None:
         row.description = description
     if status is not None:
         row.status = status
+    if module_name is not None:
+        row.module_name = module_name
+    if priority is not None:
+        row.priority = priority
+    if source_document_ids is not None:
+        row.source_document_ids = source_document_ids
     if content_json is not None:
         row.content_json = content_json
     session.flush()
     return row
 
 
-def delete_use_case(session: Session, row: UseCase) -> None:
+def delete_test_case(session: Session, row: TestCaseRecord) -> None:
     session.delete(row)
     session.flush()

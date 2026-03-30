@@ -40,7 +40,8 @@
 
 - **技能从磁盘加载**：SKILL.md 文件随代码部署，无需额外配置
 - **运行时产物保存内存**：避免落盘权限问题，每次会话独立，天然隔离
-- **无需持久化**：测试用例分析的中间产物（需求矩阵、策略文档）在会话内有效即可
+- **中间产物无需落盘**：需求矩阵、策略文档、评审结果仍然保持会话态
+- **正式结果单独持久化**：最终附件解析结果和正式测试用例通过服务私有工具写入 `interaction-data-service`
 
 #### Skills 路径设计
 
@@ -62,7 +63,7 @@ MultimodalMiddleware          ← 图片/PDF 解析（横切）
     ▼
 create_deep_agent
     ├── model                 ← 通过 options.model_spec 解析
-    ├── tools                 ← build_tools()（通用工具）
+    ├── tools                 ← build_tools() + persist_test_case_results（服务私有工具）
     ├── middleware
     │   └── MultimodalMiddleware
     ├── system_prompt         ← SYSTEM_PROMPT（含 Skills 激活协议）
@@ -79,7 +80,7 @@ RunnableConfig
     ├── merge_trusted_auth_context()  → runtime_context
     ├── build_runtime_config()        → options（model_spec, system_prompt）
     ├── read_configurable()           → private_config
-    └── build_test_case_service_config() → service_config（多模态参数）
+    └── build_test_case_service_config() → service_config（多模态 + 默认项目 + 持久化开关）
 ```
 
 ### 2.4 System Prompt 合并策略
@@ -110,6 +111,8 @@ test-case-design ←──→ test-data-generator（按需）
 quality-review
         ↓
 output-formatter
+        ↓
+test-case-persistence（按需）
 ```
 
 ### 3.2 各 Skill 职责边界
@@ -122,6 +125,7 @@ output-formatter
 | `test-data-generator` | 字段规格 / 用例中的测试数据占位符 | 具体测试数据集 | 与用例设计并行或后置 |
 | `quality-review` | 测试用例集 | 四维度评分报告 | 用例设计后（自动触发）|
 | `output-formatter` | 所有阶段产出 | 格式化交付物（MD/JSON/CSV）| 最后执行 |
+| `test-case-persistence` | 格式化后的正式测试用例 + 附件解析结果 | interaction-data-service 落库结果 | 仅正式落库时执行 |
 
 ### 3.3 SKILL.md 格式规范
 
@@ -151,6 +155,8 @@ class TestCaseServiceConfig:
     multimodal_parser_model_id: str   # 多模态解析模型
     multimodal_detail_mode: bool      # 是否启用详细解析
     multimodal_detail_text_max_chars: int  # 详细模式字符上限
+    default_project_id: str           # 项目上下文缺失时的默认项目 ID
+    persistence_enabled: bool         # 是否允许正式落库
 ```
 
 使用 `frozen=True` 确保不可变性，避免运行时意外修改。
@@ -197,4 +203,6 @@ def _resolve_backend_root_dir_path(private_config, *, agent_name) -> Path:
 | `virtual_mode=True` 不持久化 | 会话结束后中间产物丢失 | 支持 `virtual_mode=False` + 配置化存储路径 |
 | 无流式输出进度反馈 | 长任务用户体验差 | 集成 LangGraph streaming |
 | Skills 无版本管理 | SKILL.md 变更无法灰度 | 引入 skills 版本号机制 |
-| 无用例去重 | 多轮对话可能产生重复用例 | output-formatter 增加去重逻辑 |
+| 默认项目 ID 仍是过渡方案 | 真实项目上下文尚未完全透传 | 后续由 runtime.context / runtime.config 正式承载 |
+| 无用例去重 | 多轮对话可能产生重复用例 | 在 interaction-data-service 增加幂等键/批次去重 |
+| 旧 `usecase-generation` 结果域已退役 | 旧服务仍可能残留历史依赖 | 后续下线 `usecase_workflow_agent` 并清理历史文档 |

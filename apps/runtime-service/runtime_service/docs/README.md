@@ -34,6 +34,7 @@
 - `research_demo`：deepagent 研究范式（research_agent 私有 skills + 可选 Tavily MCP）
 - `skills_sql_assistant_demo`：middleware + skills 范式
 - `usecase_workflow_agent`：业务工作流范式，当前实现见 `services/usecase_workflow_agent/README.md`，后续重构计划见 `services/usecase_workflow_agent/refactor-plan.md`
+- `test_case_agent`：测试用例分析与正式持久化服务，设计见 `docs/10-test-case-service-persistence-design.md`
 
 graph 注册以 `runtime_service/langgraph.json` 和 `runtime_service/langgraph_auth.json` 为准。
 
@@ -102,6 +103,8 @@ fixtures 存放在 `runtime_service/test_data/`。
 - `docs/06-multimodal-middleware-design.md`：当前多模态实现状态与扩展边界
 - `docs/07-service-modularization.md`：同一运行时内的业务服务模块化规范
 - `docs/08-middleware-development-playbook.md`：middleware 目录组织、生命周期钩子与测试规范
+- `docs/09-test-case-service-skills-troubleshooting.md`：test_case_service 的 skills / 多模态问题排查
+- `docs/10-test-case-service-persistence-design.md`：test_case_service 与 interaction-data-service 的新持久化范式
 
 ## 开发约定
 

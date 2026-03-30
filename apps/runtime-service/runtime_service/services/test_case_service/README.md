@@ -20,7 +20,8 @@
 test_case_service/
 ├── graph.py          # make_graph 工厂函数（LangGraph 入口）
 ├── prompts.py        # SYSTEM_PROMPT（角色定位 + Skills 激活协议）
-├── schemas.py        # 服务配置 DataClass + 路径工具函数
+├── schemas.py        # 服务配置 + 持久化工具入参模型
+├── tools.py          # 服务私有工具（persist_test_case_results）
 ├── __init__.py       # 延迟导入（避免 pytest collect 阶段 import 错误）
 ├── skills/           # 私有 Skills 知识库
 │   ├── requirement-analysis/SKILL.md
@@ -28,7 +29,8 @@ test_case_service/
 │   ├── test-case-design/SKILL.md
 │   ├── quality-review/SKILL.md
 │   ├── output-formatter/SKILL.md
-│   └── test-data-generator/SKILL.md
+│   ├── test-data-generator/SKILL.md
+│   └── test-case-persistence/SKILL.md
 └── tests/
     ├── __init__.py
     └── test_smoke.py # 冒烟测试（schemas / prompts / graph / 注册）
@@ -40,6 +42,8 @@ test_case_service/
 - **`FilesystemBackend(virtual_mode=True)`**：Skills 从磁盘加载，运行时中间产物保存内存不落盘
 - **`skills=["/skills/"]`**：加载 backend root 下 `skills/` 目录中的所有 SKILL.md
 - **`MultimodalMiddleware`**：横切多模态解析能力，解析结果写入 `state.multimodal_summary`
+- **服务私有持久化工具**：`persist_test_case_results` 负责把附件解析结果和正式测试用例写入 `interaction-data-service`
+- **共享 Interaction Data HTTP Client**：抽取到 `runtime_service.integrations.interaction_data`
 - **`RuntimeContext`**：通过 `context_schema` 注入运行时上下文
 
 ## 配置项
@@ -52,6 +56,11 @@ test_case_service/
 | `test_case_multimodal_detail_mode` | `bool` | `False` | 启用详细解析模式 |
 | `test_case_multimodal_detail_text_max_chars` | `int` | `2000` | 详细模式最大字符数 |
 | `test_case_backend_root_dir` | `str` | 服务包目录 | FilesystemBackend 根目录覆盖 |
+| `test_case_default_project_id` | `str` | `00000000-0000-0000-0000-000000000001` | 当前未透传项目上下文时的默认项目 ID |
+| `test_case_persistence_enabled` | `bool` | `True` | 是否允许调用正式持久化工具 |
+| `interaction_data_service_url` | `str` | 环境变量/空 | interaction-data-service 基地址 |
+| `interaction_data_service_token` | `str` | 环境变量/空 | interaction-data-service Bearer Token |
+| `interaction_data_service_timeout_seconds` | `int` | `10` | interaction-data-service 请求超时 |
 
 ## Skills 说明
 
@@ -65,6 +74,7 @@ Agent 通过 `SkillsMiddleware` 自动加载以下 Skills，按需激活：
 | `quality-review` | 用例生成后自动执行质量自检 |
 | `output-formatter` | 输出最终格式化测试用例交付物 |
 | `test-data-generator` | 用户需要配套测试数据 |
+| `test-case-persistence` | 输出正式测试资产并落库到 interaction-data-service |
 
 ## 在 LangGraph 中的注册
 
@@ -84,7 +94,8 @@ pytest runtime_service/services/test_case_service/tests/ -v
 
 ## 典型使用场景
 
-1. **输入 PRD 文档** → Agent 依次执行：需求分析 → 测试策略 → 用例设计 → 质量评审 → 格式化输出
+1. **输入 PRD 文档** → Agent 依次执行：需求分析 → 测试策略 → 用例设计 → 质量评审 → 格式化输出 → 持久化
 2. **上传原型图/截图** → MultimodalMiddleware 解析图片 → 触发需求分析流程
 3. **上传已有用例集** → 直接触发 quality-review 评分
 4. **指定导出格式** → output-formatter 输出 JSON/CSV 供工具导入
+5. **需要正式保存** → `persist_test_case_results` 把附件解析结果和最终测试用例写入 interaction-data-service
