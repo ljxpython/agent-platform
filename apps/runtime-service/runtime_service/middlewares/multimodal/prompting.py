@@ -178,13 +178,29 @@ def _apply_multimodal_state(
     return state
 
 
+def _extract_system_message_text(existing: SystemMessage | None) -> str:
+    if existing is None:
+        return ""
+    if isinstance(existing.content, str):
+        return existing.content
+
+    text_parts: list[str] = []
+    for block in existing.content_blocks:
+        if not isinstance(block, Mapping):
+            continue
+        if block.get("type") != "text":
+            continue
+        text = block.get("text")
+        if isinstance(text, str):
+            text_parts.append(text)
+    return "".join(text_parts)
+
+
 def build_multimodal_system_message(
     existing: SystemMessage | None, summary: str | None
 ) -> SystemMessage | None:
     header = f"\n\n{_MULTIMODAL_PROMPT_HEADER}"
-    existing_content = ""
-    if existing is not None and isinstance(existing.content, str):
-        existing_content = existing.content
+    existing_content = _extract_system_message_text(existing)
     if _MULTIMODAL_PROMPT_HEADER in existing_content:
         existing_content = existing_content.split(
             f"\n\n{_MULTIMODAL_PROMPT_HEADER}", 1

@@ -11,6 +11,7 @@ from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
+from deepagents.middleware.skills import append_to_system_message
 from langchain.agents.middleware import ModelRequest, ModelResponse
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -678,6 +679,40 @@ def test_build_multimodal_system_message_removes_stale_section() -> None:
     next_message = build_multimodal_system_message(existing, None)
     assert next_message is not None
     assert next_message.content == "BASE_PROMPT"
+
+
+def test_build_multimodal_system_message_preserves_content_blocks_text() -> None:
+    existing = append_to_system_message(SystemMessage(content="BASE_PROMPT"), "SKILLS")
+
+    next_message = build_multimodal_system_message(existing, None)
+
+    assert next_message is not None
+    assert next_message.content == "BASE_PROMPT\n\nSKILLS"
+
+
+def test_multimodal_middleware_preserves_skills_system_prompt_without_attachments() -> None:
+    middleware = MultimodalMiddleware()
+    request = ModelRequest(
+        model=cast(BaseChatModel, object()),
+        messages=[HumanMessage(content="请分析登录功能")],
+        system_message=append_to_system_message(
+            SystemMessage(content="BASE_PROMPT"),
+            "## Skills System\n- requirement-analysis",
+        ),
+        state=cast(Any, {}),
+    )
+
+    def handler(updated_request: ModelRequest) -> ModelResponse:
+        system_message = updated_request.system_message
+        assert system_message is not None
+        assert "BASE_PROMPT" in cast(str, system_message.content)
+        assert "## Skills System" in cast(str, system_message.content)
+        assert "requirement-analysis" in cast(str, system_message.content)
+        return ModelResponse(result=[AIMessage(content="ok")])
+
+    response = middleware.wrap_model_call(request, handler)
+
+    assert response.result[0].text == "ok"
 
 
 def test_parse_model_response_never_uses_raw_json_as_summary() -> None:
