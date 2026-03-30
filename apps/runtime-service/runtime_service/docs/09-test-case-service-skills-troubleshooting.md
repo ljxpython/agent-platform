@@ -117,3 +117,96 @@ cd apps/runtime-service
 ## 结论
 
 这次问题本质上是公共 middleware 的 prompt 合并 bug，导致 `test_case_service` 的 skills prompt 在模型调用前被覆盖掉。`test_case_service` 的架构本身没有根本性错误；修复公共中间件兼容性，再配合更强的业务 prompt 约束后，skills 已能被稳定识别并实际读取。
+
+---
+
+## 补充问题：前端上传 PDF 后报 `No generations found in stream`
+
+### 问题现象
+
+当前端上传 PDF 到 `test_case_agent` 时，后端日志表面报错为：
+
+```text
+ValueError: No generations found in stream.
+```
+
+但继续下钻后，可以看到真正触发点并不是“模型没有返回 token”，而是主模型收到了原始前端附件 block：
+
+```text
+openai.BadRequestError: ... messages[1]: unknown variant `file`, expected `text`
+```
+
+### 真正根因
+
+这次不是 `skills` 配置错，也不是 `graph.py` 的服务架构错，而是公共多模态中间件在 **LangGraph 实际链路** 下漏掉了“当前轮附件重写”：
+
+1. `before_model` 先把当前轮 PDF 注册进 `state["multimodal_attachments"]`，状态为 `unprocessed`
+2. 后续 `wrap_model_call/awrap_model_call` 再次扫描当前消息时，旧逻辑按 `len(existing_artifacts) + 1` 重新编号
+3. 由于 state 里已经有同 fingerprint 的 `att_1`，当前轮新扫出来的 block 会变成 `att_2`
+4. `_merge_session_artifacts(...)` 用 fingerprint 去重后，只保留 state 里的 `att_1`
+5. 结果：
+   - 当前轮 `parse_pairs = []`
+   - `rewrite_count = 0`
+   - 原始 `{"type": "file", ...}` 没有被替换成文本摘要
+6. 主模型最终直接收到前端 `file` block，于是 OpenAI 兼容接口报 400，最外层再被包装成 `No generations found in stream`
+
+换句话说，**真正的问题是公共 `MultimodalMiddleware` 没有兼容“before_model 已经登记过当前轮附件”的场景。**
+
+### 修复方案
+
+修复位于：
+
+- `runtime_service/middlewares/multimodal/middleware.py`
+
+核心改动：
+
+1. 把“当前轮附件映射”与“会话级附件汇总”拆开
+2. 当前轮扫描时，优先按 fingerprint 复用 state 中已登记的 artifact，而不是重新生成错位的 `attachment_id`
+3. 重写消息时，不再从全量 session artifacts 里按前 N 个硬截，而是只使用“当前轮附件列表”
+4. 即使 `before_model` 已经登记过当前轮 PDF，`wrap_model_call/awrap_model_call` 仍会：
+   - 继续解析该 PDF
+   - 把原始 `file` block 改写为 `text` 摘要 block
+
+### 回归验证
+
+新增回归测试：
+
+- `runtime_service/tests/test_multimodal_middleware.py`
+
+重点覆盖两类场景：
+
+1. `before_model` 已先登记当前轮 PDF，后续 `wrap_model_call` 仍能正确解析并改写
+2. 会话里已有历史附件时，新一轮请求只重写“当前轮附件”，不会误把上一轮附件摘要塞进当前消息
+
+执行命令：
+
+```bash
+cd apps/runtime-service
+.venv/bin/pytest -q runtime_service/tests/test_multimodal_middleware.py -k "before_model or current_turn or augments_request or accumulates_pdf_artifacts_across_turns"
+```
+
+### 调试脚本
+
+为了直接复现“前端上传 PDF”的真实链路，新增调试脚本：
+
+- `runtime_service/tests/services_test_case_service_debug.py`
+
+用途：
+
+1. 先单独跑 `MultimodalMiddleware` 预检，确认 `file` block 已被改写为 `text`
+2. 再跑 `test_case_service` 真 graph
+3. 抓取：
+   - 流式输出内容
+   - `SkillsMiddleware` 注入摘要
+   - `MultimodalMiddleware` 状态摘要
+   - 工具调用记录
+   - 最终异常和 traceback
+
+示例：
+
+```bash
+cd apps/runtime-service
+.venv/bin/python runtime_service/tests/services_test_case_service_debug.py \
+  --model-id deepseek_chat \
+  --pdf runtime_service/test_data/12-多轮对话中让AI保持长期记忆的8种优化方式篇.pdf
+```
