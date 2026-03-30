@@ -1,5 +1,18 @@
 # langgraph-agent-studio
 
+## 开发范式入口
+
+跨应用统一开发方式先看根文档：
+
+- `docs/development-paradigm.md`
+
+对 `runtime-service` 来说，最重要的执行原则是：
+
+1. 智能体开发主战场在这里，先把 graph / prompt / tools / middleware 做通
+2. 先在低依赖层做真实验证，再决定要不要接平台页面
+3. 关键链路优先用真实模型、真实文件、真实下游服务验证，不要用 mock 掩盖问题
+4. 如果模型会口头声称成功，必须再查真实 tool call 和远端结果，不能只信最终回复
+
 ## 0) 前置说明（必读）
 
 本项目运行前需要先把两处配置准备好：
@@ -100,3 +113,31 @@ curl http://127.0.0.1:8123/internal/capabilities/tools
 - `docs/local-dev.md`
 - `docs/env-matrix.md`
 - `docs/deployment-guide.md`
+
+## 本应用的开发与验证要求
+
+如果本轮只改 `runtime-service`，推荐顺序是：
+
+1. 先明确：
+   - 这是新 graph、已有 graph、还是某个服务内部能力调整
+   - 输入是什么
+   - 工具链路是什么
+   - 是否需要持久化
+2. 直接在本层做真实验证：
+   - 真实模型
+   - 真实 PDF / 图片 / 文本
+   - 真实 `interaction-data-service`
+   - 真实流式输出和 tool call 记录
+3. 验证通过后，再接 `runtime-web` 或 `platform-web`
+
+推荐优先使用：
+
+- 服务级 debug/live 脚本
+- `runtime_service/tests/*`
+- `runtime_service/docs/*` 中沉淀的真实排查命令
+
+关键约束：
+
+- 没有真实 tool call 和真实远端结果，不算真正成功
+- 中间件不要乱耦合业务落库逻辑
+- 默认先把服务层闭环跑通，再决定是否进入平台层联调

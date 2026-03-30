@@ -2,6 +2,19 @@
 
 `apps/runtime-web` 是当前仓库里的 LangGraph 调试前端，用于直接连接 `runtime-service` 做本地交互验证。
 
+## 开发范式入口
+
+跨应用统一开发方式先看根文档：
+
+- `docs/development-paradigm.md`
+
+对 `runtime-web` 来说，最重要的执行原则是：
+
+1. 它是调试入口，不是正式平台管理入口
+2. 智能体先在这里验证交互行为，再决定是否接 `platform-web`
+3. 如果服务层脚本还没跑通，就不要指望先靠这里把问题猜出来
+4. 页面调试要聚焦 runtime 行为，不要把平台权限、结果域问题混进来
+
 ## Local Setup
 
 在当前仓库中使用它时，不需要重新 `clone` 上游模板；直接在本目录安装依赖并启动即可。
@@ -27,6 +40,27 @@ The app will be available at `http://localhost:3001`.
 - `runtime-web -> runtime-service`
 - `runtime-service`: `http://127.0.0.1:8123`
 - `runtime-web`: `http://127.0.0.1:3001`
+
+## 本应用的开发与验证要求
+
+如果本轮需要验证 Agent 交互，但暂时不需要平台治理能力，优先用 `runtime-web`。
+
+推荐用途：
+
+- 验证 prompt / tools / skills / streaming
+- 验证上传文件后的运行时行为
+- 验证 graph 是否按预期工作
+
+不推荐用它来代替：
+
+- `platform-web` 的管理面验证
+- `platform-api` 的权限与项目边界验证
+- `interaction-data-service` 的结果域查询验证
+
+关键约束：
+
+- `runtime-web` 适合“把智能体调通”，不适合“替平台验收一切”
+- 若问题可以在 `runtime-service` 脚本里复现，应优先在服务层排查
 
 如果没有预先配置环境变量，首次进入页面时仍可以手动填写：
 
