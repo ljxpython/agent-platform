@@ -51,12 +51,21 @@ def _thread_project_id_from_metadata(thread: Any) -> str | None:
     return None
 
 
-def require_project_id(request: Request) -> str:
-    if not _scope_guard_enabled(request):
-        return ""
-
+def get_optional_project_id(request: Request) -> str | None:
     raw_project_id = request.headers.get(_PROJECT_ID_HEADER)
+    if raw_project_id is None or not raw_project_id.strip():
+        return None
     normalized = _normalize_project_id(raw_project_id)
+    if normalized is None:
+        raise HTTPException(
+            status_code=400,
+            detail="x-project-id header is required and must be a valid UUID",
+        )
+    return normalized
+
+
+def require_project_id(request: Request) -> str:
+    normalized = get_optional_project_id(request)
     if normalized is None:
         raise HTTPException(
             status_code=400,
@@ -103,13 +112,48 @@ async def assert_thread_belongs_project(request: Request, thread_id: str) -> Non
 def inject_project_metadata(
     request: Request, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    if not _scope_guard_enabled(request):
-        return dict(payload) if isinstance(payload, dict) else {}
-
-    project_id = require_project_id(request)
     next_payload = dict(payload) if isinstance(payload, dict) else {}
+    project_id = get_optional_project_id(request)
+    if project_id is None:
+        return next_payload
     metadata = next_payload.get("metadata")
     metadata_dict = dict(metadata) if isinstance(metadata, dict) else {}
     metadata_dict["project_id"] = project_id
     next_payload["metadata"] = metadata_dict
+    return next_payload
+
+
+def inject_project_scope(
+    request: Request,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    next_payload = inject_project_metadata(request, payload)
+    project_id = get_optional_project_id(request)
+    if project_id is None:
+        return next_payload
+
+    config = next_payload.get("config")
+    config_dict = dict(config) if isinstance(config, dict) else {}
+    configurable = config_dict.get("configurable")
+    if isinstance(configurable, dict) and not configurable:
+        config_dict.pop("configurable", None)
+        configurable = None
+
+    # LangGraph 0.7.x 的 HTTP API 不允许请求同时携带 context 与 config.configurable。
+    # 当调用方已经显式传了 configurable（例如前端运行参数）时，项目作用域只写 metadata，
+    # 运行时再从 metadata 兼容读取 project_id。
+    if not isinstance(configurable, dict):
+        context = next_payload.get("context")
+        context_dict = dict(context) if isinstance(context, dict) else {}
+        context_dict["project_id"] = project_id
+        next_payload["context"] = context_dict
+
+    config_metadata = config_dict.get("metadata")
+    config_metadata_dict = (
+        dict(config_metadata) if isinstance(config_metadata, dict) else {}
+    )
+    config_metadata_dict["project_id"] = project_id
+    config_dict["metadata"] = config_metadata_dict
+
+    next_payload["config"] = config_dict
     return next_payload

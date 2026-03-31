@@ -19,8 +19,8 @@
 1. 只保留一个模型可见持久化工具：`persist_test_case_results`
 2. 只保留两类远端资源：`documents` 和 `test-cases`
 3. 共享 HTTP client 只抽传输层，不抽业务 payload
-4. `project_id` 等受信参数由 `runtime.config / runtime.state / runtime.context` 读取
-5. 当前尚未完全透传项目上下文时，允许使用默认项目 ID 兜底
+4. `project_id` 等受信参数由 `runtime.context / runtime.config / runtime.state` 读取
+5. `project_id` 缺失时必须显式报错，不能再静默回退默认项目
 6. `test_case_service` 在未显式传 `model_id` 时，服务级默认主模型使用 `deepseek_chat`
 
 ## runtime-service 侧结构
@@ -110,7 +110,7 @@
 - `documents/assets` 的 multipart 上传也统一经该集成层发出
 - 业务层自己决定何时先传原始文件、何时再写 document 元数据
 
-### 3. 默认项目 ID 策略
+### 3. 项目上下文标准化策略
 
 解析顺序：
 
@@ -118,14 +118,58 @@
 2. `runtime.config.configurable.project_id`
 3. `runtime.config.metadata.project_id`
 4. `runtime.state.project_id`
-5. `test_case_default_project_id`
 
-当前默认值：
+标准约束：
+
+1. `runtime.context.project_id` 升级为运行时标准字段
+2. `platform-api` 必须把当前项目同时注入到：
+   - `payload.context.project_id`（仅当请求未携带 `config.configurable`）
+   - `payload.config.metadata.project_id`
+   - `payload.metadata.project_id`
+3. `platform-api` 不再把 `project_id` 注入 `payload.config.configurable`，因为 LangGraph 0.7.x HTTP API 不允许请求同时携带 `context` 与 `configurable` 业务作用域
+4. 当调用方已经使用 `config.configurable` 传运行参数时，`platform-api` 只注入 `payload.config.metadata.project_id` 与 `payload.metadata.project_id`，`runtime-service` 通过 metadata 兼容读取
+5. `runtime.state.project_id` 仅保留兼容读取，不再作为主信源
+6. `test_case_service` 不再无条件使用 `test_case_default_project_id`
+
+保留项：
 
 - `test_case_default_model_id = deepseek_chat`
-- `test_case_default_project_id = 00000000-0000-0000-0000-000000000001`
 
-这是过渡方案，后续接入真实项目上下文后应优先覆盖。
+下线项：
+
+- `test_case_default_project_id` 不再作为平台真实链路的隐式兜底
+
+### 3.1 平台到运行时的可信传播链路
+
+```text
+platform-web WorkspaceContext.projectId
+  -> x-project-id header
+  -> platform-api LangGraph gateway
+  -> payload.context/metadata 注入 project_id（若请求已带 configurable，则只注 metadata）
+  -> runtime.context.project_id
+  -> test_case_service document/tool persistence
+  -> interaction-data-service.project_id
+```
+
+要求：
+
+1. 前端只负责携带当前项目 header，不自己拼业务 `project_id`
+2. `platform-api` 负责把 header 中的受信项目写入 LangGraph run payload
+3. `runtime-service` 统一从标准运行时字段读取，不再各服务自己发明透传入口
+4. `interaction-data-service` 只接收最终明确的 `project_id`
+
+### 3.2 缺失项目上下文时的行为
+
+平台真实链路下：
+
+1. 上传 PDF 且进入 `test_case_service` 文档即时持久化时，若拿不到 `project_id`，直接返回显式错误
+2. `persist_test_case_results` 若拿不到 `project_id`，直接返回结构化失败结果，不写 `test_cases`
+3. 不能把数据写入 `00000000-0000-0000-0000-000000000001`
+
+本地调试链路下：
+
+1. 仅允许通过显式开关启用 default project fallback
+2. 默认关闭，避免开发环境把脏数据继续写到默认项目
 
 ## interaction-data-service 侧结构
 
@@ -226,21 +270,29 @@
 3. 后续正式保存 testcase 时，必须复用既有 `document_id`
 4. 若原始 PDF 资产上传成功，document 记录中必须带有可用 `storage_path`
 5. `provenance.runtime` 中必须能看到 `thread_id / run_id / agent_key`
+6. 真实前端或真实 LangGraph run 请求中必须显式携带当前项目，最终落库不能再命中默认项目
 
-推荐使用两个真实验证脚本：
+推荐使用四个真实验证脚本：
 
 ```bash
 cd apps/runtime-service
 uv run python runtime_service/tests/services_test_case_service_document_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d \
   --model-id deepseek_chat \
   --timeout 900 \
   --interaction-timeout 60
 
 uv run python runtime_service/tests/services_test_case_service_persistence_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d \
   --model-id deepseek_chat \
   --timeout 900
 
-uv run python runtime_service/tests/services_test_case_service_case_idempotency_live.py
+uv run python runtime_service/tests/services_test_case_service_case_idempotency_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d
+
+uv run python runtime_service/tests/services_test_case_service_project_scope_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d \
+  --model-id deepseek_chat
 ```
 
 含义：
@@ -258,6 +310,11 @@ uv run python runtime_service/tests/services_test_case_service_case_idempotency_
    - 不依赖模型随机输出
    - 使用真实 `interaction-data-service` 和真实业务字段构造两轮 testcase 写入
    - 第二轮命中同一逻辑身份时必须覆盖旧记录而不是新增脏数据
+4. `services_test_case_service_project_scope_live.py`
+   - 强制经过 `platform-api` LangGraph 网关
+   - 正向验证 `x-project-id -> platform-api -> runtime-service -> interaction-data-service` 的真实注入链路
+   - 负向验证缺失 `x-project-id` 时必须返回 `400 test_case_project_id_required`
+   - 同时确认默认项目不会被脏写入
 
 ## 实现陷阱与修复点
 

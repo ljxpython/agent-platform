@@ -156,6 +156,23 @@ caller
 - `app/api/management/common.py` 的项目角色校验
 - `app/services/langgraph_sdk/scope_guard.py` 的 assistant/thread project 归属校验
 
+对于 LangGraph 运行时网关，当前还固定承担一条额外职责：
+
+- 把 `x-project-id` 代表的当前项目作用域注入到 LangGraph thread/run payload
+
+标准注入位置：
+
+1. `payload.metadata.project_id`
+2. `payload.context.project_id`（仅当请求本身不携带 `config.configurable` 时）
+3. `payload.config.metadata.project_id`
+
+设计原因：
+
+1. 仅靠 header 不能保证 `runtime-service` 节点/工具在执行期总能读到项目上下文
+2. 仅靠 thread metadata 不足以覆盖无 thread 的首轮 global run 或 run payload 直接执行场景
+3. LangGraph 0.7.x 的 HTTP API 不允许同一请求同时传 `context` 与 `config.configurable`；当调用方已经使用运行参数时，平台只能把项目作用域注入到 metadata，运行时再兼容读取
+4. 运行时项目上下文必须在 LangGraph payload 内显式存在，避免业务服务再使用默认项目兜底
+
 ### 6.3 runtime catalog
 
 `app/services/runtime_catalog_sync.py` 负责从 runtime 获取 graph/model/tool 等能力信息，并同步到平台库。

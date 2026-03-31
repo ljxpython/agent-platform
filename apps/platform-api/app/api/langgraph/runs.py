@@ -9,10 +9,12 @@ from app.services.langgraph_sdk.runs_service import LangGraphRunsService
 from app.services.langgraph_sdk.scope_guard import (
     assert_assistant_belongs_project,
     assert_thread_belongs_project,
+    inject_project_scope,
 )
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
+from httpx import HTTPStatusError
 
 router = APIRouter()
 
@@ -70,6 +72,21 @@ async def _sse_stream(events: Any) -> AsyncIterator[bytes]:
         yield _to_sse_chunk(event)
 
 
+def _raise_langgraph_request_error(exc: Exception, *, fallback_detail: str) -> None:
+    if isinstance(exc, HTTPStatusError):
+        response = exc.response
+        try:
+            detail: Any = response.json()
+        except Exception:
+            detail = response.text or fallback_detail
+        raise HTTPException(status_code=response.status_code, detail=detail) from exc
+    message = str(exc).strip()
+    if message.startswith("ValueError:"):
+        detail = message.split(":", 1)[1].strip() or fallback_detail
+        raise HTTPException(status_code=400, detail=detail) from exc
+    raise HTTPException(status_code=502, detail=fallback_detail) from exc
+
+
 @router.post("/runs")
 async def create_run(request: Request, payload: dict[str, Any] = Body(...)) -> Any:
     """
@@ -84,8 +101,14 @@ async def create_run(request: Request, payload: dict[str, Any] = Body(...)) -> A
     """
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
-    run = await service.create_global(payload)
+    try:
+        run = await service.create_global(scoped_payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_langgraph_request_error(exc, fallback_detail="langgraph_run_request_failed")
     return jsonable_encoder(run)
 
 
@@ -105,8 +128,14 @@ async def stream_run(
     """
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
-    event_iter = await service.stream_global(payload)
+    try:
+        event_iter = await service.stream_global(scoped_payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_langgraph_request_error(exc, fallback_detail="langgraph_run_stream_failed")
     return StreamingResponse(_sse_stream(event_iter), media_type="text/event-stream")
 
 
@@ -124,8 +153,14 @@ async def wait_run(request: Request, payload: dict[str, Any] = Body(...)) -> Any
     """
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
-    result = await service.wait_global(payload)
+    try:
+        result = await service.wait_global(scoped_payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _raise_langgraph_request_error(exc, fallback_detail="langgraph_run_request_failed")
     return jsonable_encoder(result)
 
 
@@ -152,8 +187,17 @@ async def batch_create_runs(request: Request, payload: Any = Body(...)) -> Any:
     if not isinstance(payloads, list):
         raise HTTPException(status_code=400, detail="payloads must be array")
 
+    scoped_payloads: list[dict[str, Any]] = []
+    for item in payloads:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="each payload must be object")
+        scoped_payload = inject_project_scope(request, item)
+        _require_assistant_id(scoped_payload)
+        await assert_assistant_belongs_project(request, scoped_payload["assistant_id"])
+        scoped_payloads.append(scoped_payload)
+
     service = LangGraphRunsService(request)
-    result = await service.create_batch(payloads)
+    result = await service.create_batch(scoped_payloads)
     return jsonable_encoder(result)
 
 
@@ -194,8 +238,9 @@ async def create_cron(request: Request, payload: dict[str, Any] = Body(...)) -> 
     """
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
-    cron = await service.create_cron(payload)
+    cron = await service.create_cron(scoped_payload)
     return jsonable_encoder(cron)
 
 
@@ -248,8 +293,9 @@ async def update_cron(
     返回语义：
     - 返回上游 cron 更新后的结果对象，并通过 jsonable_encoder 序列化。
     """
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
-    cron = await service.update_cron(cron_id, payload)
+    cron = await service.update_cron(cron_id, scoped_payload)
     return jsonable_encoder(cron)
 
 
@@ -293,16 +339,14 @@ async def create_thread_run(
     await assert_thread_belongs_project(request, thread_id)
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
     try:
-        run = await service.create(thread_id, payload)
+        run = await service.create(thread_id, scoped_payload)
     except HTTPException:
         raise
     except Exception as exc:
-        # 仅兜底未预期异常，避免上游故障直接泄露为 500。
-        raise HTTPException(
-            status_code=502, detail="langgraph_run_request_failed"
-        ) from exc
+        _raise_langgraph_request_error(exc, fallback_detail="langgraph_run_request_failed")
     return jsonable_encoder(run)
 
 
@@ -326,16 +370,14 @@ async def stream_thread_run(
     await assert_thread_belongs_project(request, thread_id)
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
     try:
-        event_iter = await service.stream(thread_id, payload)
+        event_iter = await service.stream(thread_id, scoped_payload)
     except HTTPException:
         raise
     except Exception as exc:
-        # 流式请求单独返回 stream_failed，便于前端识别错误类型。
-        raise HTTPException(
-            status_code=502, detail="langgraph_run_stream_failed"
-        ) from exc
+        _raise_langgraph_request_error(exc, fallback_detail="langgraph_run_stream_failed")
     return StreamingResponse(_sse_stream(event_iter), media_type="text/event-stream")
 
 
@@ -359,16 +401,14 @@ async def wait_thread_run(
     await assert_thread_belongs_project(request, thread_id)
     _require_assistant_id(payload)
     await assert_assistant_belongs_project(request, payload["assistant_id"])
+    scoped_payload = inject_project_scope(request, payload)
     service = LangGraphRunsService(request)
     try:
-        result = await service.wait(thread_id, payload)
+        result = await service.wait(thread_id, scoped_payload)
     except HTTPException:
         raise
     except Exception as exc:
-        # wait 与 create 共享请求失败错误码，保持调用侧处理一致。
-        raise HTTPException(
-            status_code=502, detail="langgraph_run_request_failed"
-        ) from exc
+        _raise_langgraph_request_error(exc, fallback_detail="langgraph_run_request_failed")
     return jsonable_encoder(result)
 
 

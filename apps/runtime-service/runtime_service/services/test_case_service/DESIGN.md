@@ -156,7 +156,8 @@ class TestCaseServiceConfig:
     multimodal_parser_model_id: str   # 多模态解析模型
     multimodal_detail_mode: bool      # 是否启用详细解析
     multimodal_detail_text_max_chars: int  # 详细模式字符上限
-    default_project_id: str           # 项目上下文缺失时的默认项目 ID
+    default_project_id: str           # 仅用于显式调试 fallback 的默认项目 ID
+    allow_default_project_fallback: bool  # 是否允许缺失 project_id 时回退默认项目
     persistence_enabled: bool         # 是否允许正式落库
 ```
 
@@ -213,6 +214,6 @@ def _resolve_backend_root_dir_path(private_config, *, agent_name) -> Path:
 | `virtual_mode=True` 不持久化 | 会话结束后中间产物丢失 | 支持 `virtual_mode=False` + 配置化存储路径 |
 | 无流式输出进度反馈 | 长任务用户体验差 | 集成 LangGraph streaming |
 | Skills 无版本管理 | SKILL.md 变更无法灰度 | 引入 skills 版本号机制 |
-| 默认项目 ID 仍是过渡方案 | 真实项目上下文尚未完全透传 | 后续由 runtime.context / runtime.config 正式承载 |
+| 平台真实链路缺失 project_id 时会显式失败 | 运行时项目上下文必须由 platform-api 注入 | 仅在显式打开 `test_case_allow_default_project_fallback` 时允许本地调试回退 |
 | 平台人工 CRUD 仍允许重复 testcase | 自动保存已支持幂等覆盖，但人工录入仍可能录入相似记录 | 后续如有需要再评估平台侧提示或弱校验 |
 | 旧 `usecase-generation` 结果域已退役 | 旧服务仍可能残留历史依赖 | 后续下线 `usecase_workflow_agent` 并清理历史文档 |

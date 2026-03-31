@@ -34,9 +34,6 @@ from runtime_service.runtime.options import (  # noqa: E402
     build_runtime_config,
     merge_trusted_auth_context,
 )
-from runtime_service.services.test_case_service.schemas import (  # noqa: E402
-    DEFAULT_TEST_CASE_PROJECT_ID,
-)
 from runtime_service.tests.services_test_case_service_debug import (  # noqa: E402
     _print_section,
     _resolve_pdf_path,
@@ -98,8 +95,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-id", default="deepseek_chat", help="主模型 ID。")
     parser.add_argument(
         "--project-id",
-        default=None,
-        help="显式 project_id；不传则使用 test_case_default_project_id。",
+        required=True,
+        help="显式 project_id；真实链路验证不再允许 default project fallback。",
     )
     parser.add_argument(
         "--parser-model-id",
@@ -170,7 +167,7 @@ async def _run_once(
 
 async def _main_async(args: argparse.Namespace) -> int:
     pdf_path = _resolve_pdf_path(args.pdf)
-    project_id = args.project_id or DEFAULT_TEST_CASE_PROJECT_ID
+    project_id = args.project_id
     batch_id = f"test-case-service-document-live:{uuid4()}"
     message = build_human_message_from_paths(args.question, [pdf_path])
 

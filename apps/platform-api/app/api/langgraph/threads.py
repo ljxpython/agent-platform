@@ -126,8 +126,9 @@ async def update_thread(
     - 返回更新后的 thread 对象（已序列化）。
     """
     await assert_thread_belongs_project(request, thread_id)
+    scoped_payload = inject_project_metadata(request, payload)
     service = LangGraphThreadsService(request)
-    thread = await service.update(thread_id, payload)
+    thread = await service.update(thread_id, scoped_payload)
     return jsonable_encoder(thread)
 
 

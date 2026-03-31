@@ -14,6 +14,7 @@ from runtime_service.middlewares.multimodal import MULTIMODAL_ATTACHMENTS_KEY
 from runtime_service.middlewares.multimodal import protocol as multimodal_protocol
 from runtime_service.runtime.context import RuntimeContext
 from runtime_service.services.test_case_service.document_persistence import (
+    MISSING_PROJECT_ID_ERROR,
     PERSIST_STATUS_PERSISTED,
     persist_runtime_documents,
 )
@@ -120,3 +121,98 @@ def test_persist_runtime_documents_uploads_pdf_asset_from_request_messages(tmp_p
         "test-case-service:batch-test-1/asset.pdf"
     )
     assert outcome.attachments[0].get("persist_error") is None
+
+
+def test_persist_runtime_documents_prefers_runtime_context_project_id(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "context-sample.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n%%EOF")
+
+    message = build_human_message_from_paths("请分析附件", [pdf_path])
+    normalized_messages = multimodal_protocol.normalize_messages([message])
+    attachments = multimodal_protocol.collect_current_turn_attachment_artifacts(normalized_messages)
+    attachment = dict(attachments[0])
+    attachment["status"] = "parsed"
+    attachment["summary_for_model"] = "PDF 已解析"
+    attachment["parsed_text"] = "这是 PDF 的解析结果"
+    state = {MULTIMODAL_ATTACHMENTS_KEY: [attachment]}
+    runtime = SimpleNamespace(
+        state=state,
+        config={"configurable": {"thread_id": "thread-test-2", "batch_id": "test-case-service:batch-test-2"}},
+        context=RuntimeContext(project_id="5f419550-a3c7-49c6-9450-09154fd1bf7d"),
+    )
+    client = _FakeInteractionDataClient()
+
+    outcome = persist_runtime_documents(
+        runtime=runtime,
+        state=state,
+        service_config=ServiceConfig(),
+        client=client,
+        messages=normalized_messages,
+    )
+
+    assert outcome.project_id == "5f419550-a3c7-49c6-9450-09154fd1bf7d"
+    assert client.json_requests[0]["payload"]["project_id"] == "5f419550-a3c7-49c6-9450-09154fd1bf7d"
+
+
+def test_persist_runtime_documents_requires_project_id(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "missing-project.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n%%EOF")
+
+    message = build_human_message_from_paths("请分析附件", [pdf_path])
+    normalized_messages = multimodal_protocol.normalize_messages([message])
+    attachments = multimodal_protocol.collect_current_turn_attachment_artifacts(normalized_messages)
+    attachment = dict(attachments[0])
+    attachment["status"] = "parsed"
+    attachment["summary_for_model"] = "PDF 已解析"
+    attachment["parsed_text"] = "这是 PDF 的解析结果"
+    state = {MULTIMODAL_ATTACHMENTS_KEY: [attachment]}
+    runtime = SimpleNamespace(
+        state=state,
+        config={"configurable": {"thread_id": "thread-test-3", "batch_id": "test-case-service:batch-test-3"}},
+        context=RuntimeContext(),
+    )
+    client = _FakeInteractionDataClient()
+
+    try:
+        persist_runtime_documents(
+            runtime=runtime,
+            state=state,
+            service_config=ServiceConfig(),
+            client=client,
+            messages=normalized_messages,
+        )
+    except ValueError as exc:
+        assert str(exc) == MISSING_PROJECT_ID_ERROR
+    else:
+        raise AssertionError("persist_runtime_documents should require project_id")
+
+
+def test_persist_runtime_documents_allows_explicit_default_project_fallback(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "fallback-project.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n%%EOF")
+
+    message = build_human_message_from_paths("请分析附件", [pdf_path])
+    normalized_messages = multimodal_protocol.normalize_messages([message])
+    attachments = multimodal_protocol.collect_current_turn_attachment_artifacts(normalized_messages)
+    attachment = dict(attachments[0])
+    attachment["status"] = "parsed"
+    attachment["summary_for_model"] = "PDF 已解析"
+    attachment["parsed_text"] = "这是 PDF 的解析结果"
+    state = {MULTIMODAL_ATTACHMENTS_KEY: [attachment]}
+    runtime = SimpleNamespace(
+        state=state,
+        config={"configurable": {"thread_id": "thread-test-4", "batch_id": "test-case-service:batch-test-4"}},
+        context=RuntimeContext(),
+    )
+    client = _FakeInteractionDataClient()
+
+    outcome = persist_runtime_documents(
+        runtime=runtime,
+        state=state,
+        service_config=ServiceConfig(allow_default_project_fallback=True),
+        client=client,
+        messages=normalized_messages,
+    )
+
+    assert outcome.project_id == "00000000-0000-0000-0000-000000000001"
+    assert client.json_requests[0]["payload"]["project_id"] == "00000000-0000-0000-0000-000000000001"

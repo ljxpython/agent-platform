@@ -57,7 +57,8 @@ test_case_service/
 | `test_case_multimodal_detail_mode` | `bool` | `False` | 启用详细解析模式 |
 | `test_case_multimodal_detail_text_max_chars` | `int` | `2000` | 详细模式最大字符数 |
 | `test_case_backend_root_dir` | `str` | 服务包目录 | FilesystemBackend 根目录覆盖 |
-| `test_case_default_project_id` | `str` | `00000000-0000-0000-0000-000000000001` | 当前未透传项目上下文时的默认项目 ID |
+| `test_case_default_project_id` | `str` | `00000000-0000-0000-0000-000000000001` | 仅在显式开启 `test_case_allow_default_project_fallback=true` 时使用的调试默认项目 ID |
+| `test_case_allow_default_project_fallback` | `bool` | `False` | 是否允许在缺失真实项目上下文时回退到默认项目；平台真实链路必须保持关闭 |
 | `test_case_persistence_enabled` | `bool` | `True` | 是否允许调用正式持久化工具 |
 | `interaction_data_service_url` | `str` | 环境变量/空 | interaction-data-service 基地址 |
 | `interaction_data_service_token` | `str` | 环境变量/空 | interaction-data-service Bearer Token |
@@ -67,6 +68,7 @@ test_case_service/
 
 - 如果 `RunnableConfig.configurable.model_id` 已显式传入，则始终优先使用调用方指定模型
 - 只有在未显式传 `model_id` 且未设置环境变量 `MODEL_ID` 时，服务才回落到 `test_case_default_model_id=deepseek_chat`
+- `project_id` 是受信运行时上下文，平台真实链路必须由 `platform-api` 注入到 `context/metadata`；未注入时 `test_case_service` 会显式报错，不再静默写入默认项目
 
 ## Skills 说明
 
@@ -97,6 +99,30 @@ Agent 通过 `SkillsMiddleware` 自动加载以下 Skills，按需激活：
 cd apps/runtime-service
 pytest runtime_service/services/test_case_service/tests/ -v
 ```
+
+## 真实联调验证
+
+```bash
+cd apps/runtime-service
+
+uv run python runtime_service/tests/services_test_case_service_document_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d \
+  --model-id deepseek_chat
+
+uv run python runtime_service/tests/services_test_case_service_persistence_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d \
+  --model-id deepseek_chat
+
+uv run python runtime_service/tests/services_test_case_service_project_scope_live.py \
+  --project-id 5f419550-a3c7-49c6-9450-09154fd1bf7d \
+  --model-id deepseek_chat
+```
+
+说明：
+
+- `services_test_case_service_document_live.py`：验证“上传即落库”的 document 链路
+- `services_test_case_service_persistence_live.py`：验证正式 testcase 保存与 `source_document_ids` 关联
+- `services_test_case_service_project_scope_live.py`：验证 `platform-api` 项目作用域注入、缺失项目时的显式失败、以及默认项目不被脏写入
 
 ## 典型使用场景
 

@@ -25,6 +25,7 @@ PERSIST_STATUS_PENDING = "pending"
 PERSIST_STATUS_PERSISTED = "persisted"
 PERSIST_STATUS_FAILED = "failed"
 PERSIST_STATUS_SKIPPED = "skipped"
+MISSING_PROJECT_ID_ERROR = "test_case_project_id_required"
 
 
 @dataclass(frozen=True)
@@ -95,7 +96,7 @@ def _get_runtime_context_mapping(runtime: Any) -> Mapping[str, Any]:
 def _resolve_project_id(
     runtime: Any,
     service_config: TestCaseServiceConfig,
-) -> str:
+) -> str | None:
     context_data = _get_runtime_context_mapping(runtime)
     config = _get_runtime_config(runtime)
     configurable = read_configurable(config)
@@ -112,7 +113,19 @@ def _resolve_project_id(
         text = _coerce_optional_text(candidate)
         if text:
             return text
-    return service_config.default_project_id
+    if service_config.allow_default_project_fallback:
+        return _coerce_optional_text(service_config.default_project_id)
+    return None
+
+
+def _require_project_id(
+    runtime: Any,
+    service_config: TestCaseServiceConfig,
+) -> str:
+    project_id = _resolve_project_id(runtime, service_config)
+    if project_id:
+        return project_id
+    raise ValueError(MISSING_PROJECT_ID_ERROR)
 
 
 def _resolve_batch_id(runtime: Any) -> str:
@@ -401,7 +414,7 @@ def persist_runtime_documents(
             "context": resolved_context if resolved_context is not None else RuntimeContext(),
         },
     )()
-    project_id = _resolve_project_id(runtime_like, service_config)
+    project_id = _require_project_id(runtime_like, service_config)
     batch_id = _resolve_batch_id(runtime_like)
     resolved_client = client or InteractionDataServiceClient(
         build_interaction_data_service_config(runtime_like.config)
@@ -557,9 +570,11 @@ __all__ = [
     "_coerce_string_list",
     "_get_runtime_state",
     "_get_runtime_config",
+    "_require_project_id",
     "_resolve_batch_id",
     "_resolve_project_id",
     "_resolve_runtime_meta",
+    "MISSING_PROJECT_ID_ERROR",
     "apersist_runtime_documents",
     "collect_persisted_document_ids",
     "persist_runtime_documents",

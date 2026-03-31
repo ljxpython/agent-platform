@@ -63,7 +63,7 @@ class GraphParameterSchemaService:
                     "type": "object",
                     "required": False,
                     "properties": context_properties,
-                    "readonly_keys": ["user_id", "tenant_id", "role", "permissions"],
+                    "readonly_keys": ["user_id", "tenant_id", "role", "permissions", "project_id"],
                 },
                 {
                     "key": "metadata",

@@ -28,7 +28,6 @@ from runtime_service.integrations import (  # noqa: E402
     build_interaction_data_service_config,
 )
 from runtime_service.services.test_case_service.schemas import (  # noqa: E402
-    DEFAULT_TEST_CASE_PROJECT_ID,
     PersistTestCaseItem,
 )
 from runtime_service.services.test_case_service.tools import (  # noqa: E402
@@ -52,8 +51,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--project-id",
-        default=None,
-        help="显式 project_id；不传则使用 test_case_default_project_id。",
+        required=True,
+        help="显式 project_id；真实链路验证不再允许 default project fallback。",
     )
     parser.add_argument(
         "--batch-id",
@@ -165,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
 
     args = _build_arg_parser().parse_args(argv)
-    project_id = args.project_id or DEFAULT_TEST_CASE_PROJECT_ID
+    project_id = args.project_id
     batch_id = args.batch_id or f"test-case-service-case-idempotency:{uuid4()}"
     config: RunnableConfig = {
         "configurable": {

@@ -13,6 +13,7 @@ DEFAULT_MULTIMODAL_DETAIL_MODE = False
 DEFAULT_MULTIMODAL_DETAIL_TEXT_MAX_CHARS = 2000
 DEFAULT_TEST_CASE_MODEL_ID = "deepseek_chat"
 DEFAULT_TEST_CASE_PROJECT_ID = "00000000-0000-0000-0000-000000000001"
+DEFAULT_TEST_CASE_ALLOW_DEFAULT_PROJECT_FALLBACK = False
 DEFAULT_TEST_CASE_PERSISTENCE_ENABLED = True
 
 
@@ -23,6 +24,7 @@ class TestCaseServiceConfig:
     multimodal_detail_text_max_chars: int = DEFAULT_MULTIMODAL_DETAIL_TEXT_MAX_CHARS
     default_model_id: str = DEFAULT_TEST_CASE_MODEL_ID
     default_project_id: str = DEFAULT_TEST_CASE_PROJECT_ID
+    allow_default_project_fallback: bool = DEFAULT_TEST_CASE_ALLOW_DEFAULT_PROJECT_FALLBACK
     persistence_enabled: bool = DEFAULT_TEST_CASE_PERSISTENCE_ENABLED
 
 
@@ -89,6 +91,10 @@ def build_test_case_service_config(config: RunnableConfig) -> TestCaseServiceCon
         ),
         default_project_id=str(
             private_config.get("test_case_default_project_id") or DEFAULT_TEST_CASE_PROJECT_ID
+        ),
+        allow_default_project_fallback=_parse_bool(
+            private_config.get("test_case_allow_default_project_fallback"),
+            DEFAULT_TEST_CASE_ALLOW_DEFAULT_PROJECT_FALLBACK,
         ),
         persistence_enabled=_parse_bool(
             private_config.get("test_case_persistence_enabled"),

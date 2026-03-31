@@ -15,8 +15,8 @@ from runtime_service.runtime.context import RuntimeContext
 from runtime_service.services.test_case_service.document_persistence import (
     _coerce_string_list,
     _get_runtime_state,
+    _require_project_id,
     _resolve_batch_id,
-    _resolve_project_id,
     _resolve_runtime_meta,
     collect_persisted_document_ids,
     persist_runtime_documents,
@@ -193,9 +193,20 @@ def build_test_case_service_tools(service_config: TestCaseServiceConfig) -> list
                 },
                 ensure_ascii=False,
             )
-        project_id = _resolve_project_id(runtime, service_config)
         batch_id = _resolve_batch_id(runtime)
         runtime_meta = _resolve_runtime_meta(runtime)
+        try:
+            project_id = _require_project_id(runtime, service_config)
+        except ValueError as exc:
+            return json.dumps(
+                {
+                    "status": "failed_missing_project_id",
+                    "reason": str(exc),
+                    "batch_id": batch_id,
+                    "test_case_count": len(normalized_cases),
+                },
+                ensure_ascii=False,
+            )
         state = _get_runtime_state(runtime)
         client = InteractionDataServiceClient(build_interaction_data_service_config(runtime.config))
         if not client.is_configured:

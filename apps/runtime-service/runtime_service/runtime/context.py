@@ -13,6 +13,7 @@ class RuntimeContext:
     tenant_id: str | None = None
     role: str | None = None
     permissions: list[str] | None = None
+    project_id: str | None = None
 
     # ==================== Runtime Feature Parameters ====================
     environment: str | None = None
