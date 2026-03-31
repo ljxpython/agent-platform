@@ -20,27 +20,27 @@ export function WorkspaceAuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    setReady(false);
+
     void ensureOidcSession().then((nextLoggedIn) => {
-      if (!cancelled) {
-        setLoggedIn(nextLoggedIn);
-        setReady(true);
+      if (cancelled) {
+        return;
+      }
+
+      setLoggedIn(nextLoggedIn);
+      setReady(true);
+
+      if (!nextLoggedIn) {
+        const params = new URLSearchParams();
+        params.set("redirect", redirectTarget);
+        router.replace(`/auth/login?${params.toString()}`);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!ready || loggedIn) {
-      return;
-    }
-
-    const params = new URLSearchParams();
-    params.set("redirect", redirectTarget);
-    router.replace(`/auth/login?${params.toString()}`);
-  }, [loggedIn, ready, redirectTarget, router]);
+  }, [pathname, redirectTarget, router]);
 
   if (!ready || !loggedIn) {
     return <div className="p-6">Redirecting to login...</div>;

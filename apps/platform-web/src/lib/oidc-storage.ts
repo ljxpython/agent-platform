@@ -19,6 +19,22 @@ function decodeBase64Url(raw: string): string {
   return atob(`${normalized}${padding}`);
 }
 
+function decodeJwtPayload<T>(token: string): T | null {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) {
+    return null;
+  }
+  const parts = normalizedToken.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  try {
+    return JSON.parse(decodeBase64Url(parts[1])) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function getOidcTokenSet(): OidcTokenSet | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(OIDC_TOKEN_SET_KEY);
@@ -46,12 +62,11 @@ export function getValidAccessToken(): string {
 
   const parts = accessToken.split(".");
   if (parts.length === 3) {
-    try {
-      const payload = JSON.parse(decodeBase64Url(parts[1])) as { exp?: number };
-      if (typeof payload.exp === "number" && Date.now() >= payload.exp * 1000) {
-        return "";
-      }
-    } catch {
+    const payload = decodeJwtPayload<{ exp?: number }>(accessToken);
+    if (!payload) {
+      return "";
+    }
+    if (typeof payload.exp === "number" && Date.now() >= payload.exp * 1000) {
       return "";
     }
   }
@@ -62,6 +77,21 @@ export function getValidAccessToken(): string {
 export function hasOidcSession(): boolean {
   const tokenSet = getOidcTokenSet();
   return Boolean(tokenSet?.access_token || tokenSet?.refresh_token);
+}
+
+export function getOidcUserId(): string {
+  const tokenSet = getOidcTokenSet();
+  const tokens = [tokenSet?.access_token, tokenSet?.refresh_token];
+  for (const token of tokens) {
+    if (typeof token !== "string" || !token.trim()) {
+      continue;
+    }
+    const payload = decodeJwtPayload<{ sub?: string }>(token);
+    if (typeof payload?.sub === "string" && payload.sub.trim()) {
+      return payload.sub.trim();
+    }
+  }
+  return "";
 }
 
 export async function ensureValidAccessToken(options?: {

@@ -28,35 +28,34 @@ export function GlobalAuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    setReady(false);
+
     void ensureOidcSession().then((nextLoggedIn) => {
-      if (!cancelled) {
-        setLoggedIn(nextLoggedIn);
-        setReady(true);
+      if (cancelled) {
+        return;
+      }
+
+      setLoggedIn(nextLoggedIn);
+      setReady(true);
+
+      if (publicPath) {
+        if (nextLoggedIn && pathname.startsWith("/auth/login")) {
+          router.replace("/workspace/chat");
+        }
+        return;
+      }
+
+      if (!nextLoggedIn) {
+        const params = new URLSearchParams();
+        params.set("redirect", redirectTarget);
+        router.replace(`/auth/login?${params.toString()}`);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!ready) {
-      return;
-    }
-    if (publicPath) {
-      if (loggedIn && pathname.startsWith("/auth/login")) {
-        router.replace("/workspace/chat");
-      }
-      return;
-    }
-
-    if (!loggedIn) {
-      const params = new URLSearchParams();
-      params.set("redirect", redirectTarget);
-      router.replace(`/auth/login?${params.toString()}`);
-    }
-  }, [loggedIn, pathname, publicPath, ready, redirectTarget, router]);
+  }, [pathname, publicPath, redirectTarget, router]);
 
   if (!publicPath && (!ready || !loggedIn)) {
     return <div className="p-6">Redirecting to login...</div>;

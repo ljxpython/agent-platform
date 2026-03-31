@@ -2,6 +2,11 @@
 
 import { listProjects, type ManagementProject } from "@/lib/management-api/projects";
 import { logClient } from "@/lib/client-logger";
+import {
+  clearStoredWorkspaceProjectId,
+  getStoredWorkspaceProjectId,
+  setStoredWorkspaceProjectId,
+} from "@/lib/workspace-project-preference";
 import { useQueryState } from "nuqs";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -40,12 +45,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
         setProjects(rows);
 
-        const projectStillValid = rows.some((item) => item.id === projectId);
-        if ((!projectId || !projectStillValid) && rows.length > 0) {
+        const normalizedProjectId = (projectId ?? "").trim();
+        const projectStillValid = rows.some((item) => item.id === normalizedProjectId);
+        if (projectStillValid) {
+          setStoredWorkspaceProjectId(normalizedProjectId);
+          return;
+        }
+
+        const preferredProjectId = getStoredWorkspaceProjectId();
+        const preferredProjectStillValid = rows.some((item) => item.id === preferredProjectId);
+        if (preferredProjectStillValid) {
+          setProjectId(preferredProjectId);
+          setStoredWorkspaceProjectId(preferredProjectId);
+          return;
+        }
+
+        if (rows.length > 0) {
           setProjectId(rows[0].id);
+          setStoredWorkspaceProjectId(rows[0].id);
+          return;
         }
         if (rows.length === 0) {
           setProjectId("");
+          clearStoredWorkspaceProjectId();
         }
       } catch (err) {
         if (!cancelled) {
@@ -75,7 +97,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     () => ({
       projectId: projectId ?? "",
       setProjectId: (value: string) => {
-        setProjectId(value);
+        const normalizedValue = value.trim();
+        setProjectId(normalizedValue);
+        if (normalizedValue) {
+          setStoredWorkspaceProjectId(normalizedValue);
+        } else {
+          clearStoredWorkspaceProjectId();
+        }
         setThreadId(null);
         setAssistantId("");
       },

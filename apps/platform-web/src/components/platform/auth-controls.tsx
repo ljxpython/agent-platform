@@ -31,6 +31,7 @@ export function AuthControls() {
       type="button"
       className="bg-background rounded-md border px-3 py-1 text-sm"
       onClick={() => {
+        setLoggedIn(false);
         clearOidcTokenSet();
         router.replace("/auth/login");
       }}
