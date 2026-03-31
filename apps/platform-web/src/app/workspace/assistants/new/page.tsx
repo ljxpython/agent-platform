@@ -66,6 +66,14 @@ export default function CreateAssistantPage() {
   const [runtimeEnableTools, setRuntimeEnableTools] = useState(false);
   const [runtimeToolNames, setRuntimeToolNames] = useState<string[]>([]);
 
+  const sortedGraphOptions = useMemo(
+    () =>
+      [...graphOptions].sort((left, right) =>
+        left.graph_id.localeCompare(right.graph_id),
+      ),
+    [graphOptions],
+  );
+
   const configPropertyDefs = useMemo(() => {
     const sections = Array.isArray(schema?.sections) ? schema?.sections : [];
     const configSection = sections.find((section) => section?.key === "config");
@@ -150,9 +158,8 @@ export default function CreateAssistantPage() {
     }
     setGraphLoading(true);
     void listGraphsPage(projectId, {
-      limit: 30,
+      limit: 500,
       offset: 0,
-      query: graphId.trim() || undefined,
     })
       .then((payload) => {
         const next = payload.items
@@ -164,7 +171,21 @@ export default function CreateAssistantPage() {
       })
       .catch(() => setGraphOptions([]))
       .finally(() => setGraphLoading(false));
-  }, [graphId, projectId]);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (sortedGraphOptions.length === 0) {
+      return;
+    }
+    const normalizedGraphId = graphId.trim();
+    if (
+      normalizedGraphId &&
+      sortedGraphOptions.some((option) => option.graph_id === normalizedGraphId)
+    ) {
+      return;
+    }
+    setGraphId(sortedGraphOptions[0].graph_id);
+  }, [graphId, sortedGraphOptions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,22 +386,32 @@ export default function CreateAssistantPage() {
       <form className="mt-4 grid gap-3 rounded-lg border border-border/80 bg-card/70 p-4" onSubmit={onSubmit}>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Graph ID
-          <input
+          <select
             className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-            list="assistant-graph-options"
             value={graphId}
             onChange={(event) => setGraphId(event.target.value)}
-            placeholder={graphLoading ? "Searching graphs..." : "Type to fuzzy search, or pick from dropdown"}
-            disabled={submitting}
+            disabled={submitting || graphLoading || sortedGraphOptions.length === 0}
             required
-          />
-          <datalist id="assistant-graph-options">
-            {graphOptions.map((option) => (
-              <option key={option.graph_id} value={option.graph_id} label={option.description?.trim() ? `${option.graph_id} — ${option.description}` : option.graph_id}>
-                {option.description?.trim() ? `${option.graph_id} — ${option.description}` : option.graph_id}
+          >
+            {sortedGraphOptions.length === 0 ? (
+              <option value="">
+                {graphLoading ? "Loading graphs..." : "No graph available"}
               </option>
-            ))}
-          </datalist>
+            ) : (
+              sortedGraphOptions.map((option) => (
+                <option key={option.graph_id} value={option.graph_id}>
+                  {option.description?.trim()
+                    ? `${option.graph_id} - ${option.description}`
+                    : option.graph_id}
+                </option>
+              ))
+            )}
+          </select>
+          <span className="text-[11px] text-muted-foreground">
+            {graphLoading
+              ? "Loading graph catalog..."
+              : `Available graphs: ${sortedGraphOptions.length}`}
+          </span>
         </label>
 
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
