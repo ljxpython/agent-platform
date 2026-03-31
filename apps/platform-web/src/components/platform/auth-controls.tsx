@@ -3,14 +3,27 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { clearOidcTokenSet, hasOidcSession } from "@/lib/oidc-storage";
+import {
+  clearOidcTokenSet,
+  ensureOidcSession,
+} from "@/lib/oidc-storage";
 
 export function AuthControls() {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    setLoggedIn(hasOidcSession());
+    let cancelled = false;
+
+    void ensureOidcSession().then((nextLoggedIn) => {
+      if (!cancelled) {
+        setLoggedIn(nextLoggedIn);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return loggedIn ? (

@@ -37,7 +37,6 @@ export async function listThreadsPage(
   options?: ListThreadsOptions,
 ): Promise<ThreadListResponse> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   const limit = options?.limit ?? 20;
@@ -116,7 +115,6 @@ export async function listThreadsPage(
 
 export async function getThreadDetail(projectId: string, threadId: string): Promise<ManagementThread> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {
@@ -131,7 +129,6 @@ export async function getThreadHistoryPage(
   options?: { limit?: number; before?: string },
 ): Promise<ThreadHistoryEntry[]> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {
@@ -159,7 +156,6 @@ export async function getThreadState(
   threadId: string,
 ): Promise<Record<string, unknown>> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {

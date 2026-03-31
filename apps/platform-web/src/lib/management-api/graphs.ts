@@ -22,7 +22,6 @@ export async function listGraphsPage(
   options?: { limit?: number; offset?: number; query?: string },
 ): Promise<GraphListResponse> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client) {
@@ -53,7 +52,6 @@ export async function refreshGraphsCatalog(
   projectId?: string,
 ): Promise<{ ok: boolean; count: number; last_synced_at: string | null }> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client) {

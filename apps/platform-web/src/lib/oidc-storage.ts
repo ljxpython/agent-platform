@@ -1,4 +1,7 @@
-import { syncPlatformApiUrlStorage } from "@/lib/platform-api-url";
+import {
+  getStoredOrConfiguredPlatformApiUrl,
+  syncPlatformApiUrlStorage,
+} from "@/lib/platform-api-url";
 
 export type OidcTokenSet = {
   access_token: string;
@@ -8,6 +11,7 @@ export type OidcTokenSet = {
 };
 
 const OIDC_TOKEN_SET_KEY = "oidc:token_set";
+let refreshAccessTokenPromise: Promise<string> | null = null;
 
 function decodeBase64Url(raw: string): string {
   const normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
@@ -58,6 +62,85 @@ export function getValidAccessToken(): string {
 export function hasOidcSession(): boolean {
   const tokenSet = getOidcTokenSet();
   return Boolean(tokenSet?.access_token || tokenSet?.refresh_token);
+}
+
+export async function ensureValidAccessToken(options?: {
+  baseUrl?: string;
+  forceRefresh?: boolean;
+}): Promise<string> {
+  const forceRefresh = Boolean(options?.forceRefresh);
+  if (!forceRefresh) {
+    const accessToken = getValidAccessToken();
+    if (accessToken) {
+      return accessToken;
+    }
+  }
+
+  const tokenSet = getOidcTokenSet();
+  const refreshToken = tokenSet?.refresh_token?.trim() || "";
+  if (!refreshToken) {
+    clearOidcTokenSet();
+    return "";
+  }
+
+  if (refreshAccessTokenPromise) {
+    return refreshAccessTokenPromise;
+  }
+
+  const baseUrl =
+    options?.baseUrl?.trim() || getStoredOrConfiguredPlatformApiUrl().trim();
+  if (!baseUrl) {
+    clearOidcTokenSet();
+    return "";
+  }
+
+  refreshAccessTokenPromise = (async () => {
+    try {
+      const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/_management/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!response.ok) {
+        clearOidcTokenSet();
+        return "";
+      }
+
+      const payload = (await response.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+      };
+      const nextAccessToken =
+        typeof payload.access_token === "string"
+          ? payload.access_token.trim()
+          : "";
+      const nextRefreshToken =
+        typeof payload.refresh_token === "string"
+          ? payload.refresh_token.trim()
+          : "";
+      if (!nextAccessToken || !nextRefreshToken) {
+        clearOidcTokenSet();
+        return "";
+      }
+
+      setOidcTokenSet({
+        access_token: nextAccessToken,
+        refresh_token: nextRefreshToken,
+      });
+      return nextAccessToken;
+    } catch {
+      clearOidcTokenSet();
+      return "";
+    } finally {
+      refreshAccessTokenPromise = null;
+    }
+  })();
+
+  return refreshAccessTokenPromise;
+}
+
+export async function ensureOidcSession(baseUrl?: string): Promise<boolean> {
+  return Boolean(await ensureValidAccessToken({ baseUrl }));
 }
 
 export function setOidcTokenSet(tokenSet: OidcTokenSet): void {

@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { hasOidcSession } from "@/lib/oidc-storage";
+import { ensureOidcSession } from "@/lib/oidc-storage";
 
 export function WorkspaceAuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -18,8 +18,18 @@ export function WorkspaceAuthGuard({ children }: { children: ReactNode }) {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    setLoggedIn(hasOidcSession());
-    setReady(true);
+    let cancelled = false;
+
+    void ensureOidcSession().then((nextLoggedIn) => {
+      if (!cancelled) {
+        setLoggedIn(nextLoggedIn);
+        setReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

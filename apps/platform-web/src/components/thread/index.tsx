@@ -243,7 +243,7 @@ export function Thread({
     temperature: "",
     maxTokens: "",
   });
-  const [contextBarCollapsed, setContextBarCollapsed] = useState(false);
+  const [contextBarCollapsed, setContextBarCollapsed] = useState(true);
   const { projectId } = useWorkspaceContext();
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
   const stream = useStreamContext();

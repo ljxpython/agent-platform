@@ -31,7 +31,6 @@ export async function listAssistantsPage(
   options?: { limit?: number; offset?: number; query?: string; graph_id?: string },
 ): Promise<AssistantListResponse> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {
@@ -64,7 +63,6 @@ export async function createAssistant(
   },
 ): Promise<ManagementAssistant> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {
@@ -75,7 +73,6 @@ export async function createAssistant(
 
 export async function getAssistant(assistantId: string, projectId?: string): Promise<ManagementAssistant> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client) {
@@ -98,7 +95,6 @@ export async function updateAssistant(
   projectId?: string,
 ): Promise<ManagementAssistant> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client) {
@@ -112,7 +108,6 @@ export async function deleteAssistant(
   options?: { deleteRuntime?: boolean; deleteThreads?: boolean; projectId?: string },
 ): Promise<{ ok: boolean }> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: options?.projectId ? { "x-project-id": options.projectId } : {},
   });
   if (!client) {
@@ -133,7 +128,6 @@ export async function deleteAssistant(
 
 export async function resyncAssistant(assistantId: string, projectId?: string): Promise<ManagementAssistant> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client) {
@@ -147,7 +141,6 @@ export async function getAssistantParameterSchema(
   projectId?: string,
 ): Promise<Record<string, unknown>> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client) {

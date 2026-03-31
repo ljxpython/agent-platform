@@ -1,8 +1,8 @@
 import {
   clearOidcTokenSet,
-  getOidcTokenSet,
+  ensureValidAccessToken,
   getValidAccessToken,
-  setOidcTokenSet,
+  getOidcTokenSet,
 } from "@/lib/oidc-storage";
 import { getStoredOrConfiguredPlatformApiUrl } from "@/lib/platform-api-url";
 
@@ -16,8 +16,6 @@ export type ManagementDownload = {
   filename: string | null;
   contentType: string | null;
 };
-
-let refreshAccessTokenPromise: Promise<string> | null = null;
 
 function redirectToLogin(): void {
   if (typeof window === "undefined") {
@@ -149,64 +147,14 @@ class ManagementApiClient {
   }
 
   private async getAccessToken(): Promise<string> {
-    const accessToken = getValidAccessToken();
-    if (accessToken) {
-      return accessToken;
-    }
-
-    const tokenSet = getOidcTokenSet();
-    if (!tokenSet?.refresh_token) {
-      return "";
-    }
-    return this.refreshAccessToken();
+    return ensureValidAccessToken({ baseUrl: this.baseUrl });
   }
 
   private async refreshAccessToken(): Promise<string> {
-    if (refreshAccessTokenPromise) {
-      return refreshAccessTokenPromise;
-    }
-
-    const tokenSet = getOidcTokenSet();
-    const refreshToken = tokenSet?.refresh_token?.trim() || "";
-    if (!refreshToken) {
-      return "";
-    }
-
-    refreshAccessTokenPromise = (async () => {
-      try {
-        const response = await fetch(`${this.baseUrl}/_management/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-        if (!response.ok) {
-          clearOidcTokenSet();
-          return "";
-        }
-        const payload = (await response.json()) as {
-          access_token?: string;
-          refresh_token?: string;
-        };
-        const nextAccessToken = typeof payload.access_token === "string" ? payload.access_token.trim() : "";
-        const nextRefreshToken = typeof payload.refresh_token === "string" ? payload.refresh_token.trim() : "";
-        if (!nextAccessToken || !nextRefreshToken) {
-          clearOidcTokenSet();
-          return "";
-        }
-        setOidcTokenSet({
-          access_token: nextAccessToken,
-          refresh_token: nextRefreshToken,
-        });
-        return nextAccessToken;
-      } catch {
-        clearOidcTokenSet();
-        return "";
-      } finally {
-        refreshAccessTokenPromise = null;
-      }
-    })();
-
-    return refreshAccessTokenPromise;
+    return ensureValidAccessToken({
+      baseUrl: this.baseUrl,
+      forceRefresh: true,
+    });
   }
 
   private async parseJson<T>(response: Response): Promise<T> {

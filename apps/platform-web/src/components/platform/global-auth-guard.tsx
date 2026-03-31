@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { hasOidcSession } from "@/lib/oidc-storage";
+import { ensureOidcSession } from "@/lib/oidc-storage";
 
 const PUBLIC_PATH_PREFIXES = ["/auth/login", "/auth/callback"];
 
@@ -26,8 +26,18 @@ export function GlobalAuthGuard({ children }: { children: ReactNode }) {
   const publicPath = isPublicPath(pathname);
 
   useEffect(() => {
-    setLoggedIn(hasOidcSession());
-    setReady(true);
+    let cancelled = false;
+
+    void ensureOidcSession().then((nextLoggedIn) => {
+      if (!cancelled) {
+        setLoggedIn(nextLoggedIn);
+        setReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

@@ -14,7 +14,6 @@ export async function getArtifact(
   artifactId: string,
 ): Promise<ArtifactRecord> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {
@@ -28,7 +27,6 @@ export async function listThreadArtifacts(
   threadId: string,
 ): Promise<ArtifactRecord[]> {
   const client = createManagementApiClient({
-    requireAuth: false,
     headers: projectId ? { "x-project-id": projectId } : {},
   });
   if (!client || !projectId) {
