@@ -39,6 +39,13 @@ class InteractionDataServiceClient:
             headers["Authorization"] = f"Bearer {self._config.service_token}"
         return headers
 
+    @property
+    def auth_headers(self) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if self._config.service_token:
+            headers["Authorization"] = f"Bearer {self._config.service_token}"
+        return headers
+
     def request_json(
         self,
         method: str,
@@ -76,6 +83,39 @@ class InteractionDataServiceClient:
         self, path: str, *, params: Mapping[str, Any] | None = None
     ) -> dict[str, Any]:
         return self.request_json("DELETE", path, params=params)
+
+    def post_multipart(
+        self,
+        path: str,
+        *,
+        form_data: Mapping[str, Any],
+        file_field_name: str,
+        file_name: str,
+        file_bytes: bytes,
+        content_type: str,
+    ) -> dict[str, Any]:
+        base_url = self.base_url
+        if not base_url:
+            raise RuntimeError("interaction_data_service_not_configured")
+        response = requests.post(
+            url=f"{base_url}{path}",
+            headers=self.auth_headers,
+            data={
+                key: value
+                for key, value in form_data.items()
+                if value is not None
+            },
+            files={
+                file_field_name: (
+                    file_name,
+                    file_bytes,
+                    content_type,
+                )
+            },
+            timeout=self._config.timeout_seconds,
+        )
+        response.raise_for_status()
+        return response.json()
 
 
 def build_interaction_data_service_config(

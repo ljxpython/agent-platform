@@ -75,6 +75,20 @@
 - 通用 `runtime_service/middlewares/multimodal/*` 不耦合 testcase 落库逻辑
 - 即时持久化逻辑只允许出现在 `test_case_service` 私有层
 
+### 1.3 原始 PDF 资产持久化
+
+三期前置能力放在本轮二期一并落地：
+
+- 在 document 元数据写入前，先尝试保存原始 PDF 文件资产
+- 成功后将 `storage_path` 回填到 document payload
+- 失败时允许 document 元数据继续写入，但要明确标记“无原始资产”
+
+实现原则：
+
+1. 原始文件资产持久化只出现在 `test_case_service` 私有层
+2. 通用多模态中间件仍不承载任何 testcase 专属落库逻辑
+3. 不把 PDF 二进制塞进 graph state 或 document JSON
+
 ### 2. 共享 HTTP client
 
 新增：
@@ -88,6 +102,12 @@
 - 不替各服务组装 payload
 
 这样其他服务后续也能复用同一个 client，但不会被 `test_case_service` 的数据结构绑死。
+
+二期补充：
+
+- 同一 client 继续只抽 HTTP 传输层
+- `documents/assets` 的 multipart 上传也统一经该集成层发出
+- 业务层自己决定何时先传原始文件、何时再写 document 元数据
 
 ### 3. 默认项目 ID 策略
 
@@ -140,6 +160,15 @@
 - `confidence`
 - `error`
 - `idempotency_key`（二期用于上传即落库幂等）
+- `storage_path`（二期用于原始 PDF 预览与下载）
+
+二期约定：
+
+- `provenance.runtime.thread_id`
+- `provenance.runtime.run_id`
+- `provenance.runtime.agent_key`
+
+这些值统一由 `test_case_service` 在 document 即时持久化时补入，供平台页做追溯展示。
 
 ### 2. `test_cases`
 
@@ -179,6 +208,8 @@
 1. 在不调用 `persist_test_case_results` 的前提下，上传真实 PDF 后应立即能在 `test_case_documents` 中查到记录
 2. 同一 PDF 同一项目重复重试时，document 不得重复插入
 3. 后续正式保存 testcase 时，必须复用既有 `document_id`
+4. 若原始 PDF 资产上传成功，document 记录中必须带有可用 `storage_path`
+5. `provenance.runtime` 中必须能看到 `thread_id / run_id / agent_key`
 
 推荐使用两个真实验证脚本：
 
@@ -263,6 +294,56 @@ uv run python runtime_service/tests/services_test_case_service_persistence_live.
 1. `document_persistence.py` 在 middleware 阶段回退使用 `get_config()`
 2. `TestCaseDocumentPersistenceMiddleware` 在 `wrap_model_call/awrap_model_call` 返回 `ExtendedModelResponse + Command(update=...)`
 3. 工具阶段复用 graph state 中已回填的 `persisted_document_id`
+
+### 3. 原始 PDF 下载不是页面问题，而是资产链路问题
+
+如果平台要支持：
+
+- 在线预览原始 PDF
+- 下载原始 PDF
+
+则 `runtime-service` 不能只写：
+
+- `summary_for_model`
+- `parsed_text`
+- `structured_data`
+
+还必须补一条真实资产链路：
+
+```text
+frontend upload
+  -> multimodal attachment
+  -> test_case_service private persistence
+  -> interaction-data-service /documents/assets
+  -> storage_path
+  -> documents metadata
+```
+
+否则页面只能看到解析结果，无法回看原始文件。
+
+### 4. 运行时追踪字段必须写入 provenance.runtime
+
+平台二期需要展示：
+
+- 当前 document 来自哪个 thread
+- 当前 document 来自哪个 run
+- 当前 document 属于哪个 agent
+
+最小实现不新增表字段，统一写入：
+
+```json
+{
+  "provenance": {
+    "runtime": {
+      "thread_id": "...",
+      "run_id": "...",
+      "agent_key": "test_case_service"
+    }
+  }
+}
+```
+
+这样 `interaction-data-service` 与 `platform-api` 都能直接复用。
 
 ## 已完成真实验证
 

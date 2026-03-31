@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 from app.config import Settings
@@ -13,6 +14,10 @@ from fastapi import FastAPI
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Reserved seam for future shared resources such as DB engines or HTTP clients.
     settings: Settings = app.state.settings
+    app.state.document_asset_root = str(
+        Path(settings.document_asset_root).expanduser().resolve()
+    )
+    Path(app.state.document_asset_root).mkdir(parents=True, exist_ok=True)
 
     if settings.interaction_db_enabled:
         app.state.db_engine = build_engine(settings)

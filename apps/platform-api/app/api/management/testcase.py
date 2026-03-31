@@ -15,6 +15,13 @@ from app.services.testcase_case_export import (
     _EXPORT_MEDIA_TYPE,
     build_content_disposition,
     build_testcase_cases_workbook,
+    resolve_testcase_export_columns,
+)
+from app.services.testcase_document_export import (
+    MAX_TESTCASE_DOCUMENT_EXPORT_ROWS,
+    TESTCASE_DOCUMENT_EXPORT_MEDIA_TYPE,
+    build_content_disposition as build_document_content_disposition,
+    build_testcase_documents_workbook,
 )
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -40,12 +47,58 @@ def _payload_to_dict(payload: Any) -> dict[str, Any]:
     return payload.model_dump(exclude_none=True) if hasattr(payload, "model_dump") else dict(payload)
 
 
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    items: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        normalized = _cleanup_optional_text(item)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            items.append(normalized)
+    return items
+
+
+def _normalize_testcase_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    next_payload = dict(payload)
+    for key in ("batch_id", "case_id", "module_name", "priority"):
+        if key in next_payload:
+            next_payload[key] = _cleanup_optional_text(next_payload.get(key))
+    if "title" in next_payload:
+        title = _cleanup_optional_text(next_payload.get("title"))
+        if title is not None:
+            next_payload["title"] = title
+    if "description" in next_payload and next_payload.get("description") is None:
+        next_payload["description"] = ""
+    if "source_document_ids" in next_payload:
+        next_payload["source_document_ids"] = _normalize_string_list(
+            next_payload.get("source_document_ids")
+        )
+    return next_payload
+
+
 @router.get("/projects/{project_id}/testcase/overview")
 async def get_testcase_overview(request: Request, project_id: str) -> dict[str, Any]:
     project_uuid = _parse_project_id(project_id)
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
     service = InteractionDataService(request)
     return await service.get_overview(project_id)
+
+
+@router.get("/projects/{project_id}/testcase/role")
+async def get_testcase_role(request: Request, project_id: str) -> dict[str, Any]:
+    project_uuid = _parse_project_id(project_id)
+    _, role = require_project_role(
+        request,
+        project_uuid,
+        allowed_roles={"admin", "editor", "executor"},
+    )
+    return {
+        "project_id": project_id,
+        "role": role,
+        "can_write_testcase": role in {"admin", "editor"},
+    }
 
 
 @router.get("/projects/{project_id}/testcase/batches")
@@ -91,6 +144,7 @@ async def export_testcase_cases(
     status: str | None = Query(default=None),
     batch_id: str | None = Query(default=None),
     query: str | None = Query(default=None),
+    columns: str | None = Query(default=None),
 ) -> StreamingResponse:
     project_uuid = _parse_project_id(project_id)
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
@@ -98,6 +152,13 @@ async def export_testcase_cases(
     normalized_status = _cleanup_optional_text(status)
     normalized_batch_id = _cleanup_optional_text(batch_id)
     normalized_query = _cleanup_optional_text(query)
+    resolved_columns = resolve_testcase_export_columns(
+        [
+            item
+            for item in (columns or "").split(",")
+            if isinstance(item, str) and item.strip()
+        ]
+    )
     items, _total = await service.list_all_cases_for_export(
         project_id,
         status=normalized_status,
@@ -113,6 +174,7 @@ async def export_testcase_cases(
             "batch_id": normalized_batch_id,
             "query": normalized_query,
         },
+        columns=resolved_columns,
     )
     return StreamingResponse(
         BytesIO(workbook_bytes),
@@ -138,7 +200,10 @@ async def create_testcase_case(
     project_uuid = _parse_project_id(project_id)
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor"})
     service = InteractionDataService(request)
-    return await service.create_case(project_id, _payload_to_dict(payload))
+    return await service.create_case(
+        project_id,
+        _normalize_testcase_payload(_payload_to_dict(payload)),
+    )
 
 
 @router.patch("/projects/{project_id}/testcase/cases/{case_id}")
@@ -151,7 +216,11 @@ async def update_testcase_case(
     project_uuid = _parse_project_id(project_id)
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor"})
     service = InteractionDataService(request)
-    return await service.update_case(project_id, case_id, _payload_to_dict(payload))
+    return await service.update_case(
+        project_id,
+        case_id,
+        _normalize_testcase_payload(_payload_to_dict(payload)),
+    )
 
 
 @router.delete("/projects/{project_id}/testcase/cases/{case_id}")
@@ -185,6 +254,51 @@ async def list_testcase_documents(
     )
 
 
+@router.get("/projects/{project_id}/testcase/documents/export")
+async def export_testcase_documents(
+    request: Request,
+    project_id: str,
+    batch_id: str | None = Query(default=None),
+    parse_status: str | None = Query(default=None),
+    query: str | None = Query(default=None),
+) -> StreamingResponse:
+    project_uuid = _parse_project_id(project_id)
+    require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
+    service = InteractionDataService(request)
+    normalized_batch_id = _cleanup_optional_text(batch_id)
+    normalized_parse_status = _cleanup_optional_text(parse_status)
+    normalized_query = _cleanup_optional_text(query)
+    items, _total = await service.list_all_documents_for_export(
+        project_id,
+        batch_id=normalized_batch_id,
+        parse_status=normalized_parse_status,
+        query=normalized_query,
+        max_items=MAX_TESTCASE_DOCUMENT_EXPORT_ROWS,
+    )
+    enriched_items: list[dict[str, Any]] = []
+    for item in items:
+        document_id = _cleanup_optional_text(item.get("id"))
+        related_cases_count = 0
+        if document_id:
+            relations = await service.get_document_relations(project_id, document_id)
+            related_cases_count = int(relations.get("related_cases_count") or 0)
+        enriched_items.append({**item, "related_cases_count": related_cases_count})
+    filename, workbook_bytes = build_testcase_documents_workbook(
+        project_id=project_id,
+        documents=enriched_items,
+        filters={
+            "batch_id": normalized_batch_id,
+            "parse_status": normalized_parse_status,
+            "query": normalized_query,
+        },
+    )
+    return StreamingResponse(
+        BytesIO(workbook_bytes),
+        media_type=TESTCASE_DOCUMENT_EXPORT_MEDIA_TYPE,
+        headers={"Content-Disposition": build_document_content_disposition(filename)},
+    )
+
+
 @router.get("/projects/{project_id}/testcase/documents/{document_id}")
 async def get_testcase_document(
     request: Request,
@@ -195,3 +309,59 @@ async def get_testcase_document(
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
     service = InteractionDataService(request)
     return await service.get_document(project_id, document_id)
+
+
+@router.get("/projects/{project_id}/testcase/documents/{document_id}/relations")
+async def get_testcase_document_relations(
+    request: Request,
+    project_id: str,
+    document_id: str,
+) -> dict[str, Any]:
+    project_uuid = _parse_project_id(project_id)
+    require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
+    service = InteractionDataService(request)
+    return await service.get_document_relations(project_id, document_id)
+
+
+@router.get("/projects/{project_id}/testcase/documents/{document_id}/preview")
+async def preview_testcase_document(
+    request: Request,
+    project_id: str,
+    document_id: str,
+) -> StreamingResponse:
+    project_uuid = _parse_project_id(project_id)
+    require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
+    service = InteractionDataService(request)
+    payload, headers = await service.get_document_binary(project_id, document_id, inline=True)
+    response_headers = {}
+    for key in ("content-disposition",):
+        value = headers.get(key)
+        if value:
+            response_headers["Content-Disposition"] = value
+    return StreamingResponse(
+        BytesIO(payload),
+        media_type=headers.get("content-type", "application/octet-stream"),
+        headers=response_headers,
+    )
+
+
+@router.get("/projects/{project_id}/testcase/documents/{document_id}/download")
+async def download_testcase_document(
+    request: Request,
+    project_id: str,
+    document_id: str,
+) -> StreamingResponse:
+    project_uuid = _parse_project_id(project_id)
+    require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
+    service = InteractionDataService(request)
+    payload, headers = await service.get_document_binary(project_id, document_id, inline=False)
+    response_headers = {}
+    for key in ("content-disposition",):
+        value = headers.get(key)
+        if value:
+            response_headers["Content-Disposition"] = value
+    return StreamingResponse(
+        BytesIO(payload),
+        media_type=headers.get("content-type", "application/octet-stream"),
+        headers=response_headers,
+    )

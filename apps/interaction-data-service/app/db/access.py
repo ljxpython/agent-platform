@@ -132,6 +132,25 @@ def get_test_case_document(
     return session.get(TestCaseDocument, document_id)
 
 
+def list_test_cases_for_document(
+    session: Session,
+    *,
+    project_id: uuid.UUID,
+    document_id: str,
+) -> list[TestCaseRecord]:
+    stmt = (
+        select(TestCaseRecord)
+        .where(TestCaseRecord.project_id == project_id)
+        .order_by(desc(TestCaseRecord.updated_at), desc(TestCaseRecord.id))
+    )
+    rows = list(session.scalars(stmt).all())
+    return [
+        row
+        for row in rows
+        if isinstance(row.source_document_ids, list) and document_id in row.source_document_ids
+    ]
+
+
 def create_test_case(
     session: Session,
     *,
@@ -205,6 +224,8 @@ def update_test_case(
     session: Session,
     row: TestCaseRecord,
     *,
+    batch_id: str | None,
+    case_id: str | None,
     title: str | None,
     description: str | None,
     status: str | None,
@@ -213,6 +234,10 @@ def update_test_case(
     source_document_ids: list[str] | None,
     content_json: dict | None,
 ) -> TestCaseRecord:
+    if batch_id is not None:
+        row.batch_id = batch_id
+    if case_id is not None:
+        row.case_id = case_id
     if title is not None:
         row.title = title
     if description is not None:

@@ -1,19 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Copy, Download, ExternalLink, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { ListSearch } from "@/components/platform/list-search";
 import { PageStateEmpty, PageStateError, PageStateLoading } from "@/components/platform/page-state";
 import { DEFAULT_PAGE_SIZE_OPTIONS, PaginationControls } from "@/components/platform/pagination-controls";
 import { TestcaseOverviewStrip } from "@/components/platform/testcase-overview-strip";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  getTestcaseDocument,
+  exportTestcaseDocumentsExcel,
+  getTestcaseDocumentRelations,
   getTestcaseOverview,
   listTestcaseBatches,
   listTestcaseDocuments,
+  previewTestcaseDocument,
+  downloadTestcaseDocument,
   type TestcaseBatchSummary,
   type TestcaseDocument,
+  type TestcaseDocumentRelations,
   type TestcaseOverview,
 } from "@/lib/management-api/testcase";
 import { useWorkspaceContext } from "@/providers/WorkspaceContext";
@@ -31,6 +38,49 @@ function formatDateTime(value?: string | null) {
 
 function stringifyJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+function openBlobPreview(blob: Blob) {
+  const objectUrl = URL.createObjectURL(blob);
+  window.open(objectUrl, "_blank", "noopener,noreferrer");
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function coerceText(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  return String(value).trim();
+}
+
+function resolveStoragePath(document: TestcaseDocument | null): string {
+  if (!document) {
+    return "";
+  }
+  if (document.storage_path) {
+    return document.storage_path;
+  }
+  const provenance = asRecord(document.provenance);
+  const asset = asRecord(provenance.asset);
+  return coerceText(asset.storage_path);
 }
 
 const PARSE_STATUS_OPTIONS = ["", "parsed", "failed", "unsupported", "unprocessed"];
@@ -52,11 +102,21 @@ export default function TestcaseDocumentsPage() {
   const [parseStatusFilter, setParseStatusFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<TestcaseDocument | null>(null);
+  const [relations, setRelations] = useState<TestcaseDocumentRelations | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const currentPage = Math.floor(offset / pageSize) + 1;
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
+  const selectedBatchLabel = useMemo(
+    () => batches.find((item) => item.batch_id === batchFilter)?.batch_id ?? "",
+    [batchFilter, batches],
+  );
+  const storagePath = resolveStoragePath(selectedItem);
+  const runtimeMeta = useMemo(() => asRecord(relations?.runtime_meta), [relations]);
 
   const loadMeta = useCallback(async () => {
     if (!projectId) {
@@ -82,6 +142,7 @@ export default function TestcaseDocumentsPage() {
       setTotal(0);
       setSelectedId("");
       setSelectedItem(null);
+      setRelations(null);
       return;
     }
     setLoading(true);
@@ -126,6 +187,7 @@ export default function TestcaseDocumentsPage() {
     if (items.length === 0) {
       setSelectedId("");
       setSelectedItem(null);
+      setRelations(null);
       return;
     }
     if (!selectedId || !items.some((item) => item.id === selectedId)) {
@@ -136,6 +198,7 @@ export default function TestcaseDocumentsPage() {
   useEffect(() => {
     if (!projectId || !selectedId) {
       setSelectedItem(null);
+      setRelations(null);
       setDetailError(null);
       return;
     }
@@ -145,12 +208,14 @@ export default function TestcaseDocumentsPage() {
       setDetailLoading(true);
       setDetailError(null);
       try {
-        const payload = await getTestcaseDocument(projectId, selectedId);
+        const payload = await getTestcaseDocumentRelations(projectId, selectedId);
         if (!cancelled) {
-          setSelectedItem(payload);
+          setRelations(payload);
+          setSelectedItem(payload.document);
         }
       } catch (err) {
         if (!cancelled) {
+          setRelations(null);
           setSelectedItem(null);
           setDetailError(err instanceof Error ? err.message : "Failed to load document detail");
         }
@@ -168,17 +233,101 @@ export default function TestcaseDocumentsPage() {
     };
   }, [projectId, selectedId]);
 
-  const selectedBatchLabel = useMemo(
-    () => batches.find((item) => item.batch_id === batchFilter)?.batch_id ?? "",
-    [batchFilter, batches],
-  );
+  const handleExport = useCallback(async () => {
+    if (!projectId || exporting) {
+      return;
+    }
+    setExporting(true);
+    try {
+      const download = await exportTestcaseDocumentsExcel(projectId, {
+        batch_id: batchFilter || undefined,
+        parse_status: parseStatusFilter || undefined,
+        query: query || undefined,
+      });
+      const fallbackName = `testcase-documents-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.xlsx`;
+      triggerBrowserDownload(download.blob, download.filename || fallbackName);
+      toast("导出成功", {
+        description: `已导出当前筛选结果，共 ${total} 条 PDF 解析记录。`,
+      });
+    } catch (err) {
+      toast("导出失败", {
+        description: err instanceof Error ? err.message : "Failed to export testcase documents",
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [batchFilter, exporting, parseStatusFilter, projectId, query, total]);
+
+  const handlePreview = useCallback(async () => {
+    if (!projectId || !selectedItem || !storagePath) {
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const download = await previewTestcaseDocument(projectId, selectedItem.id);
+      openBlobPreview(download.blob);
+    } catch (err) {
+      toast("预览失败", {
+        description: err instanceof Error ? err.message : "Failed to preview testcase document",
+      });
+    } finally {
+      setPreviewing(false);
+    }
+  }, [projectId, selectedItem, storagePath]);
+
+  const handleDownload = useCallback(async () => {
+    if (!projectId || !selectedItem || !storagePath) {
+      return;
+    }
+    setDownloading(true);
+    try {
+      const download = await downloadTestcaseDocument(projectId, selectedItem.id);
+      const fallbackName = selectedItem.filename || `document-${selectedItem.id}.pdf`;
+      triggerBrowserDownload(download.blob, download.filename || fallbackName);
+    } catch (err) {
+      toast("下载失败", {
+        description: err instanceof Error ? err.message : "Failed to download testcase document",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }, [projectId, selectedItem, storagePath]);
+
+  const handleCopyDocumentId = useCallback(async () => {
+    if (!selectedItem) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(selectedItem.id);
+      toast("已复制文档 ID", {
+        description: selectedItem.id,
+      });
+    } catch (err) {
+      toast("复制失败", {
+        description: err instanceof Error ? err.message : "Failed to copy document id",
+      });
+    }
+  }, [selectedItem]);
 
   return (
     <section className="p-4 sm:p-6">
-      <h2 className="text-xl font-semibold tracking-tight">PDF 解析</h2>
-      <p className="text-muted-foreground mt-2 text-sm">
-        查看已保存到 `interaction-data-service` 的文档解析结果，重点回看 `parsed_text` 和结构化提取内容。
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">PDF 解析</h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            查看已保存到 `interaction-data-service` 的文档解析结果，并追踪 thread / run / testcase 关联。
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void handleExport()}
+          disabled={!projectId || loading || exporting || total <= 0}
+        >
+          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+          {exporting ? "导出中..." : "导出 PDF 解析"}
+        </Button>
+      </div>
 
       <TestcaseOverviewStrip overview={overview} />
 
@@ -251,7 +400,7 @@ export default function TestcaseDocumentsPage() {
 
       {projectId && !loading && !error && items.length > 0 ? (
         <>
-          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,1fr)]">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(380px,1fr)]">
             <div className="overflow-hidden rounded-xl border border-border">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -282,9 +431,7 @@ export default function TestcaseDocumentsPage() {
                               onClick={() => setSelectedId(item.id)}
                             >
                               <div className="font-medium text-foreground">{item.filename}</div>
-                              <div className="mt-1 text-xs text-muted-foreground">
-                                {item.content_type}
-                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">{item.content_type}</div>
                             </button>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{item.parse_status}</td>
@@ -301,7 +448,41 @@ export default function TestcaseDocumentsPage() {
 
             <Card className="gap-4 py-4">
               <CardHeader className="px-4">
-                <CardTitle className="text-base">解析详情</CardTitle>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <CardTitle className="text-base">解析详情</CardTitle>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleCopyDocumentId()}
+                      disabled={!selectedItem}
+                    >
+                      <Copy className="size-4" />
+                      复制文档 ID
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handlePreview()}
+                      disabled={!storagePath || previewing}
+                    >
+                      {previewing ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
+                      在线预览 PDF
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleDownload()}
+                      disabled={!storagePath || downloading}
+                    >
+                      {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                      下载原始 PDF
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4 px-4">
                 {detailLoading ? <PageStateLoading message="Loading document detail..." className="mt-0" /> : null}
@@ -322,16 +503,49 @@ export default function TestcaseDocumentsPage() {
                         <dd className="mt-1 break-all">{selectedItem.batch_id || "-"}</dd>
                       </div>
                       <div>
+                        <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">原始文件路径</dt>
+                        <dd className="mt-1 break-all text-muted-foreground">
+                          {storagePath || "当前记录未保存原始 PDF，仅保留了解析结果。"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">运行态追踪</dt>
+                        <dd className="mt-2 rounded-lg bg-muted/30 p-3 text-xs leading-6 text-muted-foreground">
+                          <div>thread_id: {coerceText(runtimeMeta.thread_id) || "-"}</div>
+                          <div>run_id: {coerceText(runtimeMeta.run_id) || "-"}</div>
+                          <div>agent_key: {coerceText(runtimeMeta.agent_key) || "-"}</div>
+                        </dd>
+                      </div>
+                      <div>
                         <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">摘要</dt>
                         <dd className="mt-1 whitespace-pre-wrap text-muted-foreground">
                           {selectedItem.summary_for_model || "-"}
                         </dd>
                       </div>
                       <div>
+                        <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">related_cases</dt>
+                        <dd className="mt-2 rounded-lg bg-muted/20 p-3 text-xs leading-6">
+                          <div className="mb-2 text-muted-foreground">共 {relations?.related_cases_count ?? 0} 条关联用例</div>
+                          {relations && relations.related_cases.length > 0 ? (
+                            <div className="space-y-2">
+                              {relations.related_cases.map((item) => (
+                                <div key={item.id} className="rounded-md border border-border bg-background px-3 py-2">
+                                  <div className="font-medium text-foreground">{item.title}</div>
+                                  <div className="text-muted-foreground mt-1">{item.case_id || item.id}</div>
+                                  <div className="text-muted-foreground">{item.status} / {item.batch_id || "-"}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground">当前 document 尚未关联到正式测试用例。</div>
+                          )}
+                        </dd>
+                      </div>
+                      <div>
                         <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">parsed_text</dt>
                         <dd className="mt-2">
                           {selectedItem.parsed_text ? (
-                            <pre className="max-h-[260px] overflow-auto rounded-lg bg-muted/40 p-3 text-xs leading-6 whitespace-pre-wrap">
+                            <pre className="max-h-[240px] overflow-auto rounded-lg bg-muted/40 p-3 text-xs leading-6 whitespace-pre-wrap">
                               {selectedItem.parsed_text}
                             </pre>
                           ) : (
@@ -353,7 +567,7 @@ export default function TestcaseDocumentsPage() {
                       <div>
                         <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">provenance</dt>
                         <dd className="mt-2">
-                          <pre className="max-h-[180px] overflow-auto rounded-lg bg-muted/40 p-3 text-xs leading-6">
+                          <pre className="max-h-[200px] overflow-auto rounded-lg bg-muted/40 p-3 text-xs leading-6">
                             {stringifyJson(selectedItem.provenance)}
                           </pre>
                         </dd>

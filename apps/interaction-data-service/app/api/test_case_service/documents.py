@@ -1,21 +1,42 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from urllib.parse import quote
+
 from app.api.common import require_db_session_factory
 from app.db.access import (
     create_test_case_document,
     get_test_case_document,
+    list_test_cases_for_document,
     list_test_case_documents,
     parse_uuid,
 )
 from app.db.session import session_scope
 from app.schemas.test_case_service import (
+    TestCaseDocumentAssetResponse,
     CreateTestCaseDocumentRequest,
     TestCaseDocumentListResponse,
+    TestCaseDocumentRelationsResponse,
     TestCaseDocumentResponse,
 )
-from fastapi import APIRouter, HTTPException, Query, Request
+from app.services.document_assets import (
+    resolve_document_asset_path,
+    write_document_asset,
+)
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 
 router = APIRouter(prefix="/documents", tags=["test-case-service"])
+
+
+def _build_content_disposition(*, filename: str, inline: bool) -> str:
+    disposition = "inline" if inline else "attachment"
+    fallback_name = "document.pdf"
+    encoded = quote((filename or fallback_name).strip() or fallback_name)
+    return (
+        f"{disposition}; filename=\"{fallback_name}\"; "
+        f"filename*=UTF-8''{encoded}"
+    )
 
 
 def _serialize_document(row) -> dict[str, object]:
@@ -37,6 +58,59 @@ def _serialize_document(row) -> dict[str, object]:
         "error": row.error,
         "created_at": row.created_at.isoformat(),
     }
+
+
+def _serialize_related_case(row) -> dict[str, object]:
+    return {
+        "id": str(row.id),
+        "case_id": row.case_id,
+        "title": row.title,
+        "status": row.status,
+        "batch_id": row.batch_id,
+    }
+
+
+def _runtime_meta_from_document(document: Mapping[str, object]) -> dict[str, object]:
+    provenance = document.get("provenance")
+    if not isinstance(provenance, Mapping):
+        return {}
+    runtime_meta = provenance.get("runtime")
+    if not isinstance(runtime_meta, Mapping):
+        return {}
+    return {str(key): value for key, value in runtime_meta.items()}
+
+
+@router.post("/assets", response_model=TestCaseDocumentAssetResponse)
+async def create_document_asset(
+    request: Request,
+    project_id: str = Form(...),
+    batch_id: str | None = Form(default=None),
+    idempotency_key: str | None = Form(default=None),
+    filename: str | None = Form(default=None),
+    content_type: str | None = Form(default=None),
+    file: UploadFile = File(...),
+):
+    if parse_uuid(project_id) is None:
+        raise HTTPException(status_code=400, detail="invalid_project_id")
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="empty_document_asset")
+    effective_filename = (filename or file.filename or "document").strip() or "document"
+    effective_content_type = (
+        (content_type or file.content_type or "application/octet-stream").strip()
+        or "application/octet-stream"
+    )
+    asset_key = (idempotency_key or effective_filename).strip() or "document"
+    stored = write_document_asset(
+        root_dir=request.app.state.document_asset_root,
+        project_id=project_id,
+        batch_id=batch_id,
+        asset_key=asset_key,
+        filename=effective_filename,
+        content_type=effective_content_type,
+        payload=payload,
+    )
+    return stored
 
 
 @router.post("", response_model=TestCaseDocumentResponse)
@@ -73,7 +147,7 @@ async def list_documents(
     batch_id: str | None = Query(None),
     parse_status: str | None = Query(None),
     query: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
     project_uuid = parse_uuid(project_id) if project_id else None
@@ -91,6 +165,84 @@ async def list_documents(
             offset=offset,
         )
         return {"items": [_serialize_document(row) for row in rows], "total": total}
+
+
+@router.get("/{document_id}/relations", response_model=TestCaseDocumentRelationsResponse)
+async def get_document_relations(request: Request, document_id: str):
+    document_uuid = parse_uuid(document_id)
+    if document_uuid is None:
+        raise HTTPException(status_code=400, detail="invalid_document_id")
+    session_factory = require_db_session_factory(request)
+    with session_scope(session_factory) as session:
+        row = get_test_case_document(session, document_uuid)
+        if row is None:
+            raise HTTPException(status_code=404, detail="document_not_found")
+        document_payload = _serialize_document(row)
+        related_cases = list_test_cases_for_document(
+            session,
+            project_id=row.project_id,
+            document_id=document_id,
+        )
+        return {
+            "document": document_payload,
+            "runtime_meta": _runtime_meta_from_document(document_payload),
+            "related_cases": [_serialize_related_case(item) for item in related_cases],
+            "related_cases_count": len(related_cases),
+        }
+
+
+def _build_document_asset_response(
+    request: Request,
+    *,
+    document_id: str,
+    inline: bool,
+) -> FileResponse:
+    document_uuid = parse_uuid(document_id)
+    if document_uuid is None:
+        raise HTTPException(status_code=400, detail="invalid_document_id")
+    session_factory = require_db_session_factory(request)
+    with session_scope(session_factory) as session:
+        row = get_test_case_document(session, document_uuid)
+        if row is None:
+            raise HTTPException(status_code=404, detail="document_not_found")
+        storage_path = (row.storage_path or "").strip()
+        if not storage_path:
+            raise HTTPException(status_code=404, detail="document_asset_not_found")
+        try:
+            asset_path = resolve_document_asset_path(
+                request.app.state.document_asset_root,
+                storage_path,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="document_asset_not_found") from exc
+        response = FileResponse(
+            asset_path,
+            media_type=row.content_type or "application/octet-stream",
+            filename=row.filename,
+        )
+        response.headers["Content-Disposition"] = _build_content_disposition(
+            filename=row.filename,
+            inline=inline,
+        )
+        return response
+
+
+@router.get("/{document_id}/preview")
+async def preview_document_asset(request: Request, document_id: str):
+    return _build_document_asset_response(
+        request,
+        document_id=document_id,
+        inline=True,
+    )
+
+
+@router.get("/{document_id}/download")
+async def download_document_asset(request: Request, document_id: str):
+    return _build_document_asset_response(
+        request,
+        document_id=document_id,
+        inline=False,
+    )
 
 
 @router.get("/{document_id}", response_model=TestCaseDocumentResponse)

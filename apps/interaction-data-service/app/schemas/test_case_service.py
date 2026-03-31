@@ -46,6 +46,29 @@ class TestCaseDocumentListResponse(BaseModel):
     total: int
 
 
+class TestCaseDocumentAssetResponse(BaseModel):
+    storage_path: str
+    filename: str
+    content_type: str
+    size: int
+    sha256: str
+
+
+class TestCaseDocumentRelationCase(BaseModel):
+    id: str
+    case_id: str | None
+    title: str
+    status: str
+    batch_id: str | None
+
+
+class TestCaseDocumentRelationsResponse(BaseModel):
+    document: TestCaseDocumentResponse
+    runtime_meta: dict[str, Any] = Field(default_factory=dict)
+    related_cases: list[TestCaseDocumentRelationCase] = Field(default_factory=list)
+    related_cases_count: int = 0
+
+
 class TestCaseOverviewResponse(BaseModel):
     project_id: str | None = None
     documents_total: int
@@ -83,6 +106,8 @@ class CreateTestCaseRequest(BaseModel):
 
 
 class UpdateTestCaseRequest(BaseModel):
+    batch_id: str | None = None
+    case_id: str | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     status: str | None = Field(default=None, min_length=1, max_length=64)

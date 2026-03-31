@@ -82,6 +82,31 @@ class LocalJsonHttpClient:
             ) from exc
         return await self._handle_response(response)
 
+    async def get_binary(
+        self, path: str, *, params: dict[str, Any] | None = None
+    ) -> tuple[bytes, dict[str, str]]:
+        self._require_configured()
+        try:
+            response = await self._client.get(
+                self._url(path),
+                headers=self._build_headers(),
+                params=params,
+                timeout=self._timeout_seconds,
+            )
+        except httpx.TimeoutException as exc:
+            raise HTTPException(
+                status_code=504,
+                detail=f"{self._service_name}_timeout: {exc}",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"{self._service_name}_unavailable: {exc}",
+            ) from exc
+        if response.status_code >= 400:
+            await self._handle_response(response)
+        return response.content, dict(response.headers)
+
     async def post(self, path: str, *, json_body: dict[str, Any]) -> Any:
         self._require_configured()
         try:

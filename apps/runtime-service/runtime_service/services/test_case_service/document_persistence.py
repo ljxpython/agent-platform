@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
 from collections.abc import Mapping
@@ -13,11 +14,13 @@ from runtime_service.integrations import (
     build_interaction_data_service_config,
 )
 from runtime_service.middlewares.multimodal import MULTIMODAL_ATTACHMENTS_KEY
+from runtime_service.middlewares.multimodal import protocol as _multimodal_protocol
 from runtime_service.runtime.context import RuntimeContext
 from runtime_service.runtime.options import context_to_mapping, read_configurable
 from runtime_service.services.test_case_service.schemas import TestCaseServiceConfig
 
 TEST_CASE_DOCUMENTS_PATH = "/api/test-case-service/documents"
+TEST_CASE_DOCUMENT_ASSETS_PATH = "/api/test-case-service/documents/assets"
 PERSIST_STATUS_PENDING = "pending"
 PERSIST_STATUS_PERSISTED = "persisted"
 PERSIST_STATUS_FAILED = "failed"
@@ -58,6 +61,13 @@ def _coerce_string_list(value: Any) -> list[str]:
         if text:
             items.append(text)
     return items
+
+
+def _get_state_messages(state: Mapping[str, Any] | None) -> list[Any]:
+    if not isinstance(state, Mapping):
+        return []
+    messages = state.get("messages")
+    return list(messages) if isinstance(messages, list) else []
 
 
 def _get_runtime_state(
@@ -160,6 +170,11 @@ def _build_document_payload(
     state: Mapping[str, Any],
     project_id: str,
     batch_id: str,
+    runtime_meta: Mapping[str, Any],
+    idempotency_key: str,
+    storage_path: str | None,
+    asset_payload: Mapping[str, Any] | None,
+    asset_error: str | None,
 ) -> dict[str, Any] | None:
     parse_status = _coerce_optional_text(attachment.get("status")) or "unprocessed"
     if parse_status == "unprocessed":
@@ -178,13 +193,35 @@ def _build_document_payload(
     )
     multimodal_summary = _coerce_optional_text(state.get("multimodal_summary")) or ""
     provenance = _coerce_mapping(attachment.get("provenance")) or {}
+    runtime_section = _coerce_mapping(provenance.get("runtime")) or {}
+    runtime_section.update(
+        {
+            key: value
+            for key, value in runtime_meta.items()
+            if _coerce_optional_text(value)
+        }
+    )
+    provenance["runtime"] = runtime_section
+    asset_section = _coerce_mapping(provenance.get("asset")) or {}
+    if storage_path:
+        asset_section["storage_path"] = storage_path
+    if isinstance(asset_payload, Mapping):
+        for key in ("filename", "content_type", "size", "sha256"):
+            if asset_payload.get(key) is not None:
+                asset_section[key] = asset_payload.get(key)
+    if asset_error:
+        asset_section["error"] = asset_error
+    elif asset_section.get("error") is not None:
+        asset_section.pop("error", None)
+    if asset_section:
+        provenance["asset"] = asset_section
     return {
         "project_id": project_id,
         "batch_id": batch_id,
-        "idempotency_key": _build_document_idempotency_key(attachment, batch_id=batch_id),
+        "idempotency_key": idempotency_key,
         "filename": filename,
         "content_type": content_type,
-        "storage_path": None,
+        "storage_path": storage_path,
         "source_kind": source_kind,
         "parse_status": parse_status,
         "summary_for_model": (
@@ -200,6 +237,87 @@ def _build_document_payload(
         else None,
         "error": _coerce_mapping(attachment.get("error")),
     }
+
+
+def _collect_attachment_blocks_by_fingerprint(
+    state: Mapping[str, Any] | None,
+) -> dict[str, Mapping[str, Any]]:
+    messages = _multimodal_protocol.normalize_messages(_get_state_messages(state))
+    blocks_by_fingerprint: dict[str, Mapping[str, Any]] = {}
+    next_index = 1
+    for message in messages:
+        content = getattr(message, "content", None)
+        if content is None and isinstance(message, Mapping):
+            content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for item in content:
+            if not isinstance(item, Mapping):
+                continue
+            artifact = _multimodal_protocol.build_attachment_artifact(item, next_index)
+            if artifact is None:
+                continue
+            next_index += 1
+            provenance = _coerce_mapping(artifact.get("provenance")) or {}
+            fingerprint = _coerce_optional_text(provenance.get("fingerprint"))
+            if fingerprint and fingerprint not in blocks_by_fingerprint:
+                blocks_by_fingerprint[fingerprint] = item
+    return blocks_by_fingerprint
+
+
+def _decode_block_payload(block: Mapping[str, Any] | None) -> bytes | None:
+    if not isinstance(block, Mapping):
+        return None
+    payload = block.get("base64") or block.get("data")
+    if not isinstance(payload, str) or not payload.strip():
+        return None
+    try:
+        return base64.b64decode(payload)
+    except Exception:
+        return None
+
+
+def _upload_document_asset(
+    *,
+    client: InteractionDataServiceClient,
+    attachment: Mapping[str, Any],
+    source_block: Mapping[str, Any] | None,
+    project_id: str,
+    batch_id: str,
+    idempotency_key: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    if (_coerce_optional_text(attachment.get("status")) or "unprocessed") == "unprocessed":
+        return None, None
+    kind = _coerce_optional_text(attachment.get("kind"))
+    if kind != "pdf":
+        return None, None
+    file_bytes = _decode_block_payload(source_block)
+    if file_bytes is None:
+        return None, "raw_attachment_payload_missing"
+    filename = (
+        _coerce_optional_text(attachment.get("name"))
+        or _coerce_optional_text(attachment.get("attachment_id"))
+        or "document.pdf"
+    )
+    content_type = _coerce_optional_text(attachment.get("mime_type")) or "application/pdf"
+    try:
+        payload = client.post_multipart(
+            TEST_CASE_DOCUMENT_ASSETS_PATH,
+            form_data={
+                "project_id": project_id,
+                "batch_id": batch_id,
+                "idempotency_key": idempotency_key,
+                "filename": filename,
+                "content_type": content_type,
+            },
+            file_field_name="file",
+            file_name=filename,
+            file_bytes=file_bytes,
+            content_type=content_type,
+        )
+        return payload, None
+    except Exception as exc:
+        return None, str(exc)
 
 
 def collect_persisted_document_ids(state: Mapping[str, Any] | None) -> list[str]:
@@ -228,12 +346,15 @@ def _mark_attachment_status(
     error_message: str | None = None,
     persisted_document_id: str | None = None,
     persisted_at: str | None = None,
+    storage_path: str | None = None,
 ) -> dict[str, Any]:
     attachment["persist_status"] = status
     if persisted_document_id is not None:
         attachment["persisted_document_id"] = persisted_document_id
     if persisted_at is not None:
         attachment["persisted_at"] = persisted_at
+    if storage_path is not None:
+        attachment["storage_path"] = storage_path
     if error_message:
         attachment["persist_error"] = {"message": error_message}
     else:
@@ -273,6 +394,8 @@ def persist_runtime_documents(
     resolved_client = client or InteractionDataServiceClient(
         build_interaction_data_service_config(runtime_like.config)
     )
+    runtime_meta = _resolve_runtime_meta(runtime_like)
+    source_blocks_by_fingerprint = _collect_attachment_blocks_by_fingerprint(current_state)
     updated_attachments: list[dict[str, Any]] = []
     persisted_documents: list[dict[str, Any]] = []
     failed_attachment_ids: list[str] = []
@@ -291,11 +414,38 @@ def persist_runtime_documents(
             persisted_documents.append({"id": persisted_document_id})
             continue
 
+        idempotency_key = _build_document_idempotency_key(attachment, batch_id=batch_id)
+        provenance = _coerce_mapping(attachment.get("provenance")) or {}
+        fingerprint = _coerce_optional_text(provenance.get("fingerprint"))
+        source_block = (
+            source_blocks_by_fingerprint.get(fingerprint)
+            if fingerprint
+            else None
+        )
+        asset_payload: dict[str, Any] | None = None
+        asset_error: str | None = None
+        if resolved_client.is_configured:
+            asset_payload, asset_error = _upload_document_asset(
+                client=resolved_client,
+                attachment=attachment,
+                source_block=source_block,
+                project_id=project_id,
+                batch_id=batch_id,
+                idempotency_key=idempotency_key,
+            )
+
         payload = _build_document_payload(
             attachment=attachment,
             state=current_state,
             project_id=project_id,
             batch_id=batch_id,
+            runtime_meta=runtime_meta,
+            idempotency_key=idempotency_key,
+            storage_path=_coerce_optional_text(
+                asset_payload.get("storage_path") if isinstance(asset_payload, Mapping) else None
+            ),
+            asset_payload=asset_payload,
+            asset_error=asset_error,
         )
         if payload is None:
             updated_attachments.append(
@@ -325,6 +475,7 @@ def persist_runtime_documents(
                     status=PERSIST_STATUS_PERSISTED,
                     persisted_document_id=document_id,
                     persisted_at=persisted_at,
+                    storage_path=_coerce_optional_text(persisted.get("storage_path")),
                 )
             )
             persisted_documents.append(persisted)
@@ -384,6 +535,7 @@ __all__ = [
     "PERSIST_STATUS_PENDING",
     "PERSIST_STATUS_PERSISTED",
     "PERSIST_STATUS_SKIPPED",
+    "TEST_CASE_DOCUMENT_ASSETS_PATH",
     "TEST_CASE_DOCUMENTS_PATH",
     "_coerce_mapping",
     "_coerce_optional_text",

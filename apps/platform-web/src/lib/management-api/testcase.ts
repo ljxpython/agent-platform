@@ -36,6 +36,21 @@ export type TestcaseDocument = {
   created_at: string;
 };
 
+export type TestcaseDocumentRelationCase = {
+  id: string;
+  case_id?: string | null;
+  title: string;
+  status: string;
+  batch_id?: string | null;
+};
+
+export type TestcaseDocumentRelations = {
+  document: TestcaseDocument;
+  runtime_meta: Record<string, unknown>;
+  related_cases: TestcaseDocumentRelationCase[];
+  related_cases_count: number;
+};
+
 export type TestcaseCase = {
   id: string;
   project_id: string;
@@ -50,6 +65,12 @@ export type TestcaseCase = {
   content_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+};
+
+export type TestcaseRole = {
+  project_id: string;
+  role: "admin" | "editor" | "executor";
+  can_write_testcase: boolean;
 };
 
 type BatchListResponse = {
@@ -80,6 +101,14 @@ export async function getTestcaseOverview(projectId: string): Promise<TestcaseOv
     throw new Error("management_api_unavailable");
   }
   return client.get<TestcaseOverview>(`/_management/projects/${projectId}/testcase/overview`);
+}
+
+export async function getTestcaseRole(projectId: string): Promise<TestcaseRole> {
+  const client = createClient(projectId);
+  if (!client || !projectId) {
+    throw new Error("management_api_unavailable");
+  }
+  return client.get<TestcaseRole>(`/_management/projects/${projectId}/testcase/role`);
 }
 
 export async function listTestcaseBatches(
@@ -133,6 +162,69 @@ export async function getTestcaseDocument(projectId: string, documentId: string)
   return client.get<TestcaseDocument>(`/_management/projects/${projectId}/testcase/documents/${documentId}`);
 }
 
+export async function getTestcaseDocumentRelations(
+  projectId: string,
+  documentId: string,
+): Promise<TestcaseDocumentRelations> {
+  const client = createClient(projectId);
+  if (!client || !projectId) {
+    throw new Error("management_api_unavailable");
+  }
+  return client.get<TestcaseDocumentRelations>(
+    `/_management/projects/${projectId}/testcase/documents/${documentId}/relations`,
+  );
+}
+
+export async function exportTestcaseDocumentsExcel(
+  projectId: string,
+  options?: {
+    batch_id?: string;
+    parse_status?: string;
+    query?: string;
+  },
+): Promise<ManagementDownload> {
+  const client = createClient(projectId);
+  if (!client || !projectId) {
+    throw new Error("management_api_unavailable");
+  }
+  const params = new URLSearchParams();
+  if (options?.batch_id?.trim()) {
+    params.set("batch_id", options.batch_id.trim());
+  }
+  if (options?.parse_status?.trim()) {
+    params.set("parse_status", options.parse_status.trim());
+  }
+  if (options?.query?.trim()) {
+    params.set("query", options.query.trim());
+  }
+  const suffix = params.toString();
+  return client.download(
+    `/_management/projects/${projectId}/testcase/documents/export${suffix ? `?${suffix}` : ""}`,
+  );
+}
+
+export async function previewTestcaseDocument(
+  projectId: string,
+  documentId: string,
+): Promise<ManagementDownload> {
+  const client = createClient(projectId);
+  if (!client || !projectId) {
+    throw new Error("management_api_unavailable");
+  }
+  return client.download(`/_management/projects/${projectId}/testcase/documents/${documentId}/preview`);
+}
+
+export async function downloadTestcaseDocument(
+  projectId: string,
+  documentId: string,
+): Promise<ManagementDownload> {
+  const client = createClient(projectId);
+  if (!client || !projectId) {
+    throw new Error("management_api_unavailable");
+  }
+  return client.download(`/_management/projects/${projectId}/testcase/documents/${documentId}/download`);
+}
+
 export async function listTestcaseCases(
   projectId: string,
   options?: {
@@ -176,6 +268,7 @@ export async function exportTestcaseCasesExcel(
     batch_id?: string;
     status?: string;
     query?: string;
+    columns?: string[];
   },
 ): Promise<ManagementDownload> {
   const client = createClient(projectId);
@@ -191,6 +284,9 @@ export async function exportTestcaseCasesExcel(
   }
   if (options?.query?.trim()) {
     params.set("query", options.query.trim());
+  }
+  if (Array.isArray(options?.columns) && options.columns.length > 0) {
+    params.set("columns", options.columns.join(","));
   }
   const suffix = params.toString();
   return client.download(
@@ -223,6 +319,8 @@ export async function updateTestcaseCase(
   projectId: string,
   caseId: string,
   payload: {
+    batch_id?: string;
+    case_id?: string;
     title?: string;
     description?: string;
     status?: string;

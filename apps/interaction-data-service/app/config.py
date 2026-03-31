@@ -13,6 +13,7 @@ class Settings:
     interaction_db_enabled: bool
     interaction_db_auto_create: bool
     database_url: str | None
+    document_asset_root: str
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -33,4 +34,7 @@ def load_settings() -> Settings:
             os.getenv("INTERACTION_DB_AUTO_CREATE", "false")
         ),
         database_url=os.getenv("DATABASE_URL") or None,
+        document_asset_root=(
+            os.getenv("DOCUMENT_ASSET_ROOT", "./storage").strip() or "./storage"
+        ),
     )

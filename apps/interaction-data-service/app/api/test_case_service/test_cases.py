@@ -69,7 +69,7 @@ async def list_all_test_cases(
     status: str | None = Query(None),
     batch_id: str | None = Query(None),
     query: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
     project_uuid = parse_uuid(project_id) if project_id else None
@@ -115,6 +115,8 @@ async def patch_test_case(request: Request, test_case_id: str, payload: UpdateTe
         row = update_test_case(
             session,
             row,
+            batch_id=payload.batch_id,
+            case_id=payload.case_id,
             title=payload.title,
             description=payload.description,
             status=payload.status,

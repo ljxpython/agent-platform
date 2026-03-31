@@ -9,7 +9,7 @@ _DOCUMENTS_PATH = "/api/test-case-service/documents"
 _TEST_CASES_PATH = "/api/test-case-service/test-cases"
 _OVERVIEW_PATH = "/api/test-case-service/overview"
 _BATCHES_PATH = "/api/test-case-service/batches"
-_DEFAULT_EXPORT_PAGE_SIZE = 200
+_DEFAULT_EXPORT_PAGE_SIZE = 500
 
 
 class InteractionDataService:
@@ -161,3 +161,68 @@ class InteractionDataService:
     async def get_document(self, project_id: str, document_id: str) -> dict[str, Any]:
         payload = await self._client.get(f"{_DOCUMENTS_PATH}/{document_id}")
         return self._ensure_project_match(payload, project_id, detail="document_not_found")
+
+    async def get_document_relations(self, project_id: str, document_id: str) -> dict[str, Any]:
+        payload = await self._client.get(f"{_DOCUMENTS_PATH}/{document_id}/relations")
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=502, detail="interaction_data_service_invalid_response")
+        document = payload.get("document")
+        if not isinstance(document, dict):
+            raise HTTPException(status_code=502, detail="interaction_data_service_invalid_response")
+        self._ensure_project_match(document, project_id, detail="document_not_found")
+        return payload
+
+    async def list_all_documents_for_export(
+        self,
+        project_id: str,
+        *,
+        batch_id: str | None,
+        parse_status: str | None,
+        query: str | None,
+        max_items: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        first_page = await self.list_documents(
+            project_id,
+            batch_id=batch_id,
+            parse_status=parse_status,
+            query=query,
+            limit=min(_DEFAULT_EXPORT_PAGE_SIZE, max_items + 1),
+            offset=0,
+        )
+        total = int(first_page.get("total") or 0)
+        if total > max_items:
+            raise HTTPException(
+                status_code=400,
+                detail=f"testcase_export_limit_exceeded:{total}>{max_items}",
+            )
+        items = list(first_page.get("items") or [])
+        if len(items) >= total:
+            return items[:total], total
+
+        offset = len(items)
+        while offset < total:
+            page = await self.list_documents(
+                project_id,
+                batch_id=batch_id,
+                parse_status=parse_status,
+                query=query,
+                limit=min(_DEFAULT_EXPORT_PAGE_SIZE, total - offset),
+                offset=offset,
+            )
+            chunk = list(page.get("items") or [])
+            items.extend(chunk)
+            if not chunk:
+                break
+            offset = len(items)
+        return items[:total], total
+
+    async def get_document_binary(
+        self,
+        project_id: str,
+        document_id: str,
+        *,
+        inline: bool,
+    ) -> tuple[bytes, dict[str, str]]:
+        await self.get_document(project_id, document_id)
+        suffix = "preview" if inline else "download"
+        return await self._client.get_binary(f"{_DOCUMENTS_PATH}/{document_id}/{suffix}")
