@@ -226,9 +226,19 @@ uv run python -m py_compile \
 curl "http://127.0.0.1:2024/_proxy/health"
 ```
 
-## 9. 二期接口方案
+## 9. 二期接口方案与当前状态
+
+说明：
+
+- 本章最初用于冻结 testcase 管理接口二期范围
+- 截至当前代码状态，下面列出的 `role / documents/export / relations / preview / download / cases export columns / 大结果集同步分页导出` 均已实现
+- 后续 backlog 讨论不应再把这些接口当成待建设项
 
 ### 9.1 权限态接口
+
+当前状态：
+
+- 已实现
 
 新增：
 
@@ -256,6 +266,10 @@ curl "http://127.0.0.1:2024/_proxy/health"
 
 ### 9.2 用例管理 CRUD 联动约束
 
+当前状态：
+
+- 已实现
+
 前端写操作仍然使用：
 
 - `POST /cases`
@@ -280,6 +294,10 @@ curl "http://127.0.0.1:2024/_proxy/health"
 
 ### 9.3 PDF 管理二期接口
 
+当前状态：
+
+- 已实现
+
 新增：
 
 - `GET /_management/projects/{project_id}/testcase/documents/export`
@@ -288,6 +306,10 @@ curl "http://127.0.0.1:2024/_proxy/health"
 - `GET /_management/projects/{project_id}/testcase/documents/{document_id}/download`
 
 #### 9.3.1 documents/export
+
+当前状态：
+
+- 已实现
 
 用途：
 
@@ -333,6 +355,10 @@ workbook 建议：
 
 #### 9.3.2 documents/{document_id}/relations
 
+当前状态：
+
+- 已实现
+
 用途：
 
 - 给前端 PDF 详情页展示“这份文档影响了哪些测试用例”
@@ -362,6 +388,10 @@ workbook 建议：
 
 #### 9.3.3 documents/{document_id}/preview 与 download
 
+当前状态：
+
+- 已实现
+
 用途：
 
 - `preview`：浏览器内联预览 PDF
@@ -374,7 +404,15 @@ workbook 建议：
 
 ### 9.4 Excel 导出二期
 
+当前状态：
+
+- 已实现
+
 #### 9.4.1 自定义列
+
+当前状态：
+
+- 已实现
 
 `GET /cases/export` 二期新增可选参数：
 
@@ -387,6 +425,10 @@ workbook 建议：
 3. 不传 `columns` 时继续走默认导出列，保持兼容
 
 #### 9.4.2 大结果集同步分页导出
+
+当前状态：
+
+- 已实现
 
 实现原则：
 

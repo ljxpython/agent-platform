@@ -95,6 +95,7 @@ class TestCaseBatchListResponse(BaseModel):
 class CreateTestCaseRequest(BaseModel):
     project_id: str
     batch_id: str | None = None
+    idempotency_key: str | None = Field(default=None, max_length=255)
     case_id: str | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str = ""
@@ -121,6 +122,7 @@ class TestCaseResponse(BaseModel):
     id: str
     project_id: str
     batch_id: str | None
+    idempotency_key: str | None
     case_id: str | None
     title: str
     description: str

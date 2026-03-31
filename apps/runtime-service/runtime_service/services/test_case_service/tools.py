@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from typing import Any
@@ -28,6 +29,50 @@ from runtime_service.services.test_case_service.schemas import (
 TEST_CASES_PATH = "/api/test-case-service/test-cases"
 
 
+def _normalize_identity_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().split()).casefold()
+
+
+def _build_test_case_identity(item: PersistTestCaseItem) -> dict[str, Any]:
+    normalized_case_id = _normalize_identity_text(item.case_id)
+    if normalized_case_id:
+        return {"mode": "case_id", "case_id": normalized_case_id}
+    return {
+        "mode": "semantic_title",
+        "title": _normalize_identity_text(item.title),
+        "module_name": _normalize_identity_text(item.module_name),
+        "test_type": _normalize_identity_text(item.test_type),
+    }
+
+
+def _build_test_case_idempotency_keys(
+    items: list[PersistTestCaseItem],
+) -> list[str]:
+    occurrence_by_identity: dict[str, int] = {}
+    keys: list[str] = []
+    for item in items:
+        identity = _build_test_case_identity(item)
+        identity_text = json.dumps(
+            identity,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        occurrence = occurrence_by_identity.get(identity_text, 0) + 1
+        occurrence_by_identity[identity_text] = occurrence
+        digest_source = json.dumps(
+            {"version": 1, "identity": identity, "occurrence": occurrence},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        digest = hashlib.sha256(digest_source).hexdigest()
+        keys.append(f"tc:{digest[:40]}")
+    return keys
+
+
 def _merge_content_json(
     item: PersistTestCaseItem,
     *,
@@ -38,6 +83,7 @@ def _merge_content_json(
     runtime_meta: dict[str, Any],
     batch_id: str,
     source_document_ids: list[str],
+    idempotency_key: str,
 ) -> dict[str, Any]:
     content = dict(item.content_json)
     content.setdefault("case_id", item.case_id)
@@ -61,6 +107,7 @@ def _merge_content_json(
             "export_format": export_format,
             "batch_id": batch_id,
             "source_document_ids": source_document_ids,
+            "test_case_idempotency_key": idempotency_key,
             **runtime_meta,
         }
     )
@@ -81,7 +128,8 @@ def _build_test_case_payloads(
     runtime_meta: dict[str, Any],
 ) -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
-    for item in items:
+    idempotency_keys = _build_test_case_idempotency_keys(items)
+    for item, idempotency_key in zip(items, idempotency_keys, strict=False):
         content_json = _merge_content_json(
             item,
             bundle_title=bundle_title,
@@ -91,11 +139,13 @@ def _build_test_case_payloads(
             runtime_meta=runtime_meta,
             batch_id=batch_id,
             source_document_ids=source_document_ids,
+            idempotency_key=idempotency_key,
         )
         payloads.append(
             {
                 "project_id": project_id,
                 "batch_id": batch_id,
+                "idempotency_key": idempotency_key,
                 "case_id": item.case_id,
                 "title": item.title,
                 "description": item.description,

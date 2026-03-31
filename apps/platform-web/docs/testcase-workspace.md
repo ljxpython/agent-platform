@@ -228,7 +228,13 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
   "src/lib/management-api/testcase.ts"
 ```
 
-## 6. 二期实施方案
+## 6. 二期实施方案与当前状态
+
+说明：
+
+- 本章最初用于冻结二期方案
+- 截至当前代码状态，`6.1 / 6.2 / 6.3` 中描述的核心能力已经落地
+- 当前继续讨论 backlog 时，应以“体验增强 / 数据规模增强 / 新能力扩展”为主，而不是重复把已上线能力当成未开发项
 
 ### 6.0 工作区项目选择补齐
 
@@ -264,6 +270,12 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 - 项目切换入口只保留在 `Projects` 页面
 
 ### 6.1 用例管理 CRUD
+
+当前状态：
+
+- 已落地
+- 当前页面已经支持 `create / edit / delete`
+- 当前页面已经支持未保存离开确认、实时 JSON 校验、来源文档搜索与已选数量提示
 
 目标：
 
@@ -365,9 +377,22 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 
 ### 6.2 PDF 管理二期增强
 
+当前状态：
+
+- `6.2.1 / 6.2.2 / 6.2.3` 均已落地
+- 当前 `/workspace/testcase/documents` 已支持：
+  - `relations`
+  - `preview / download`
+  - `Batch Context`
+  - 同批次文档 / 用例联动跳转
+
 二期拆成两个阶段，避免把“解析记录增强”和“原始文件资产存储”混成一坨。
 
 #### 6.2.1 阶段 A：解析记录增强
+
+当前状态：
+
+- 已实现
 
 目标：
 
@@ -405,6 +430,10 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 
 #### 6.2.2 阶段 B：原始文件回看与下载
 
+当前状态：
+
+- 已实现
+
 目标：
 
 - 页面不只展示解析结果，还能回看真实上传的 PDF
@@ -426,6 +455,10 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
   - 显示“该记录未保存原始文件，仅保留了解析结果”
 
 #### 6.2.3 阶段 C：批次关联展示增强
+
+当前状态：
+
+- 已实现
 
 目标：
 
@@ -469,7 +502,17 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 
 ### 6.3 Excel 导出二期
 
+当前状态：
+
+- `6.3.1 / 6.3.2 / 6.3.3` 已落地
+- 当前 testcase 与 PDF 解析记录都已支持真实 `.xlsx` 导出
+- 大结果集导出已切到后端分页拉取 + `write_only workbook`
+
 #### 6.3.1 用例导出增强
+
+当前状态：
+
+- 已实现
 
 目标：
 
@@ -491,6 +534,10 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 
 #### 6.3.2 PDF 解析记录导出
 
+当前状态：
+
+- 已实现
+
 目标：
 
 - 支持从 `PDF 解析` 页面导出当前筛选结果
@@ -506,6 +553,10 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 4. 成功后 toast 提示导出条数
 
 #### 6.3.3 大结果集导出
+
+当前状态：
+
+- 已实现
 
 约束：
 

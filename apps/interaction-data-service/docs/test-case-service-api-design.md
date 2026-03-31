@@ -97,6 +97,7 @@
 
 - `project_id`
 - `batch_id`
+- `idempotency_key`
 - `case_id`
 - `title`
 - `description`
@@ -119,6 +120,22 @@
 - `status`
 - `batch_id`
 - `query`
+
+### 幂等语义
+
+`test-cases` 的写入现在也支持可选幂等：
+
+- 唯一范围：`project_id + batch_id + idempotency_key`
+- 只有请求显式传入 `idempotency_key` 时才启用
+- 命中已有记录时：
+  - 复用原 `test_case_id`
+  - 用最新请求覆盖 `title / description / status / module_name / priority / source_document_ids / content_json`
+  - 不重复插入新行
+
+当前用途：
+
+- 仅用于 `runtime-service/test_case_service` 的自动正式保存
+- 平台人工 CRUD 默认不传 `idempotency_key`，仍保持普通新增语义
 
 ## 聚合资源：overview / batches
 
@@ -166,6 +183,10 @@
 用途：保存正式测试用例，平台后续围绕这张表做列表、详情、修改、删除。
 
 完整业务结构统一收敛到 `content_json`，运行时元信息放入 `content_json.meta`。
+
+关键字段补充：
+
+- `idempotency_key`：用于 `test_case_service` 自动保存时的正式 testcase 幂等覆盖
 
 ## 二期接口方案
 

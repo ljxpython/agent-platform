@@ -328,7 +328,13 @@ platform-web AI 对话生成页
 
 ## 7. 二期演进：上传后立即保存 PDF 解析结果
 
-## 7.1 当前问题
+当前状态：
+
+- 已落地
+- 当前 `test_case_service` 已通过服务私有持久化层在“上传并解析 PDF”后即时写入 `test_case_documents`
+- `persist_test_case_results` 只再负责正式 testcase 落库与 `source_document_ids` 关联
+
+## 7.1 历史问题
 
 当前 PDF 文档解析结果的落库时机依赖 `persist_test_case_results`。
 
@@ -416,9 +422,10 @@ platform-web AI 对话生成页
    - `apps/runtime-service/runtime_service/test_data/接口文档.pdf`
 6. 验证：
    - 对话不报错
+   - 上传并解析 PDF 后，即使还未调用 `persist_test_case_results`，`PDF 解析` 页面也能看到对应文档记录
+   - 若原始 PDF 资产上传成功，页面可执行在线预览与下载
    - 用例生成正常
-   - 正式保存后 `用例管理` 能看到数据
-   - `PDF 解析` 页面能看到对应批次文档解析结果
+   - 正式保存后 `用例管理` 能看到数据，且 testcase 正确关联既有 `document_id`
 
 ## 9. 一期落地顺序
 

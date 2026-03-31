@@ -177,6 +177,7 @@
 
 - `project_id`
 - `batch_id`
+- `idempotency_key`（三期前置能力本轮一并落地，用于正式 testcase 幂等覆盖）
 - `case_id`
 - `title`
 - `description`
@@ -187,6 +188,20 @@
 - `content_json`
 
 其中完整业务结果和运行时元数据全部收敛到 `content_json.meta`。
+
+三期前置能力本轮一并落地：
+
+- `persist_test_case_results` 在写 `test_cases` 时自动生成稳定 `idempotency_key`
+- 当前策略：
+  - 优先使用 `case_id`
+  - 若没有 `case_id`，退化到 `title + module_name + test_type`
+  - 同一 bundle 内若出现相同逻辑身份，再追加出现序号区分
+- `interaction-data-service` 在命中已有 `(project_id, batch_id, idempotency_key)` 时不再插入新行，而是覆盖旧 testcase 内容
+
+边界：
+
+- 这条幂等语义只用于 `test_case_service` 的自动正式保存
+- 平台人工 CRUD 仍保持普通新增 / 编辑 / 删除，不强行做唯一约束
 
 ## 调试与验证要求
 
@@ -224,6 +239,8 @@ uv run python runtime_service/tests/services_test_case_service_document_live.py 
 uv run python runtime_service/tests/services_test_case_service_persistence_live.py \
   --model-id deepseek_chat \
   --timeout 900
+
+uv run python runtime_service/tests/services_test_case_service_case_idempotency_live.py
 ```
 
 含义：
@@ -237,6 +254,10 @@ uv run python runtime_service/tests/services_test_case_service_persistence_live.
    - 真实生成正式测试用例
    - 调用 `persist_test_case_results`
    - 验证 `test_cases` 写入以及 `source_document_ids` 关联
+3. `services_test_case_service_case_idempotency_live.py`
+   - 不依赖模型随机输出
+   - 使用真实 `interaction-data-service` 和真实业务字段构造两轮 testcase 写入
+   - 第二轮命中同一逻辑身份时必须覆盖旧记录而不是新增脏数据
 
 ## 实现陷阱与修复点
 

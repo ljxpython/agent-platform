@@ -214,5 +214,5 @@ def _resolve_backend_root_dir_path(private_config, *, agent_name) -> Path:
 | 无流式输出进度反馈 | 长任务用户体验差 | 集成 LangGraph streaming |
 | Skills 无版本管理 | SKILL.md 变更无法灰度 | 引入 skills 版本号机制 |
 | 默认项目 ID 仍是过渡方案 | 真实项目上下文尚未完全透传 | 后续由 runtime.context / runtime.config 正式承载 |
-| 无用例去重 | 多轮对话可能产生重复用例 | 在 interaction-data-service 增加幂等键/批次去重 |
+| 平台人工 CRUD 仍允许重复 testcase | 自动保存已支持幂等覆盖，但人工录入仍可能录入相似记录 | 后续如有需要再评估平台侧提示或弱校验 |
 | 旧 `usecase-generation` 结果域已退役 | 旧服务仍可能残留历史依赖 | 后续下线 `usecase_workflow_agent` 并清理历史文档 |

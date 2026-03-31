@@ -76,6 +76,19 @@ runtime-service/test_case_service
 
 - 保证同一批次重复重试不会重复插入相同 document
 
+`test-cases` 写入现在也支持可选幂等字段：
+
+- `idempotency_key`
+
+幂等范围：
+
+- `project_id + batch_id + idempotency_key`
+
+目标：
+
+- 让 `test_case_service` 自动正式保存时，重复提交同一逻辑 testcase 会覆盖旧记录，而不是继续插入脏数据
+- 平台人工 CRUD 默认不传该字段，仍保持普通新增语义
+
 受信上下文约定：
 
 - `project_id` 优先从 `runtime.context / runtime.config / runtime.state` 读取

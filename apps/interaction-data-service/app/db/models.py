@@ -45,6 +45,7 @@ class TestCaseRecord(Base):
     )
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     batch_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     case_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")

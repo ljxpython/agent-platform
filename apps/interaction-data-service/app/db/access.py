@@ -156,6 +156,7 @@ def create_test_case(
     *,
     project_id: uuid.UUID,
     batch_id: str | None,
+    idempotency_key: str | None,
     case_id: str | None,
     title: str,
     description: str,
@@ -165,9 +166,39 @@ def create_test_case(
     source_document_ids: list[str],
     content_json: dict,
 ) -> TestCaseRecord:
+    normalized_batch_id = batch_id.strip() if isinstance(batch_id, str) and batch_id.strip() else None
+    normalized_idempotency_key = (
+        idempotency_key.strip()
+        if isinstance(idempotency_key, str) and idempotency_key.strip()
+        else None
+    )
+    if normalized_idempotency_key is not None:
+        existing_stmt = select(TestCaseRecord).where(
+            TestCaseRecord.project_id == project_id,
+            TestCaseRecord.idempotency_key == normalized_idempotency_key,
+        )
+        if normalized_batch_id is None:
+            existing_stmt = existing_stmt.where(TestCaseRecord.batch_id.is_(None))
+        else:
+            existing_stmt = existing_stmt.where(TestCaseRecord.batch_id == normalized_batch_id)
+        existing = session.scalar(existing_stmt)
+        if existing is not None:
+            existing.batch_id = normalized_batch_id
+            existing.case_id = case_id
+            existing.title = title
+            existing.description = description
+            existing.status = status
+            existing.module_name = module_name
+            existing.priority = priority
+            existing.source_document_ids = source_document_ids
+            existing.content_json = content_json
+            session.flush()
+            return existing
+
     row = TestCaseRecord(
         project_id=project_id,
-        batch_id=batch_id,
+        batch_id=normalized_batch_id,
+        idempotency_key=normalized_idempotency_key,
         case_id=case_id,
         title=title,
         description=description,
