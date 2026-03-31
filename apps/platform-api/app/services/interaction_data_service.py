@@ -49,6 +49,35 @@ class InteractionDataService:
             raise HTTPException(status_code=502, detail="interaction_data_service_invalid_response")
         return payload
 
+    async def get_batch_detail(
+        self,
+        project_id: str,
+        batch_id: str,
+        *,
+        document_limit: int,
+        document_offset: int,
+        case_limit: int,
+        case_offset: int,
+    ) -> dict[str, Any]:
+        payload = await self._client.get(
+            f"{_BATCHES_PATH}/{batch_id}",
+            params={
+                **self._project_params(project_id),
+                "document_limit": document_limit,
+                "document_offset": document_offset,
+                "case_limit": case_limit,
+                "case_offset": case_offset,
+            },
+        )
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=502, detail="interaction_data_service_invalid_response")
+        batch = payload.get("batch")
+        if not isinstance(batch, dict):
+            raise HTTPException(status_code=502, detail="interaction_data_service_invalid_response")
+        if str(batch.get("batch_id") or "").strip() != batch_id:
+            raise HTTPException(status_code=404, detail="testcase_batch_not_found")
+        return payload
+
     async def list_cases(
         self,
         project_id: str,

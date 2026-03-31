@@ -269,6 +269,9 @@ curl "http://127.0.0.1:2024/_proxy/health"
 当前状态：
 
 - 已实现
+- `GET /cases/{case_id}` 当前会额外返回：
+  - `source_documents`
+  - `missing_source_document_ids`
 
 前端写操作仍然使用：
 
@@ -302,6 +305,7 @@ curl "http://127.0.0.1:2024/_proxy/health"
 
 - `GET /_management/projects/{project_id}/testcase/documents/export`
 - `GET /_management/projects/{project_id}/testcase/documents/{document_id}/relations`
+- `GET /_management/projects/{project_id}/testcase/batches/{batch_id}`
 - `GET /_management/projects/{project_id}/testcase/documents/{document_id}/preview`
 - `GET /_management/projects/{project_id}/testcase/documents/{document_id}/download`
 
@@ -401,6 +405,47 @@ workbook 建议：
 
 - `platform-api` 仍不直接保存文件
 - 只做鉴权、代理和响应头整形
+
+#### 9.3.4 batches/{batch_id}
+
+当前状态：
+
+- 已实现
+
+用途：
+
+- 给 `platform-web /workspace/testcase/documents` 提供真正的批次详情数据
+- 避免前端继续用“当前页已加载 document 列表”猜测同批次内容
+
+返回建议：
+
+```json
+{
+  "batch": {
+    "batch_id": "test-case-service:thread",
+    "documents_count": 12,
+    "test_cases_count": 5,
+    "latest_created_at": "2026-03-31T12:00:00+08:00",
+    "parse_status_summary": {
+      "parsed": 11,
+      "failed": 1
+    }
+  },
+  "documents": {
+    "items": [{ "...": "..." }],
+    "total": 12
+  },
+  "test_cases": {
+    "items": [{ "...": "..." }],
+    "total": 5
+  }
+}
+```
+
+说明：
+
+- `documents` 与 `test_cases` 都支持分页参数
+- 当前前端默认只取前一段结果用于右侧详情预览，完整排查仍可跳转到对应列表页
 
 ### 9.4 Excel 导出二期
 

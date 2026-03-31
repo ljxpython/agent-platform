@@ -51,6 +51,7 @@
 - 调用 `/_management/projects/{project_id}/testcase/cases/export`
 - 调用 `/_management/projects/{project_id}/testcase/role`
 - 调用 `POST / PATCH / DELETE /cases`
+- 调用 `/_management/projects/{project_id}/testcase/cases/{case_id}` 时，详情接口会返回 `source_documents`
 - 支持按 `batch_id / status / query` 查询
 - 左侧列表，右侧详情
 - 支持新增、编辑、删除 testcase
@@ -62,6 +63,12 @@
   - 用例正文
   - 扩展信息
   - 来源文档
+- 只读详情中的来源文档不再只显示 UUID，而是展示：
+  - `filename`
+  - `parse_status`
+  - `batch_id`
+  - `created_at`
+  - 若文档详情缺失，则回退展示原始 `document_id`
 - `steps / expected_results` 保存前至少要求 1 条
 - `test_data` 提供实时 JSON object 校验
 - 表单切换时支持未保存离开确认
@@ -81,6 +88,7 @@
 - 调用 `/_management/projects/{project_id}/testcase/documents`
 - 调用 `/_management/projects/{project_id}/testcase/documents/export`
 - 调用 `/_management/projects/{project_id}/testcase/documents/{document_id}/relations`
+- 调用 `/_management/projects/{project_id}/testcase/batches/{batch_id}`
 - 调用 `/_management/projects/{project_id}/testcase/documents/{document_id}/preview`
 - 调用 `/_management/projects/{project_id}/testcase/documents/{document_id}/download`
 - 支持按 `batch_id / parse_status / query` 查询
@@ -89,7 +97,8 @@
 - 详情区展示 `thread_id / run_id / agent_key / related_cases`
 - 详情区展示 `Batch Context`
 - 支持 `查看同批次全部用例 / 查看同批次全部文档 / 复制 batch_id`
-- 支持查看同批次其他文档，并在右侧直接切换详情
+- 支持通过 batch detail 接口查看同批次其他文档，并在右侧直接切换详情
+- `Batch Context` 内支持预览当前批次 testcase 摘要
 - 支持复制 `document_id`
 - 若存在 `storage_path`，支持在线预览与下载原始 PDF
 

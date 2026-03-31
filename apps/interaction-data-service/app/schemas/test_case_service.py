@@ -92,6 +92,28 @@ class TestCaseBatchListResponse(BaseModel):
     total: int
 
 
+class TestCaseBatchDetailCase(BaseModel):
+    id: str
+    case_id: str | None
+    title: str
+    status: str
+    batch_id: str | None
+    module_name: str | None = None
+    priority: str | None = None
+    updated_at: str | None = None
+
+
+class TestCaseBatchDetailCaseListResponse(BaseModel):
+    items: list[TestCaseBatchDetailCase] = Field(default_factory=list)
+    total: int = 0
+
+
+class TestCaseBatchDetailResponse(BaseModel):
+    batch: TestCaseBatchSummary
+    documents: TestCaseDocumentListResponse
+    test_cases: TestCaseBatchDetailCaseListResponse
+
+
 class CreateTestCaseRequest(BaseModel):
     project_id: str
     batch_id: str | None = None

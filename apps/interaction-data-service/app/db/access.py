@@ -452,3 +452,103 @@ def list_test_case_batches(
     )
     total = len(ordered)
     return ordered[offset : offset + limit], total
+
+
+def get_test_case_batch_detail(
+    session: Session,
+    *,
+    project_id: uuid.UUID | None,
+    batch_id: str,
+    document_limit: int,
+    document_offset: int,
+    case_limit: int,
+    case_offset: int,
+) -> dict[str, object] | None:
+    normalized_batch_id = batch_id.strip()
+    if not normalized_batch_id:
+        return None
+
+    documents_base_stmt = select(TestCaseDocument).where(
+        TestCaseDocument.batch_id == normalized_batch_id
+    )
+    cases_base_stmt = select(TestCaseRecord).where(
+        TestCaseRecord.batch_id == normalized_batch_id
+    )
+    parse_summary_stmt = (
+        select(
+            TestCaseDocument.parse_status,
+            func.count().label("status_count"),
+        )
+        .where(TestCaseDocument.batch_id == normalized_batch_id)
+        .group_by(TestCaseDocument.parse_status)
+    )
+    latest_document_stmt = select(func.max(TestCaseDocument.created_at)).where(
+        TestCaseDocument.batch_id == normalized_batch_id
+    )
+    latest_case_stmt = select(func.max(TestCaseRecord.updated_at)).where(
+        TestCaseRecord.batch_id == normalized_batch_id
+    )
+
+    if project_id is not None:
+        documents_base_stmt = documents_base_stmt.where(TestCaseDocument.project_id == project_id)
+        cases_base_stmt = cases_base_stmt.where(TestCaseRecord.project_id == project_id)
+        parse_summary_stmt = parse_summary_stmt.where(TestCaseDocument.project_id == project_id)
+        latest_document_stmt = latest_document_stmt.where(TestCaseDocument.project_id == project_id)
+        latest_case_stmt = latest_case_stmt.where(TestCaseRecord.project_id == project_id)
+
+    documents_total = int(
+        session.scalar(select(func.count()).select_from(documents_base_stmt.subquery())) or 0
+    )
+    cases_total = int(
+        session.scalar(select(func.count()).select_from(cases_base_stmt.subquery())) or 0
+    )
+    if documents_total <= 0 and cases_total <= 0:
+        return None
+
+    latest_document_at = session.scalar(latest_document_stmt)
+    latest_case_at = session.scalar(latest_case_stmt)
+    latest_created_at = latest_document_at
+    if latest_case_at is not None and (
+        latest_created_at is None or latest_case_at >= latest_created_at
+    ):
+        latest_created_at = latest_case_at
+
+    parse_status_summary = {
+        str(row.parse_status): int(row.status_count or 0)
+        for row in session.execute(parse_summary_stmt)
+    }
+
+    document_rows = list(
+        session.scalars(
+            documents_base_stmt
+            .order_by(desc(TestCaseDocument.created_at), desc(TestCaseDocument.id))
+            .offset(document_offset)
+            .limit(document_limit)
+        ).all()
+    )
+    case_rows = list(
+        session.scalars(
+            cases_base_stmt
+            .order_by(desc(TestCaseRecord.updated_at), desc(TestCaseRecord.id))
+            .offset(case_offset)
+            .limit(case_limit)
+        ).all()
+    )
+
+    return {
+        "batch": {
+            "batch_id": normalized_batch_id,
+            "documents_count": documents_total,
+            "test_cases_count": cases_total,
+            "latest_created_at": latest_created_at,
+            "parse_status_summary": parse_status_summary,
+        },
+        "documents": {
+            "items": document_rows,
+            "total": documents_total,
+        },
+        "test_cases": {
+            "items": case_rows,
+            "total": cases_total,
+        },
+    }

@@ -188,7 +188,23 @@ async def get_testcase_case(request: Request, project_id: str, case_id: str) -> 
     project_uuid = _parse_project_id(project_id)
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
     service = InteractionDataService(request)
-    return await service.get_case(project_id, case_id)
+    payload = await service.get_case(project_id, case_id)
+    source_document_ids = _normalize_string_list(payload.get("source_document_ids"))
+    source_documents: list[dict[str, Any]] = []
+    missing_source_document_ids: list[str] = []
+    for document_id in source_document_ids:
+        try:
+            source_documents.append(await service.get_document(project_id, document_id))
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                missing_source_document_ids.append(document_id)
+                continue
+            raise
+    return {
+        **payload,
+        "source_documents": source_documents,
+        "missing_source_document_ids": missing_source_document_ids,
+    }
 
 
 @router.post("/projects/{project_id}/testcase/cases")
@@ -321,6 +337,32 @@ async def get_testcase_document_relations(
     require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
     service = InteractionDataService(request)
     return await service.get_document_relations(project_id, document_id)
+
+
+@router.get("/projects/{project_id}/testcase/batches/{batch_id}")
+async def get_testcase_batch_detail(
+    request: Request,
+    project_id: str,
+    batch_id: str,
+    document_limit: int = Query(default=100, ge=1, le=500),
+    document_offset: int = Query(default=0, ge=0),
+    case_limit: int = Query(default=50, ge=1, le=500),
+    case_offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    project_uuid = _parse_project_id(project_id)
+    require_project_role(request, project_uuid, allowed_roles={"admin", "editor", "executor"})
+    normalized_batch_id = _cleanup_optional_text(batch_id)
+    if not normalized_batch_id:
+        raise HTTPException(status_code=400, detail="invalid_batch_id")
+    service = InteractionDataService(request)
+    return await service.get_batch_detail(
+        project_id,
+        normalized_batch_id,
+        document_limit=document_limit,
+        document_offset=document_offset,
+        case_limit=case_limit,
+        case_offset=case_offset,
+    )
 
 
 @router.get("/projects/{project_id}/testcase/documents/{document_id}/preview")

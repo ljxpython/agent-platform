@@ -34,6 +34,7 @@
 
 - `GET /api/test-case-service/overview`
 - `GET /api/test-case-service/batches`
+- `GET /api/test-case-service/batches/{batch_id}`
 
 ## 当前真实表
 

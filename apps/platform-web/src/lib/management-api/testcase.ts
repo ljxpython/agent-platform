@@ -18,6 +18,17 @@ export type TestcaseBatchSummary = {
   parse_status_summary: Record<string, number>;
 };
 
+export type TestcaseBatchDetailCase = {
+  id: string;
+  case_id?: string | null;
+  title: string;
+  status: string;
+  batch_id?: string | null;
+  module_name?: string | null;
+  priority?: string | null;
+  updated_at?: string | null;
+};
+
 export type TestcaseDocument = {
   id: string;
   project_id: string;
@@ -62,9 +73,23 @@ export type TestcaseCase = {
   module_name?: string | null;
   priority?: string | null;
   source_document_ids: string[];
+  source_documents?: TestcaseDocument[];
+  missing_source_document_ids?: string[];
   content_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+};
+
+export type TestcaseBatchDetail = {
+  batch: TestcaseBatchSummary;
+  documents: {
+    items: TestcaseDocument[];
+    total: number;
+  };
+  test_cases: {
+    items: TestcaseBatchDetailCase[];
+    total: number;
+  };
 };
 
 export type TestcaseRole = {
@@ -171,6 +196,30 @@ export async function getTestcaseDocumentRelations(
   }
   return client.get<TestcaseDocumentRelations>(
     `/_management/projects/${projectId}/testcase/documents/${documentId}/relations`,
+  );
+}
+
+export async function getTestcaseBatchDetail(
+  projectId: string,
+  batchId: string,
+  options?: {
+    document_limit?: number;
+    document_offset?: number;
+    case_limit?: number;
+    case_offset?: number;
+  },
+): Promise<TestcaseBatchDetail> {
+  const client = createClient(projectId);
+  if (!client || !projectId) {
+    throw new Error("management_api_unavailable");
+  }
+  const params = new URLSearchParams();
+  params.set("document_limit", String(options?.document_limit ?? 100));
+  params.set("document_offset", String(options?.document_offset ?? 0));
+  params.set("case_limit", String(options?.case_limit ?? 50));
+  params.set("case_offset", String(options?.case_offset ?? 0));
+  return client.get<TestcaseBatchDetail>(
+    `/_management/projects/${projectId}/testcase/batches/${encodeURIComponent(batchId)}?${params.toString()}`,
   );
 }
 

@@ -734,6 +734,8 @@ export default function TestcaseCasesPage() {
   const expectedResultsError =
     saveAttempted && expectedResultsCount === 0 ? "预期结果至少填写 1 条。" : null;
   const selectedSourceCount = form.source_document_ids.length;
+  const detailSourceDocuments = selectedItem?.source_documents ?? [];
+  const detailMissingSourceDocumentIds = selectedItem?.missing_source_document_ids ?? [];
 
   return (
     <section className="p-4 sm:p-6">
@@ -1001,15 +1003,29 @@ export default function TestcaseCasesPage() {
                           <div>
                             <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">来源文档</dt>
                             <dd className="mt-2 space-y-2 text-muted-foreground">
-                              {selectedItem.source_document_ids.length > 0 ? (
-                                selectedItem.source_document_ids.map((documentId) => (
-                                  <div key={documentId} className="max-w-full rounded-md border border-border bg-muted/20 px-3 py-2 text-xs break-all">
-                                    {documentId}
+                              {detailSourceDocuments.length > 0 ? (
+                                detailSourceDocuments.map((document) => (
+                                  <div key={document.id} className="max-w-full rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+                                    <div className="font-medium text-foreground break-all">{document.filename}</div>
+                                    <div className="mt-1 text-muted-foreground break-all">{document.id}</div>
+                                    <div className="mt-1 text-muted-foreground">
+                                      {document.parse_status} / {document.batch_id || "-"} / {formatDateTime(document.created_at)}
+                                    </div>
                                   </div>
                                 ))
                               ) : (
                                 "-"
                               )}
+                              {detailMissingSourceDocumentIds.length > 0 ? (
+                                <div className="rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                                  以下来源文档当前无法解析详情，保留原始 ID：
+                                  <div className="mt-2 space-y-1">
+                                    {detailMissingSourceDocumentIds.map((documentId) => (
+                                      <div key={documentId} className="break-all">{documentId}</div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
                             </dd>
                           </div>
                           <div>

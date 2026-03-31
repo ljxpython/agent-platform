@@ -155,6 +155,7 @@
 ### 批次聚合
 
 - `GET /api/test-case-service/batches`
+- `GET /api/test-case-service/batches/{batch_id}`
 
 返回批次级聚合：
 
@@ -163,6 +164,12 @@
 - `test_cases_count`
 - `latest_created_at`
 - `parse_status_summary`
+
+`batches/{batch_id}` 额外返回：
+
+- 当前 batch 汇总
+- 当前 batch 的 documents 分页结果
+- 当前 batch 的 testcase 分页结果
 
 ## 表结构
 

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   exportTestcaseDocumentsExcel,
+  getTestcaseBatchDetail,
   getTestcaseDocumentRelations,
   getTestcaseOverview,
   listTestcaseBatches,
@@ -21,6 +22,7 @@ import {
   previewTestcaseDocument,
   downloadTestcaseDocument,
   type TestcaseBatchSummary,
+  type TestcaseBatchDetail,
   type TestcaseDocument,
   type TestcaseDocumentRelations,
   type TestcaseOverview,
@@ -107,8 +109,11 @@ export default function TestcaseDocumentsPage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<TestcaseDocument | null>(null);
   const [relations, setRelations] = useState<TestcaseDocumentRelations | null>(null);
+  const [batchDetail, setBatchDetail] = useState<TestcaseBatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [batchDetailLoading, setBatchDetailLoading] = useState(false);
+  const [batchDetailError, setBatchDetailError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -122,8 +127,8 @@ export default function TestcaseDocumentsPage() {
   const storagePath = resolveStoragePath(selectedItem);
   const runtimeMeta = useMemo(() => asRecord(relations?.runtime_meta), [relations]);
   const selectedBatchSummary = useMemo(
-    () => batches.find((item) => item.batch_id === (selectedItem?.batch_id || "")) ?? null,
-    [batches, selectedItem?.batch_id],
+    () => batchDetail?.batch ?? batches.find((item) => item.batch_id === (selectedItem?.batch_id || "")) ?? null,
+    [batchDetail?.batch, batches, selectedItem?.batch_id],
   );
   const batchStatusEntries = useMemo(
     () => Object.entries(selectedBatchSummary?.parse_status_summary ?? {}).sort(([left], [right]) => left.localeCompare(right)),
@@ -133,8 +138,9 @@ export default function TestcaseDocumentsPage() {
     if (!selectedItem?.batch_id) {
       return [];
     }
-    return items.filter((item) => item.batch_id === selectedItem.batch_id && item.id !== selectedItem.id);
-  }, [items, selectedItem]);
+    return (batchDetail?.documents.items ?? []).filter((item) => item.id !== selectedItem.id);
+  }, [batchDetail?.documents.items, selectedItem]);
+  const batchPreviewCases = useMemo(() => batchDetail?.test_cases.items ?? [], [batchDetail?.test_cases.items]);
 
   useEffect(() => {
     const normalized = batchQuery ?? "";
@@ -223,6 +229,8 @@ export default function TestcaseDocumentsPage() {
       setSelectedItem(null);
       setRelations(null);
       setDetailError(null);
+      setBatchDetail(null);
+      setBatchDetailError(null);
       return;
     }
     let cancelled = false;
@@ -255,6 +263,47 @@ export default function TestcaseDocumentsPage() {
       cancelled = true;
     };
   }, [projectId, selectedId]);
+
+  useEffect(() => {
+    const batchId = selectedItem?.batch_id ?? "";
+    if (!projectId || !batchId) {
+      setBatchDetail(null);
+      setBatchDetailError(null);
+      return;
+    }
+    let cancelled = false;
+
+    async function loadBatchDetail() {
+      setBatchDetailLoading(true);
+      setBatchDetailError(null);
+      try {
+        const payload = await getTestcaseBatchDetail(projectId, batchId, {
+          document_limit: 100,
+          document_offset: 0,
+          case_limit: 20,
+          case_offset: 0,
+        });
+        if (!cancelled) {
+          setBatchDetail(payload);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBatchDetail(null);
+          setBatchDetailError(err instanceof Error ? err.message : "Failed to load batch detail");
+        }
+      } finally {
+        if (!cancelled) {
+          setBatchDetailLoading(false);
+        }
+      }
+    }
+
+    void loadBatchDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, selectedItem?.batch_id]);
 
   const handleExport = useCallback(async () => {
     if (!projectId || exporting) {
@@ -610,6 +659,15 @@ export default function TestcaseDocumentsPage() {
                                 </div>
                               </div>
 
+                              {batchDetailLoading ? (
+                                <div className="text-xs text-muted-foreground">Loading batch detail...</div>
+                              ) : null}
+                              {batchDetailError ? (
+                                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                                  {batchDetailError}
+                                </div>
+                              ) : null}
+
                               {selectedBatchSummary ? (
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   <div className="rounded-md border border-border bg-background px-3 py-2">
@@ -636,6 +694,28 @@ export default function TestcaseDocumentsPage() {
                                       ) : (
                                         <span className="text-xs text-muted-foreground">当前批次暂无状态汇总。</span>
                                       )}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-md border border-border bg-background px-3 py-2 sm:col-span-2">
+                                    <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">batch_test_cases_preview</div>
+                                    <div className="mt-2 space-y-2">
+                                      {batchPreviewCases.length > 0 ? (
+                                        batchPreviewCases.map((item) => (
+                                          <div key={item.id} className="rounded-md border border-border/80 bg-muted/20 px-3 py-2">
+                                            <div className="font-medium text-foreground">{item.title}</div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                              {item.case_id || item.id} / {item.status} / {formatDateTime(item.updated_at)}
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <div className="text-xs text-muted-foreground">当前批次暂无 testcase 预览数据。</div>
+                                      )}
+                                      {batchDetail && batchDetail.test_cases.total > batchPreviewCases.length ? (
+                                        <div className="text-xs text-muted-foreground">
+                                          当前仅展示前 {batchPreviewCases.length} 条，用“查看同批次全部用例”进入完整列表。
+                                        </div>
+                                      ) : null}
                                     </div>
                                   </div>
                                 </div>
@@ -673,7 +753,7 @@ export default function TestcaseDocumentsPage() {
                           {selectedItem.batch_id ? (
                             <>
                               <div className="mb-2 text-muted-foreground">
-                                当前列表已加载 {sameBatchDocuments.length} 条同批次文档；
+                                当前批次接口返回 {sameBatchDocuments.length} 条其他文档；
                                 {selectedBatchSummary ? `批次总量 ${selectedBatchSummary.documents_count} 条。` : "批次汇总暂不可用。"}
                               </div>
                               {sameBatchDocuments.length > 0 ? (
@@ -692,9 +772,14 @@ export default function TestcaseDocumentsPage() {
                                 </div>
                               ) : (
                                 <div className="text-muted-foreground">
-                                  当前列表未加载其他同批次文档。可以点击“查看同批次全部文档”切到对应批次后继续排查。
+                                  当前批次没有其他文档，或当前接口返回结果中仅包含当前 document。
                                 </div>
                               )}
+                              {batchDetail && batchDetail.documents.total > sameBatchDocuments.length + 1 ? (
+                                <div className="mt-2 text-muted-foreground">
+                                  当前仅展示前 {batchDetail.documents.items.length} 条批次文档，可点击“查看同批次全部文档”进入完整筛选列表。
+                                </div>
+                              ) : null}
                             </>
                           ) : (
                             <div className="text-muted-foreground">当前 document 没有关联 batch_id。</div>
