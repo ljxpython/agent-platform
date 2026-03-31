@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from urllib.parse import quote
 
 from openpyxl import Workbook
+from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -60,16 +61,35 @@ def build_content_disposition(filename: str) -> str:
     return f"attachment; filename=\"{filename}\"; filename*=UTF-8''{encoded}"
 
 
+def _styled_row(
+    sheet,
+    values: list[str | int],
+    *,
+    font: Font | None = None,
+    fill: PatternFill | None = None,
+    alignment: Alignment | None = None,
+) -> list[WriteOnlyCell]:
+    row: list[WriteOnlyCell] = []
+    for value in values:
+        cell = WriteOnlyCell(sheet, value=value)
+        if font is not None:
+            cell.font = font
+        if fill is not None:
+            cell.fill = fill
+        if alignment is not None:
+            cell.alignment = alignment
+        row.append(cell)
+    return row
+
+
 def build_testcase_documents_workbook(
     *,
     project_id: str,
     documents: list[dict[str, Any]],
     filters: Mapping[str, Any],
 ) -> tuple[str, bytes]:
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "PDF解析记录"
-
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet("PDF解析记录")
     headers = [
         "Document ID",
         "文件名",
@@ -88,7 +108,40 @@ def build_testcase_documents_workbook(
         "related_cases_count",
         "created_at",
     ]
-    sheet.append(headers)
+    header_fill = PatternFill("solid", fgColor="D9EAF7")
+    header_font = Font(bold=True)
+    wrap_alignment = Alignment(vertical="top", wrap_text=True)
+    widths = {
+        1: 38,
+        2: 28,
+        3: 22,
+        4: 16,
+        5: 14,
+        6: 36,
+        7: 42,
+        8: 60,
+        9: 16,
+        10: 42,
+        11: 28,
+        12: 28,
+        13: 18,
+        14: 44,
+        15: 16,
+        16: 24,
+    }
+    for index, width in widths.items():
+        sheet.column_dimensions[get_column_letter(index)].width = width
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{max(len(documents) + 1, 1)}"
+    sheet.append(
+        _styled_row(
+            sheet,
+            headers,
+            font=header_font,
+            fill=header_fill,
+            alignment=wrap_alignment,
+        )
+    )
 
     for document in documents:
         runtime_meta = _runtime_meta(document)
@@ -111,59 +164,52 @@ def build_testcase_documents_workbook(
             _coerce_text(document.get("related_cases_count")),
             _coerce_text(document.get("created_at")),
         ]
-        sheet.append(row)
-
-    header_fill = PatternFill("solid", fgColor="D9EAF7")
-    header_font = Font(bold=True)
-    wrap_alignment = Alignment(vertical="top", wrap_text=True)
-    for cell in sheet[1]:
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = wrap_alignment
-
-    for row in sheet.iter_rows(min_row=2):
-        for cell in row:
-            cell.alignment = wrap_alignment
-
-    widths = {
-        1: 38,
-        2: 28,
-        3: 22,
-        4: 16,
-        5: 14,
-        6: 36,
-        7: 42,
-        8: 60,
-        9: 16,
-        10: 42,
-        11: 28,
-        12: 28,
-        13: 18,
-        14: 44,
-        15: 16,
-        16: 24,
-    }
-    for index, width in widths.items():
-        sheet.column_dimensions[get_column_letter(index)].width = width
-    sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = sheet.dimensions
+        sheet.append(_styled_row(sheet, row, alignment=wrap_alignment))
 
     meta_sheet = workbook.create_sheet("导出信息")
-    meta_sheet.append(["字段", "值"])
-    meta_sheet.append(["project_id", project_id])
-    meta_sheet.append(["导出时间", datetime.now().isoformat(timespec="seconds")])
-    meta_sheet.append(["导出总条数", len(documents)])
-    meta_sheet.append(["batch_id", _coerce_text(filters.get("batch_id"))])
-    meta_sheet.append(["parse_status", _coerce_text(filters.get("parse_status"))])
-    meta_sheet.append(["query", _coerce_text(filters.get("query"))])
-    for cell in meta_sheet[1]:
-        cell.font = header_font
-        cell.fill = header_fill
+    meta_sheet.append(
+        _styled_row(
+            meta_sheet,
+            ["字段", "值"],
+            font=header_font,
+            fill=header_fill,
+            alignment=wrap_alignment,
+        )
+    )
+    meta_sheet.append(_styled_row(meta_sheet, ["project_id", project_id], alignment=wrap_alignment))
+    meta_sheet.append(
+        _styled_row(
+            meta_sheet,
+            ["导出时间", datetime.now().isoformat(timespec="seconds")],
+            alignment=wrap_alignment,
+        )
+    )
+    meta_sheet.append(
+        _styled_row(meta_sheet, ["导出总条数", str(len(documents))], alignment=wrap_alignment)
+    )
+    meta_sheet.append(
+        _styled_row(
+            meta_sheet,
+            ["batch_id", _coerce_text(filters.get("batch_id"))],
+            alignment=wrap_alignment,
+        )
+    )
+    meta_sheet.append(
+        _styled_row(
+            meta_sheet,
+            ["parse_status", _coerce_text(filters.get("parse_status"))],
+            alignment=wrap_alignment,
+        )
+    )
+    meta_sheet.append(
+        _styled_row(
+            meta_sheet,
+            ["query", _coerce_text(filters.get("query"))],
+            alignment=wrap_alignment,
+        )
+    )
     meta_sheet.column_dimensions["A"].width = 18
     meta_sheet.column_dimensions["B"].width = 48
-    for row in meta_sheet.iter_rows(min_row=2):
-        for cell in row:
-            cell.alignment = wrap_alignment
 
     output = BytesIO()
     workbook.save(output)
