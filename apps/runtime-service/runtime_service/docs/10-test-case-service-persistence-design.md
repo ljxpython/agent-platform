@@ -88,6 +88,7 @@
 1. 原始文件资产持久化只出现在 `test_case_service` 私有层
 2. 通用多模态中间件仍不承载任何 testcase 专属落库逻辑
 3. 不把 PDF 二进制塞进 graph state 或 document JSON
+4. 上传原始 PDF 时，必须优先读取当前请求 `messages` 中的原始 `file` block，而不是依赖 `state["messages"]`
 
 ### 2. 共享 HTTP client
 
@@ -320,6 +321,11 @@ frontend upload
 ```
 
 否则页面只能看到解析结果，无法回看原始文件。
+
+补充约束：
+
+- `TestCaseDocumentPersistenceMiddleware` 必须使用当前 `ModelRequest.messages` 回溯原始附件 payload
+- 不能假设 `request.state` 内一定保留了原始 `messages`
 
 ### 4. 运行时追踪字段必须写入 provenance.runtime
 

@@ -68,6 +68,16 @@ def _verify_remote_documents(
         ],
         "parse_statuses": [item.get("parse_status") for item in items if isinstance(item, dict)],
         "filenames": [item.get("filename") for item in items if isinstance(item, dict)],
+        "storage_paths": [item.get("storage_path") for item in items if isinstance(item, dict)],
+        "asset_errors": [
+            (
+                ((item.get("provenance") or {}).get("asset") or {}).get("error")
+                if isinstance(item.get("provenance"), dict)
+                else None
+            )
+            for item in items
+            if isinstance(item, dict)
+        ],
         "raw_documents": documents,
     }
 
@@ -228,6 +238,12 @@ async def _main_async(args: argparse.Namespace) -> int:
         return 1
     if first_total <= 0:
         print("首轮运行后未查询到即时落库的 document。", file=sys.stderr)
+        return 1
+    if any(not path for path in (first_remote.get("storage_paths") or [])):
+        print("存在 document 未写入 storage_path，原始 PDF 资产链路不完整。", file=sys.stderr)
+        return 1
+    if any(error for error in (first_remote.get("asset_errors") or [])):
+        print("存在 document asset 错误，原始 PDF 资产链路未闭环。", file=sys.stderr)
         return 1
     if final_total != first_total:
         print(

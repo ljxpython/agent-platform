@@ -163,6 +163,7 @@ def build_test_case_service_tools(service_config: TestCaseServiceConfig) -> list
             state=state,
             service_config=service_config,
             client=client,
+            messages=state.get("messages") if isinstance(state.get("messages"), list) else None,
         )
         if isinstance(state, dict):
             state["multimodal_attachments"] = document_outcome.attachments

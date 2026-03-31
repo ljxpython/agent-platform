@@ -240,12 +240,12 @@ def _build_document_payload(
 
 
 def _collect_attachment_blocks_by_fingerprint(
-    state: Mapping[str, Any] | None,
+    messages: list[Any] | None,
 ) -> dict[str, Mapping[str, Any]]:
-    messages = _multimodal_protocol.normalize_messages(_get_state_messages(state))
+    normalized_messages = _multimodal_protocol.normalize_messages(messages or [])
     blocks_by_fingerprint: dict[str, Mapping[str, Any]] = {}
     next_index = 1
-    for message in messages:
+    for message in normalized_messages:
         content = getattr(message, "content", None)
         if content is None and isinstance(message, Mapping):
             content = message.get("content")
@@ -277,6 +277,16 @@ def _decode_block_payload(block: Mapping[str, Any] | None) -> bytes | None:
         return None
 
 
+def _decode_attachment_payload(attachment: Mapping[str, Any]) -> bytes | None:
+    payload = attachment.get("source_payload_base64")
+    if not isinstance(payload, str) or not payload.strip():
+        return None
+    try:
+        return base64.b64decode(payload)
+    except Exception:
+        return None
+
+
 def _upload_document_asset(
     *,
     client: InteractionDataServiceClient,
@@ -291,7 +301,7 @@ def _upload_document_asset(
     kind = _coerce_optional_text(attachment.get("kind"))
     if kind != "pdf":
         return None, None
-    file_bytes = _decode_block_payload(source_block)
+    file_bytes = _decode_attachment_payload(attachment) or _decode_block_payload(source_block)
     if file_bytes is None:
         return None, "raw_attachment_payload_missing"
     filename = (
@@ -348,6 +358,7 @@ def _mark_attachment_status(
     persisted_at: str | None = None,
     storage_path: str | None = None,
 ) -> dict[str, Any]:
+    attachment.pop("source_payload_base64", None)
     attachment["persist_status"] = status
     if persisted_document_id is not None:
         attachment["persisted_document_id"] = persisted_document_id
@@ -368,6 +379,7 @@ def persist_runtime_documents(
     state: Mapping[str, Any] | None,
     service_config: TestCaseServiceConfig,
     client: InteractionDataServiceClient | None = None,
+    messages: list[Any] | None = None,
 ) -> DocumentPersistenceOutcome:
     current_state = dict(state or {})
     attachments_raw = current_state.get(MULTIMODAL_ATTACHMENTS_KEY)
@@ -395,7 +407,8 @@ def persist_runtime_documents(
         build_interaction_data_service_config(runtime_like.config)
     )
     runtime_meta = _resolve_runtime_meta(runtime_like)
-    source_blocks_by_fingerprint = _collect_attachment_blocks_by_fingerprint(current_state)
+    source_messages = list(messages) if isinstance(messages, list) else _get_state_messages(current_state)
+    source_blocks_by_fingerprint = _collect_attachment_blocks_by_fingerprint(source_messages)
     updated_attachments: list[dict[str, Any]] = []
     persisted_documents: list[dict[str, Any]] = []
     failed_attachment_ids: list[str] = []
@@ -519,6 +532,7 @@ async def apersist_runtime_documents(
     state: Mapping[str, Any] | None,
     service_config: TestCaseServiceConfig,
     client: InteractionDataServiceClient | None = None,
+    messages: list[Any] | None = None,
 ) -> DocumentPersistenceOutcome:
     return await asyncio.to_thread(
         persist_runtime_documents,
@@ -526,6 +540,7 @@ async def apersist_runtime_documents(
         state=state,
         service_config=service_config,
         client=client,
+        messages=messages,
     )
 
 

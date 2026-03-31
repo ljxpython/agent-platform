@@ -165,7 +165,7 @@ def build_attachment_artifact(
     provenance: dict[str, Any] = {"phase": "phase1", "source": "message_block"}
     if fingerprint is not None:
         provenance["fingerprint"] = fingerprint
-    return {
+    artifact: AttachmentArtifact = {
         "attachment_id": f"att_{index}",
         "kind": kind,
         "mime_type": mime_type,
@@ -179,6 +179,11 @@ def build_attachment_artifact(
         "confidence": None,
         "error": None,
     }
+    if kind == "pdf":
+        payload = block.get("base64") or block.get("data")
+        if isinstance(payload, str) and payload.strip():
+            artifact["source_payload_base64"] = payload
+    return artifact
 
 
 def _find_latest_human_message_attachment_context(

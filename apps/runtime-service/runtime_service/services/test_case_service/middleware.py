@@ -54,6 +54,7 @@ class TestCaseDocumentPersistenceMiddleware(AgentMiddleware[MultimodalAgentState
             runtime=request.runtime,
             state=request.state if isinstance(request.state, Mapping) else {},
             service_config=self._service_config,
+            messages=list(request.messages),
         )
         updated_request = self._with_updated_state(request, outcome.attachments)
         response = handler(updated_request)
@@ -73,6 +74,7 @@ class TestCaseDocumentPersistenceMiddleware(AgentMiddleware[MultimodalAgentState
             runtime=request.runtime,
             state=request.state if isinstance(request.state, Mapping) else {},
             service_config=self._service_config,
+            messages=list(request.messages),
         )
         updated_request = self._with_updated_state(request, outcome.attachments)
         response = await handler(updated_request)

@@ -36,6 +36,7 @@ class AttachmentArtifact(TypedDict):
     provenance: dict[str, Any]
     confidence: float | None
     error: dict[str, Any] | None
+    source_payload_base64: NotRequired[str | None]
     persisted_document_id: NotRequired[str | None]
     persist_status: NotRequired[str | None]
     persisted_at: NotRequired[str | None]
