@@ -13,6 +13,7 @@ type WorkspaceContextValue = {
   assistantId: string;
   setAssistantId: (value: string) => void;
   projects: ManagementProject[];
+  currentProject: ManagementProject | null;
   loading: boolean;
 };
 
@@ -81,6 +82,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       assistantId: assistantId ?? "",
       setAssistantId,
       projects,
+      currentProject: projects.find((item) => item.id === (projectId ?? "")) ?? null,
       loading,
     }),
     [assistantId, loading, projectId, projects, setAssistantId, setProjectId, setThreadId],
@@ -90,6 +92,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 }
 
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkspaceContext() {
   const context = useContext(WorkspaceContext);
   if (!context) {

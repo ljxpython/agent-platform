@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ColumnResizeHandle, useResizableColumns } from "@/components/platform/column-resize";
 import { ConfirmDialog } from "@/components/platform/confirm-dialog";
@@ -19,7 +19,7 @@ import { useWorkspaceContext } from "@/providers/WorkspaceContext";
 
 export default function ProjectsPage() {
   const projectColumnKeys = ["index", "name", "description", "status", "actions"] as const;
-  const { projectId, setProjectId } = useWorkspaceContext();
+  const { projectId, setProjectId, projects, currentProject, loading: projectsLoading } = useWorkspaceContext();
   const [items, setItems] = useState<ManagementProject[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -27,6 +27,8 @@ export default function ProjectsPage() {
   const [customPage, setCustomPage] = useState("1");
   const [query, setQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [projectPickerQuery, setProjectPickerQuery] = useState("");
+  const [pendingProjectId, setPendingProjectId] = useState("");
   const [loading, setLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<ManagementProject | null>(null);
@@ -52,22 +54,47 @@ export default function ProjectsPage() {
           return;
         }
       }
-      if (rows.length > 0 && !rows.some((item) => item.id === projectId)) {
-        setProjectId(rows[0].id);
-      }
-      if (rows.length === 0) {
-        setProjectId("");
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects");
     } finally {
       setLoading(false);
     }
-  }, [offset, pageSize, projectId, query, setProjectId]);
+  }, [offset, pageSize, query]);
 
   useEffect(() => {
     void refreshList();
   }, [refreshList]);
+
+  useEffect(() => {
+    setPendingProjectId(projectId);
+  }, [projectId]);
+
+  const filteredProjects = useMemo(() => {
+    const normalized = projectPickerQuery.trim().toLowerCase();
+    if (!normalized) {
+      return projects;
+    }
+    return projects.filter((item) =>
+      [item.name, item.description, item.id]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalized)),
+    );
+  }, [projectPickerQuery, projects]);
+
+  const pendingProject = useMemo(
+    () => projects.find((item) => item.id === pendingProjectId) ?? null,
+    [pendingProjectId, projects],
+  );
+
+  const projectPickerOptions = useMemo(() => {
+    if (!pendingProject) {
+      return filteredProjects;
+    }
+    if (filteredProjects.some((item) => item.id === pendingProject.id)) {
+      return filteredProjects;
+    }
+    return [pendingProject, ...filteredProjects];
+  }, [filteredProjects, pendingProject]);
 
   async function onDeleteProject(project: ManagementProject) {
     setRemovingId(project.id);
@@ -103,11 +130,92 @@ export default function ProjectsPage() {
 
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(maxPage, Math.floor(offset / pageSize) + 1);
+  const switchDisabled = projectsLoading || !pendingProjectId || pendingProjectId === projectId;
 
   return (
     <section className="p-4 sm:p-6">
       <h2 className="text-xl font-semibold tracking-tight">Projects</h2>
       <p className="text-muted-foreground mt-2 text-sm">Project list view. Create operations are on a dedicated page.</p>
+
+      <div className="mt-4 rounded-lg border border-border/80 bg-card/70 p-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold tracking-tight">Global Project Context</h3>
+          <p className="text-muted-foreground text-sm">
+            All workspace pages read the global `projectId` from here. Switch it once, then Testcase, Chat, SQL Agent and other pages follow the same context.
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto]">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Search project</span>
+            <input
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              placeholder="Search by name, description or ID"
+              value={projectPickerQuery}
+              onChange={(event) => setProjectPickerQuery(event.target.value)}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Project selector</span>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={pendingProjectId}
+              onChange={(event) => setPendingProjectId(event.target.value)}
+              disabled={projectsLoading || projectPickerOptions.length === 0}
+            >
+              {projectPickerOptions.length === 0 ? (
+                <option value="">No matching projects</option>
+              ) : null}
+              {projectPickerOptions.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name} ({project.status})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-end gap-2">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-foreground px-3 text-sm font-medium text-background disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => {
+                if (!pendingProjectId || pendingProjectId === projectId) {
+                  return;
+                }
+                setProjectId(pendingProjectId);
+                setNotice(`Switched current project to ${pendingProject?.name || pendingProjectId}`);
+              }}
+              disabled={switchDisabled}
+            >
+              Switch Project
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-background px-3 text-sm"
+              onClick={() => setProjectPickerQuery("")}
+              disabled={projectsLoading || projectPickerQuery.length === 0}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full border border-border/80 px-2 py-1">
+            Current: {currentProject?.name || "No project selected"}
+          </span>
+          <span className="rounded-full border border-border/80 px-2 py-1" title={projectId || undefined}>
+            ID: {projectId || "-"}
+          </span>
+          <span className="rounded-full border border-border/80 px-2 py-1">
+            Status: {currentProject?.status || "-"}
+          </span>
+          <span className="rounded-full border border-border/80 px-2 py-1">
+            Matches: {filteredProjects.length}
+          </span>
+        </div>
+      </div>
 
       <div className="mt-4">
         <Link

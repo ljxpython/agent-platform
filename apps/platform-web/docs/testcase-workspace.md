@@ -96,6 +96,34 @@ platform-web testcase pages
 - 管理页不直连 `interaction-data-service`
 - 页面登录态依赖本地浏览器 token
 
+## 3.1 当前项目上下文现状
+
+当前 `projectId` 不是 testcase 工作区自己维护的，它来自全局 `WorkspaceContext`：
+
+- `src/providers/WorkspaceContext.tsx`
+
+真实来源顺序：
+
+1. 当前 URL query 中的 `projectId`
+2. 如果 URL 中没有，则在加载项目列表后自动回退到第一条项目
+
+当前实现约束：
+
+- testcase 页面虽然依赖 `projectId`，但不自己维护项目状态
+- 全局项目切换入口集中放在 `Projects` 页面
+- 工作区头部只负责展示当前项目，不承担切换操作
+- 因此 testcase 用户需要在 `Projects` 页面切换项目，再回到 testcase 工作区继续操作
+
+当前已知实例：
+
+- 本轮联调使用的项目为：`5f419550-a3c7-49c6-9450-09154fd1bf7d`
+
+后续约束：
+
+- testcase 工作区开发不能继续假设“用户天然知道当前项目”
+- testcase 页面内部只消费 `WorkspaceContext.projectId`，不自行发明新的项目状态
+- 如果需要切换项目，统一回到 `Projects` 页面操作
+
 ## 4. 当前已知事实
 
 - `PDF 解析` 页面展示的是已经持久化的文档记录，不是上传后即时预览库
@@ -189,12 +217,46 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 
 ## 6. 二期实施方案
 
+### 6.0 工作区项目选择补齐
+
+这是 testcase 工作区继续增强前的前置体验改造。
+
+目标：
+
+- 让用户在任何工作区页面都能明确看到“当前项目”
+- 让用户有一个稳定、唯一的项目切换入口，而不是继续依赖 URL query
+
+设计方案：
+
+1. 在 `Projects` 页面顶部增加一个 `全局项目上下文` 卡片
+2. 卡片内部提供：
+   - 当前项目信息展示
+   - 项目模糊搜索输入框
+   - 项目下拉选择框
+   - `切换项目` 按钮
+3. 切换行为：
+   - 调用 `WorkspaceContext.setProjectId(...)`
+   - 自动清理 `threadId / assistantId`
+   - 保持当前页面路由不变，只更新 query 中的 `projectId`
+4. 在 `WorkspaceShell` 头部增加只读项目摘要：
+   - 放在 `Workspace scope: project` 下方
+   - 只展示当前项目名称
+5. testcase 工作区页面继续只消费 `WorkspaceContext.projectId`，不新增局部项目状态
+
+约束：
+
+- 不新建第二套项目状态
+- 不在 testcase 页面重复做项目下拉
+- 不在 `WorkspaceShell` 头部放可编辑下拉
+- 项目切换入口只保留在 `Projects` 页面
+
 ### 6.1 用例管理 CRUD
 
 目标：
 
 - 在不新增复杂页面层级的前提下，把 `用例管理` 补成可新增、可编辑、可删除的管理页
 - 保持当前“左侧列表 + 右侧详情”的交互结构
+- 在现有 CRUD 已可用的基础上，把表单交互压实到“可稳定录入和修订”
 
 页面形态：
 
@@ -207,6 +269,23 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 - 顶部增加 `新增用例`
 - 详情区增加 `编辑`
 - 详情区增加 `删除`
+
+本轮后续要继续细化的点：
+
+- 右侧表单拆成 4 个稳定区块：
+  - 基础信息
+  - 用例正文
+  - 扩展信息
+  - 来源文档
+- `steps / expected_results` 至少一条
+- `test_data` 做实时 JSON 校验，而不是只在保存时报错
+- 表单切换时增加未保存离开确认
+- 来源文档选择区支持按文件名搜索和已选数量提示
+- 来源文档展示不只给 UUID，要显示：
+  - `filename`
+  - `parse_status`
+  - `batch_id`
+  - `created_at`
 
 表单字段分组：
 
@@ -264,6 +343,13 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 - `404`：提示记录不存在，刷新列表
 - 删除必须二次确认，确认框展示 `title / case_id / batch_id`
 
+交互实现建议：
+
+1. 保持当前 `detail / create / edit` 三态，不再引入 drawer/modal 套层
+2. 表单内部用本地 `dirty state` 判断是否需要离开确认
+3. 校验失败优先就地提示，少用全局 toast 打断
+4. 保存成功后继续停留在当前记录，不打断筛选态
+
 ### 6.2 PDF 管理二期增强
 
 二期拆成两个阶段，避免把“解析记录增强”和“原始文件资产存储”混成一坨。
@@ -299,6 +385,11 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 - 增加 `复制文档 ID`
 - 若存在原始资产，再显示 `在线预览 PDF / 下载原始 PDF`
 
+当前下一步要补的增强点：
+
+- 从“单 document 详情”提升到“带批次上下文的 document 详情”
+- 让用户能从一份 PDF 快速回看整个 batch 的输入和产出
+
 #### 6.2.2 阶段 B：原始文件回看与下载
 
 目标：
@@ -320,6 +411,48 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 - 若 `storage_path` 为空：
   - 按钮置灰
   - 显示“该记录未保存原始文件，仅保留了解析结果”
+
+#### 6.2.3 阶段 C：批次关联展示增强
+
+目标：
+
+- 让 `PDF 解析` 页面具备“围绕 batch 排查”的能力，而不是只看单条 document
+
+页面结构建议：
+
+1. 详情区顶部增加 `Batch Context`
+2. 展示：
+   - `batch_id`
+   - 当前 batch 的 `documents_count`
+   - 当前 batch 的 `test_cases_count`
+   - 当前 batch 的 `latest_created_at`
+   - 当前 batch 的 `parse_status_summary`
+3. 详情区增加两个关联区域：
+   - `本文档关联用例`
+   - `同批次其他文档`
+
+交互规则：
+
+1. 点击“同批次其他文档”中的任一项，右侧直接切换详情
+2. 提供：
+   - `查看同批次全部用例`
+   - `查看同批次全部文档`
+   - `复制 batch_id`
+3. 如果当前 document 没有 `batch_id`，则退回单 document 详情模式
+
+数据来源：
+
+- `overview`
+- `batches`
+- 当前 `document.batch_id`
+- 当前 `relations`
+- 当前列表已加载的同批次 `documents`
+
+实现约束：
+
+- 先基于已有接口拼出批次上下文，不急着新增后端聚合接口
+- 如果后续发现页面侧拼装成本过高，再补 `batch detail` 专属接口
+- 当前不做复杂关系图和跨 batch 时间线
 
 ### 6.3 Excel 导出二期
 
@@ -393,3 +526,5 @@ pnpm exec eslint "src/components/platform/workspace-shell.tsx" \
 5. 导出 testcase Excel 能按当前列配置和筛选条件正确下载
 6. 导出 PDF 解析记录时条数、sheet、字段符合预期
 7. 若已保存原始 PDF，页面预览和下载可用
+8. 全局切换 `projectId` 后，testcase 三个二级页面都能跟随刷新且无脏状态残留
+9. PDF 页面可从当前 document 跳转查看同批次其他 document 和同批次用例

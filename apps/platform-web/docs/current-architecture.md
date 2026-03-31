@@ -71,6 +71,22 @@
 
 切换项目时会清理 thread / assistant 相关状态。
 
+当前真实行为补充：
+
+- `projectId` 优先来自当前 URL query，例如 `?projectId=<uuid>`
+- 如果 URL 中没有 `projectId`，`WorkspaceProvider` 会在加载项目列表后自动回退到第一条项目
+- 因此“当前工作区项目”虽然一直存在，但主要依赖：
+  - URL query 延续
+  - `Projects` 页面内的全局项目上下文卡片、`Manage` 按钮、项目链接点击时调用 `setProjectId(...)`
+  - 各页面自身仅消费 `WorkspaceContext.projectId`，不负责选择项目
+
+当前实现约束：
+
+- 全局项目切换入口集中在 `Projects` 页面
+- `WorkspaceShell` 头部只展示当前项目摘要，不承载切换动作
+- 其他工作区页面只消费项目上下文，不额外维护第二套项目状态
+- 因此用户在任意页面都能看到当前项目，但只有在 `Projects` 页面可以执行切换
+
 ### 4.2 Chat / thread 状态
 
 - `src/providers/Thread.tsx`：thread 查询与列表

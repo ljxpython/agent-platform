@@ -6,6 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useWorkspaceContext } from "@/providers/WorkspaceContext";
+
 import { AuthControls } from "./auth-controls";
 
 
@@ -66,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function WorkspaceShell({ children }: { children: ReactNode }) {
+  const { currentProject, loading: projectLoading } = useWorkspaceContext();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const query = searchParams.toString();
@@ -232,6 +235,12 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     [pathname],
   );
 
+  const projectSummary = projectLoading
+    ? "Loading project..."
+    : currentProject
+      ? currentProject.name
+      : "No project selected";
+
   return (
     <div className="bg-background text-foreground flex min-h-dvh flex-col">
       {!collapsed ? (
@@ -241,6 +250,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
               <div className="min-w-0">
                 <h1 className="text-base font-semibold tracking-tight sm:text-lg">Agent Platform</h1>
                 <p className="text-muted-foreground text-xs sm:text-sm">Workspace scope: project</p>
+                <p className="mt-1 truncate text-sm font-medium text-foreground" title={currentProject?.name || "No project selected"}>
+                  {projectSummary}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <AuthControls />
