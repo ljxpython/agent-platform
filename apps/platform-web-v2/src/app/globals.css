@@ -282,6 +282,33 @@ select {
   align-items: center;
 }
 
+.workspace-shell__select-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-shell__select-label {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.workspace-shell__topbar-select {
+  min-width: 180px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 0 12px;
+  outline: none;
+}
+
+.workspace-shell__topbar-select:disabled {
+  opacity: 0.65;
+}
+
 .workspace-shell__chip {
   border-radius: 999px;
   padding: 7px 12px;

@@ -39,7 +39,7 @@
 - [x] 确定 `Refine HR 系` 作为默认主题
 - [x] 完成样板中的一键切换主题能力
 - [x] 完成样板中的主题持久化
-- [ ] 将样板风格 token 正式迁入 `platform-web-v2`
+- [x] 将样板风格 token 正式迁入 `platform-web-v2`
 
 ## 4. 目录骨架
 
@@ -83,14 +83,14 @@
 
 ## 7. 基础 UI 组件层
 
-- [ ] 建立 `button`
-- [ ] 建立 `input`
+- [x] 建立 `button`
+- [x] 建立 `input`
 - [ ] 建立 `textarea`
 - [ ] 建立 `dialog`
 - [ ] 建立 `sheet`
 - [ ] 建立 `tooltip`
 - [ ] 建立 `avatar`
-- [ ] 建立 `card`
+- [x] 建立 `card`
 - [ ] 建立 `separator`
 - [ ] 建立 `skeleton`
 - [ ] 建立基础表格容器能力
@@ -98,40 +98,40 @@
 ## 8. 平台组件库
 
 - [x] 实现 `WorkspaceShellV2`
-- [ ] 实现 `SidebarNav`
+- [x] 实现 `SidebarNav`
 - [ ] 实现 `SidebarSection`
-- [ ] 实现 `TopContextBar`
-- [ ] 实现 `TopContextProject`
+- [x] 实现 `TopContextBar`
+- [x] 实现 `TopContextProject`
 - [x] 实现 `TopContextActions`
-- [ ] 实现 `PlatformPage`
-- [ ] 实现 `PageHeader`
+- [x] 实现 `PlatformPage`
+- [x] 实现 `PageHeader`
 - [ ] 实现 `PageActions`
 - [ ] 实现 `FilterToolbar`
-- [ ] 实现 `DataPanel`
+- [x] 实现 `DataPanel`
 - [ ] 实现 `FormSection`
 - [ ] 实现 `DetailPanel`
-- [ ] 实现 `StateBanner`
-- [ ] 实现 `EmptyState`
+- [x] 实现 `StateBanner`
+- [x] 实现 `EmptyState`
 - [ ] 实现 `ErrorState`
 - [ ] 实现 `SuccessBanner`
 
 ## 9. Provider 与底层能力承接
 
-- [ ] 承接 auth guard 方案
-- [ ] 承接 token 存储逻辑
-- [ ] 承接 platform api base url 解析
-- [ ] 承接 `WorkspaceContext`
+- [x] 承接 auth guard 方案
+- [x] 承接 token 存储逻辑
+- [x] 承接 platform api base url 解析
+- [x] 承接 `WorkspaceContext`
 - [ ] 承接 `ThreadProvider`
 - [ ] 承接 `StreamProvider`
 - [ ] 承接日志 bootstrap 能力
 
 ## 10. P0 首批样板页迁移
 
-- [ ] 迁移 `/auth/login`
-- [ ] 迁移 `/workspace/projects`
-- [ ] 迁移 `/workspace/users`
-- [ ] 迁移 `/workspace/assistants`
-- [ ] 完成 P0 页面构建验证
+- [x] 迁移 `/auth/login`
+- [x] 迁移 `/workspace/projects`
+- [x] 迁移 `/workspace/users`
+- [x] 迁移 `/workspace/assistants`
+- [x] 完成 P0 页面构建验证
 - [ ] 完成 P0 页面基础联调验证
 
 ## 11. P1 标准管理页迁移
@@ -172,7 +172,7 @@
 ## 14. 视觉与工程化验收
 
 - [ ] 默认主题整体效果通过评审
-- [ ] 可切换主题工作正常
+- [x] 可切换主题工作正常
 - [ ] 页面壳子统一，不再各写各的布局
 - [ ] 基础组件与平台组件边界清晰
 - [ ] 不存在第二套重型 UI 体系混入
@@ -180,7 +180,7 @@
 
 ## 15. 最终替换准备
 
-- [ ] 完成构建验证
+- [x] 完成构建验证
 - [ ] 完成 lint 验证
 - [ ] 完成关键路径手工联调
 - [ ] 完成替换前最终核对

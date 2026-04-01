@@ -102,3 +102,9 @@ pnpm dev
 5. `docs/feature-migration-inventory.md`
 6. `docs/migration-roadmap.md`
 7. `docs/master-checklist.md`
+
+## 样板参考
+
+- UI 风格样板已放入 `apps/platform-web-v2/examples/style-lab`
+- 这个目录用于保存 `platform-web-v2` 的静态视觉样板，不参与正式构建
+- 后续页面迁移、布局调整和主题校准，优先参考这里
