@@ -16,6 +16,7 @@ const NAV_GROUPS = [
   {
     label: "Advanced",
     items: [
+      { href: "/workspace/graphs", label: "Graphs" },
       { href: "/workspace/runtime", label: "Runtime" },
       { href: "/workspace/threads", label: "Threads" },
       { href: "/workspace/chat", label: "Chat" },
@@ -36,7 +37,8 @@ export function SidebarNav() {
             {group.items.map((item) => {
               const active =
                 pathname === item.href ||
-                (item.href !== "/workspace/overview" && pathname?.startsWith(`${item.href}/`));
+                (item.href !== "/workspace/overview" &&
+                  pathname?.startsWith(`${item.href}/`));
               return (
                 <Link
                   key={item.href}

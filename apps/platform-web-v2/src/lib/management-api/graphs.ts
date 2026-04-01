@@ -17,6 +17,12 @@ type GraphListResponse = {
   last_synced_at?: string | null;
 };
 
+export type GraphRefreshResponse = {
+  ok: boolean;
+  count: number;
+  last_synced_at: string | null;
+};
+
 export async function listGraphsPage(
   projectId: string,
   options?: { limit?: number; offset?: number; query?: string },
@@ -48,4 +54,20 @@ export async function listGraphsPage(
     total: filtered.length,
     last_synced_at: payload.last_synced_at ?? null,
   };
+}
+
+export async function refreshGraphsCatalog(
+  projectId?: string,
+): Promise<GraphRefreshResponse> {
+  const client = createManagementApiClient({
+    headers: projectId ? { "x-project-id": projectId } : {},
+  });
+  if (!client) {
+    throw new Error("management_api_unavailable");
+  }
+
+  return client.post<GraphRefreshResponse>(
+    "/_management/catalog/graphs/refresh",
+    {},
+  );
 }

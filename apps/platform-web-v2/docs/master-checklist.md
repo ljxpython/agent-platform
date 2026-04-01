@@ -143,9 +143,9 @@
 - [x] 迁移 `/workspace/users/[userId]`
 - [x] 迁移 `/workspace/assistants/new`
 - [x] 迁移 `/workspace/assistants/[assistantId]`
-- [ ] 迁移 `/workspace/graphs`
-- [ ] 迁移 `/workspace/runtime/models`
-- [ ] 迁移 `/workspace/runtime/tools`
+- [x] 迁移 `/workspace/graphs`
+- [x] 迁移 `/workspace/runtime/models`
+- [x] 迁移 `/workspace/runtime/tools`
 - [ ] 迁移 `/workspace/audit`
 - [ ] 迁移 `/workspace/me`
 - [ ] 迁移 `/workspace/security`

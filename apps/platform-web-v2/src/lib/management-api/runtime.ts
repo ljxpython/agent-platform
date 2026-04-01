@@ -35,6 +35,12 @@ export type RuntimeToolsResponse = {
   last_synced_at: string | null;
 };
 
+export type RuntimeRefreshResponse = {
+  ok: boolean;
+  count: number;
+  last_synced_at: string | null;
+};
+
 export async function listRuntimeModels(): Promise<RuntimeModelsResponse> {
   const client = createManagementApiClient();
   if (!client) {
@@ -43,10 +49,32 @@ export async function listRuntimeModels(): Promise<RuntimeModelsResponse> {
   return client.get<RuntimeModelsResponse>("/_management/runtime/models");
 }
 
+export async function refreshRuntimeModels(): Promise<RuntimeRefreshResponse> {
+  const client = createManagementApiClient();
+  if (!client) {
+    throw new Error("management_api_unavailable");
+  }
+  return client.post<RuntimeRefreshResponse>(
+    "/_management/catalog/models/refresh",
+    {},
+  );
+}
+
 export async function listRuntimeTools(): Promise<RuntimeToolsResponse> {
   const client = createManagementApiClient();
   if (!client) {
     throw new Error("management_api_unavailable");
   }
   return client.get<RuntimeToolsResponse>("/_management/runtime/tools");
+}
+
+export async function refreshRuntimeTools(): Promise<RuntimeRefreshResponse> {
+  const client = createManagementApiClient();
+  if (!client) {
+    throw new Error("management_api_unavailable");
+  }
+  return client.post<RuntimeRefreshResponse>(
+    "/_management/catalog/tools/refresh",
+    {},
+  );
 }
