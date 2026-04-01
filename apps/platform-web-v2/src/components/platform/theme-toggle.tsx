@@ -2,7 +2,7 @@
 
 import { Palette } from "lucide-react";
 
-import { useThemeContext } from "@/providers/ThemeProvider";
+import { useThemeContext } from "@/providers/useThemeContext";
 
 export function ThemeToggle() {
   const { theme, setTheme, options } = useThemeContext();

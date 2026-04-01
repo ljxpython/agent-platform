@@ -14,10 +14,18 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: "Account",
+    items: [
+      { href: "/workspace/me", label: "My Profile" },
+      { href: "/workspace/security", label: "Security" },
+    ],
+  },
+  {
     label: "Advanced",
     items: [
       { href: "/workspace/graphs", label: "Graphs" },
       { href: "/workspace/runtime", label: "Runtime" },
+      { href: "/workspace/audit", label: "Audit" },
       { href: "/workspace/threads", label: "Threads" },
       { href: "/workspace/chat", label: "Chat" },
       { href: "/workspace/testcase", label: "Testcase" },

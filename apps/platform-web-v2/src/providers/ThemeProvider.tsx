@@ -1,21 +1,17 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import {
+  ThemeContext,
+  type ThemeContextValue,
+} from "@/providers/theme-context";
 import {
   DEFAULT_THEME,
   THEME_OPTIONS,
   THEME_STORAGE_KEY,
   type PlatformThemeId,
 } from "@/theme/theme-config";
-
-type ThemeContextValue = {
-  theme: PlatformThemeId;
-  setTheme: (theme: PlatformThemeId) => void;
-  options: typeof THEME_OPTIONS;
-};
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function applyTheme(theme: PlatformThemeId) {
   if (typeof document === "undefined") {
@@ -37,7 +33,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") {
       return;
     }
-    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) as PlatformThemeId | null;
+    const savedTheme = window.localStorage.getItem(
+      THEME_STORAGE_KEY,
+    ) as PlatformThemeId | null;
     const nextTheme =
       savedTheme && THEME_OPTIONS.some((option) => option.id === savedTheme)
         ? savedTheme
@@ -61,13 +59,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [theme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-export function useThemeContext(): ThemeContextValue {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useThemeContext must be used within ThemeProvider");
-  }
-  return context;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }

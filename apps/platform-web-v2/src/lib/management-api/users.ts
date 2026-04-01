@@ -89,6 +89,27 @@ export async function getUser(userId: string): Promise<ManagementUser> {
   return client.get<ManagementUser>(`/_management/users/${userId}`);
 }
 
+export async function getMe(): Promise<ManagementUser> {
+  const client = createManagementApiClient();
+  if (!client) {
+    throw new Error("management_api_unavailable");
+  }
+
+  return client.get<ManagementUser>("/_management/users/me");
+}
+
+export async function updateMe(payload: {
+  username?: string;
+  email?: string;
+}): Promise<ManagementUser> {
+  const client = createManagementApiClient();
+  if (!client) {
+    throw new Error("management_api_unavailable");
+  }
+
+  return client.patch<ManagementUser>("/_management/users/me", payload);
+}
+
 export async function listUserProjects(
   userId: string,
 ): Promise<UserProjectListResponse> {

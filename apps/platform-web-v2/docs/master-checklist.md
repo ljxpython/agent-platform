@@ -89,7 +89,7 @@
 - [x] 建立 `dialog`
 - [ ] 建立 `sheet`
 - [ ] 建立 `tooltip`
-- [ ] 建立 `avatar`
+- [x] 建立 `avatar`
 - [x] 建立 `card`
 - [ ] 建立 `separator`
 - [ ] 建立 `skeleton`
@@ -146,9 +146,9 @@
 - [x] 迁移 `/workspace/graphs`
 - [x] 迁移 `/workspace/runtime/models`
 - [x] 迁移 `/workspace/runtime/tools`
-- [ ] 迁移 `/workspace/audit`
-- [ ] 迁移 `/workspace/me`
-- [ ] 迁移 `/workspace/security`
+- [x] 迁移 `/workspace/audit`
+- [x] 迁移 `/workspace/me`
+- [x] 迁移 `/workspace/security`
 
 ## 12. P2 复杂工作区迁移
 
@@ -181,7 +181,7 @@
 ## 15. 最终替换准备
 
 - [x] 完成构建验证
-- [ ] 完成 lint 验证
+- [x] 完成 lint 验证
 - [ ] 完成关键路径手工联调
 - [ ] 完成替换前最终核对
 - [ ] 确认 `platform-web-v2` 达到替代旧前端条件
