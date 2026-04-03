@@ -2,27 +2,79 @@
 import { computed, ref, watch } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
-import BaseInput from '@/components/base/BaseInput.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
+import { usePagination } from '@/composables/usePagination'
+import ActionMenu from '@/components/platform/ActionMenu.vue'
+import DataTable from '@/components/platform/DataTable.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import FilterToolbar from '@/components/platform/FilterToolbar.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
+import PaginationBar from '@/components/platform/PaginationBar.vue'
+import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
+import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
 import { listAssistantsPage } from '@/services/assistants/assistants.service'
+import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant } from '@/types/management'
+import { copyText } from '@/utils/clipboard'
 import { formatDateTime, shortId } from '@/utils/format'
 
 const workspaceStore = useWorkspaceStore()
+const uiStore = useUiStore()
 
 const queryInput = ref('')
 const query = ref('')
 const loading = ref(false)
 const error = ref('')
-const total = ref(0)
 const items = ref<ManagementAssistant[]>([])
+const assistantRows = computed(() => items.value as unknown as Record<string, unknown>[])
+const pagination = usePagination({
+  initialPageSize: 20,
+  storageKey: 'pw:assistants:page-size'
+})
+const columns = computed<DataTableColumn[]>(() => [
+  {
+    key: 'name',
+    label: '助手',
+    sortable: true,
+    alwaysVisible: true,
+    sortValue: (row) => row.name
+  },
+  {
+    key: 'graph_id',
+    label: 'Graph',
+    sortable: true,
+    sortValue: (row) => row.graph_id || ''
+  },
+  {
+    key: 'sync_status',
+    label: '同步状态',
+    sortable: true,
+    sortValue: (row) => row.sync_status || ''
+  },
+  {
+    key: 'status',
+    label: '运行状态',
+    sortable: true,
+    sortValue: (row) => row.status || ''
+  },
+  {
+    key: 'last_synced_at',
+    label: '最近同步',
+    sortable: true,
+    sortValue: (row) => row.last_synced_at || row.updated_at || ''
+  },
+  {
+    key: 'id',
+    label: 'ID',
+    sortable: true,
+    defaultHidden: true,
+    sortValue: (row) => row.id
+  }
+])
 
 const currentProject = computed(() => workspaceStore.currentProject)
 const activeCount = computed(() => items.value.filter((item) => item.status === 'active').length)
@@ -37,7 +89,7 @@ const stats = computed(() => [
   },
   {
     label: '助手数量',
-    value: total.value,
+    value: pagination.total.value,
     hint: '当前项目下返回的助手总量',
     icon: 'assistant',
     tone: 'success'
@@ -58,11 +110,15 @@ const stats = computed(() => [
   }
 ])
 
+function assistantFromRow(row: Record<string, unknown>) {
+  return row as ManagementAssistant
+}
+
 async function loadAssistants() {
   const projectId = workspaceStore.currentProjectId
   if (!projectId) {
     items.value = []
-    total.value = 0
+    pagination.setTotal(0)
     error.value = ''
     loading.value = false
     return
@@ -73,16 +129,16 @@ async function loadAssistants() {
 
   try {
     const payload = await listAssistantsPage(projectId, {
-      limit: 50,
-      offset: 0,
+      limit: pagination.pageSize.value,
+      offset: pagination.offset.value,
       query: query.value
     })
 
     items.value = payload.items
-    total.value = payload.total
+    pagination.setTotal(payload.total)
   } catch (loadError) {
     items.value = []
-    total.value = 0
+    pagination.setTotal(0)
     error.value = loadError instanceof Error ? loadError.message : '助手列表加载失败'
   } finally {
     loading.value = false
@@ -91,16 +147,82 @@ async function loadAssistants() {
 
 function applyFilters() {
   query.value = queryInput.value.trim()
-  void loadAssistants()
+  if (pagination.page.value === 1) {
+    void loadAssistants()
+    return
+  }
+
+  pagination.resetPage()
+}
+
+function resetFilters() {
+  queryInput.value = ''
+  query.value = ''
+  if (pagination.page.value === 1) {
+    void loadAssistants()
+    return
+  }
+
+  pagination.resetPage()
+}
+
+async function handleCopyValue(label: string, value: string) {
+  const copied = await copyText(value)
+  uiStore.pushToast({
+    type: copied ? 'success' : 'warning',
+    title: copied ? `已复制${label}` : '复制失败',
+    message: copied ? value : '当前环境不支持自动复制，请手动复制。'
+  })
+}
+
+function handlePendingAction(message: string) {
+  uiStore.pushToast({
+    type: 'info',
+    title: '能力待迁移',
+    message
+  })
+}
+
+function assistantActions(assistant: ManagementAssistant): ActionMenuItem[] {
+  return [
+    {
+      key: 'copy-id',
+      label: '复制助手 ID',
+      icon: 'copy',
+      onSelect: () => handleCopyValue('助手 ID', assistant.id)
+    },
+    {
+      key: 'copy-graph-id',
+      label: assistant.graph_id ? '复制 Graph ID' : '未绑定 Graph',
+      icon: 'copy',
+      disabled: !assistant.graph_id,
+      onSelect: () => handleCopyValue('Graph ID', assistant.graph_id || '')
+    },
+    {
+      key: 'detail',
+      label: '助手详情待迁移',
+      icon: 'eye',
+      onSelect: () => handlePendingAction(`助手 ${assistant.name} 的详情页仍在迁移队列中。`)
+    }
+  ]
 }
 
 watch(
   () => workspaceStore.currentProjectId,
   () => {
+    if (pagination.page.value !== 1) {
+      pagination.resetPage()
+      return
+    }
+
     void loadAssistants()
   },
   { immediate: true }
 )
+
+watch([() => pagination.page.value, () => pagination.pageSize.value], () => {
+  void loadAssistants()
+})
 </script>
 
 <template>
@@ -154,20 +276,17 @@ watch(
     <TablePageLayout v-else>
       <template #filters>
         <FilterToolbar>
-          <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
-            <div class="relative">
-              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-dark-400">
-                <BaseIcon
-                  name="search"
-                  size="sm"
-                />
-              </div>
-              <BaseInput
-                v-model="queryInput"
-                class="pl-10"
-                :placeholder="`在 ${currentProject.name} 下搜索助手`"
-              />
-            </div>
+          <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <SearchInput
+              v-model="queryInput"
+              :placeholder="`在 ${currentProject.name} 下搜索助手`"
+            />
+            <BaseButton
+              variant="secondary"
+              @click="resetFilters"
+            >
+              重置
+            </BaseButton>
             <BaseButton @click="applyFilters">
               应用筛选
             </BaseButton>
@@ -176,80 +295,83 @@ watch(
       </template>
 
       <template #table>
-        <div
-          v-if="loading"
-          class="p-6 text-sm text-slate-500 dark:text-dark-300"
+        <DataTable
+          :columns="columns"
+          :rows="assistantRows"
+          :loading="loading"
+          row-key="id"
+          sort-storage-key="pw:assistants:sort"
+          column-storage-key="pw:assistants:columns"
+          empty-title="当前项目还没有助手"
+          empty-description="接口已经接通了，只是这个项目下暂时没有可展示的数据。后续新建助手和详情页可以直接挂在这张列表母版上继续做。"
+          empty-icon="assistant"
         >
-          正在加载助手列表...
-        </div>
+          <template #cell-name="{ row }">
+            <div class="flex items-start gap-3">
+              <div class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300">
+                <BaseIcon
+                  name="assistant"
+                  size="sm"
+                />
+              </div>
+              <div>
+                <div class="font-semibold text-gray-900 dark:text-white">
+                  {{ assistantFromRow(row).name }}
+                </div>
+                <div class="mt-1 text-sm leading-6 text-gray-500 dark:text-dark-300">
+                  {{ assistantFromRow(row).description || '暂无描述' }}
+                </div>
+              </div>
+            </div>
+          </template>
 
-        <div
-          v-else-if="items.length"
-          class="pw-table-wrapper"
-        >
-          <table class="pw-table">
-            <thead>
-              <tr>
-                <th>助手</th>
-                <th>Graph</th>
-                <th>同步状态</th>
-                <th>运行状态</th>
-                <th>最近同步</th>
-                <th>ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="assistant in items"
-                :key="assistant.id"
-              >
-                <td>
-                  <div class="flex items-start gap-3">
-                    <div class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300">
-                      <BaseIcon
-                        name="assistant"
-                        size="sm"
-                      />
-                    </div>
-                    <div>
-                      <div class="font-semibold text-slate-900 dark:text-white">
-                        {{ assistant.name }}
-                      </div>
-                      <div class="mt-1 text-sm leading-6 text-slate-500 dark:text-dark-300">
-                        {{ assistant.description || '暂无描述' }}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td class="text-slate-500 dark:text-dark-300">
-                  {{ assistant.graph_id || '未绑定' }}
-                </td>
-                <td>
-                  <StatusPill :tone="assistant.sync_status === 'synced' ? 'success' : 'warning'">
-                    {{ assistant.sync_status }}
-                  </StatusPill>
-                </td>
-                <td>
-                  <StatusPill :tone="assistant.status === 'active' ? 'success' : 'warning'">
-                    {{ assistant.status }}
-                  </StatusPill>
-                </td>
-                <td class="text-slate-500 dark:text-dark-300">
-                  {{ formatDateTime(assistant.last_synced_at || assistant.updated_at) }}
-                </td>
-                <td class="text-slate-400 dark:text-dark-400">
-                  {{ shortId(assistant.id) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+          <template #cell-graph_id="{ row }">
+            <span class="text-gray-500 dark:text-dark-300">
+              {{ assistantFromRow(row).graph_id || '未绑定' }}
+            </span>
+          </template>
 
-        <EmptyState
-          v-else
-          icon="assistant"
-          title="当前项目还没有助手"
-          description="接口已经接通了，只是这个项目下暂时没有可展示的数据。后续新建助手和详情页可以直接挂在这里继续做。"
+          <template #cell-sync_status="{ row }">
+            <StatusPill :tone="assistantFromRow(row).sync_status === 'synced' ? 'success' : 'warning'">
+              {{ assistantFromRow(row).sync_status }}
+            </StatusPill>
+          </template>
+
+          <template #cell-status="{ row }">
+            <StatusPill :tone="assistantFromRow(row).status === 'active' ? 'success' : 'warning'">
+              {{ assistantFromRow(row).status }}
+            </StatusPill>
+          </template>
+
+          <template #cell-last_synced_at="{ row }">
+            <span class="text-gray-500 dark:text-dark-300">
+              {{ formatDateTime(assistantFromRow(row).last_synced_at || assistantFromRow(row).updated_at) }}
+            </span>
+          </template>
+
+          <template #cell-id="{ row }">
+            <span class="text-gray-400 dark:text-dark-400">
+              {{ shortId(assistantFromRow(row).id) }}
+            </span>
+          </template>
+
+          <template #cell-actions="{ row }">
+            <ActionMenu :items="assistantActions(assistantFromRow(row))" />
+          </template>
+        </DataTable>
+      </template>
+
+      <template
+        v-if="pagination.total.value > 0"
+        #footer
+      >
+        <PaginationBar
+          :total="pagination.total.value"
+          :page="pagination.page.value"
+          :page-size="pagination.pageSize.value"
+          :disabled="loading"
+          @update:page="pagination.setPage"
+          @update:page-size="pagination.setPageSize"
         />
       </template>
     </TablePageLayout>

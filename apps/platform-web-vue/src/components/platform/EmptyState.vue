@@ -30,10 +30,10 @@ defineEmits<{
           size="lg"
         />
       </div>
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
         {{ title }}
       </h2>
-      <p class="mt-3 max-w-md text-sm leading-7 text-slate-500 dark:text-dark-300">
+      <p class="mt-3 max-w-md text-sm leading-7 text-gray-500 dark:text-dark-300">
         {{ description }}
       </p>
       <BaseButton

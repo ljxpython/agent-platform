@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const devPort = Number(env.VITE_DEV_PORT || 3000)
   const proxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://localhost:2024'
+  const workspaceRoot = resolve(__dirname, '../..')
 
   return {
     plugins: [
@@ -29,6 +30,9 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: devPort,
       strictPort: true,
+      fs: {
+        allow: [workspaceRoot]
+      },
       proxy: {
         '/_management': {
           target: proxyTarget,

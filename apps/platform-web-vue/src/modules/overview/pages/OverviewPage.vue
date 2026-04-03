@@ -186,7 +186,7 @@ watch(
             <div class="pw-page-eyebrow">
               Current Project
             </div>
-            <h2 class="mt-2 text-xl font-semibold text-slate-900 dark:text-white">
+            <h2 class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">
               {{ currentProject?.name ?? '未选择项目' }}
             </h2>
           </div>
@@ -195,7 +195,7 @@ watch(
           </StatusPill>
         </div>
 
-        <p class="text-sm leading-7 text-slate-500 dark:text-dark-300">
+        <p class="text-sm leading-7 text-gray-500 dark:text-dark-300">
           {{
             currentProject?.description ||
               '项目上下文会驱动 assistants、runtime、graphs、sql-agent 等后续页面，所以这里先把项目切换打透。'
@@ -203,8 +203,8 @@ watch(
         </p>
 
         <div class="grid gap-4 xl:grid-cols-2">
-          <div class="pw-card bg-slate-50/90 p-4 dark:bg-dark-900">
-            <div class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+          <div class="pw-card-glass p-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
               <BaseIcon
                 name="folder"
                 size="sm"
@@ -219,17 +219,17 @@ watch(
               <div
                 v-for="project in recentProjects.slice(0, 3)"
                 :key="project.id"
-                class="pw-card bg-white/80 p-3 dark:bg-dark-950/70"
+                class="pw-card p-3"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <div class="text-sm font-semibold text-slate-900 dark:text-white">
+                  <div class="text-sm font-semibold text-gray-900 dark:text-white">
                     {{ project.name }}
                   </div>
                   <StatusPill :tone="project.status === 'active' ? 'success' : 'neutral'">
                     {{ project.status }}
                   </StatusPill>
                 </div>
-                <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-dark-300">
+                <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-dark-300">
                   {{ project.description || '暂无描述' }}
                 </p>
               </div>
@@ -242,8 +242,8 @@ watch(
             />
           </div>
 
-          <div class="pw-card bg-slate-50/90 p-4 dark:bg-dark-900">
-            <div class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+          <div class="pw-card-glass p-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
               <BaseIcon
                 name="assistant"
                 size="sm"
@@ -258,17 +258,17 @@ watch(
               <div
                 v-for="assistant in currentProjectAssistants.slice(0, 3)"
                 :key="assistant.id"
-                class="pw-card bg-white/80 p-3 dark:bg-dark-950/70"
+                class="pw-card p-3"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <div class="text-sm font-semibold text-slate-900 dark:text-white">
+                  <div class="text-sm font-semibold text-gray-900 dark:text-white">
                     {{ assistant.name }}
                   </div>
                   <StatusPill :tone="assistant.status === 'active' ? 'success' : 'warning'">
                     {{ assistant.status }}
                   </StatusPill>
                 </div>
-                <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-dark-300">
+                <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-dark-300">
                   {{ assistant.description || '暂无描述' }}
                 </p>
               </div>
@@ -288,7 +288,7 @@ watch(
       </SurfaceCard>
 
       <SurfaceCard class="space-y-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+        <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
           <BaseIcon
             name="activity"
             size="sm"
@@ -299,7 +299,7 @@ watch(
 
         <div
           v-if="loading"
-          class="text-sm text-slate-500 dark:text-dark-300"
+          class="text-sm text-gray-500 dark:text-dark-300"
         >
           正在加载总览数据...
         </div>
@@ -311,20 +311,20 @@ watch(
           <div
             v-for="row in recentAuditRows"
             :key="row.id"
-            class="pw-card bg-slate-50/90 p-4 dark:bg-dark-900"
+            class="pw-card-glass p-4"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="text-sm font-semibold text-slate-900 dark:text-white">
+              <div class="text-sm font-semibold text-gray-900 dark:text-white">
                 {{ row.action || row.path }}
               </div>
               <StatusPill :tone="getAuditTone(row.status_code)">
                 {{ row.status_code }}
               </StatusPill>
             </div>
-            <div class="mt-2 text-sm text-slate-500 dark:text-dark-300">
+            <div class="mt-2 text-sm text-gray-500 dark:text-dark-300">
               {{ row.method }} · {{ row.path }}
             </div>
-            <div class="mt-2 text-xs uppercase tracking-[0.14em] text-slate-400 dark:text-dark-400">
+            <div class="mt-2 text-xs uppercase tracking-[0.14em] text-gray-400 dark:text-dark-400">
               {{ formatDateTime(row.created_at) }}
             </div>
           </div>

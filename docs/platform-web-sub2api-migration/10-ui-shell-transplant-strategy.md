@@ -7,15 +7,38 @@
 - `apps/platform-web-sub2api-base` 继续保留为只读参考仓
 - `apps/platform-web-vue` 继续作为正式迁移目标 app
 - 不直接在 `sub2api-base/frontend` 上长期开发
-- 采用“借壳不借魂”的方式，把 `sub2api-base` 的 UI 壳层迁入 `platform-web-vue`
+- 采用“借壳不借魂”的方式，把 `sub2api-base` 的成熟 UI 资产分层迁入 `platform-web-vue`
 
-这里的“壳层”指的是：
+这里要先纠偏一件事。
+
+这次迁移一开始确实是按“UI 壳层迁移”启动的，但随着 `platform-web-vue` 已经进入第二轮精修并完成多批真实业务页接入，这个表述已经不够准确。
+
+现在的正确说法应该是：
+
+- 不是只迁壳层
+- 而是分三层迁移
+  - 视觉母版
+  - 系统交互母版
+  - 业务页面
+
+这里的“视觉母版”指的是：
 
 - 设计 token
 - 全局样式基座
 - 布局骨架
 - 基础视觉组件
 - 图标与交互表达方式
+
+这里的“系统交互母版”指的是：
+
+- 分页
+- 列表页搜索输入
+- 多语言切换器
+- 公告体系
+- 顶栏个人下拉菜单
+- toast / dialog / confirm
+- navigation progress
+- table page 的固定插槽与滚动方案
 
 这里的“魂”指的是：
 
@@ -80,6 +103,7 @@
 - `src/style.css` 的全局样式基座
 - `components/layout` 下的 Auth / Sidebar / Header / 容器骨架
 - `components/common` / `components/icons` 中可抽象的基础 UI 表达
+- `components/common` 中的系统级交互件与页面母版件
 - 主题初始化与首屏无闪烁处理方式
 
 ### 3. 不迁什么
@@ -118,11 +142,23 @@
 - `frontend/src/components/layout/AuthLayout.vue`
 - `frontend/src/components/layout/AppSidebar.vue`
 - `frontend/src/components/layout/AppHeader.vue`
+- `frontend/src/components/layout/TablePageLayout.vue`
+- `frontend/src/components/common/Pagination.vue`
+- `frontend/src/components/common/LocaleSwitcher.vue`
+- `frontend/src/components/common/AnnouncementBell.vue`
+- `frontend/src/components/common/Toast.vue`
+- `frontend/src/components/common/BaseDialog.vue`
+- `frontend/src/components/common/ConfirmDialog.vue`
+- `frontend/src/components/common/SearchInput.vue`
+- `frontend/src/components/common/DataTable.vue`
+- `frontend/src/components/common/NavigationProgress.vue`
 
 处理方式：
 
 - 保留视觉结构、布局关系和信息层级
+- 保留组件职责与交互边界
 - 替换为我们自己的路由、store、品牌文案和 workspace 上下文
+- 不把上游业务 API、上游业务 store、上游 admin/user 语义直接带进来
 
 ### C. 只借思想，不借代码
 
@@ -137,6 +173,56 @@
 
 - 只参考组织方式和交互节奏
 - 正式代码继续使用 `platform-web-vue` 自己的模块边界
+
+## 正确的分层迁移法
+
+这轮实际落地后的经验已经比较清楚，后面不能再按“先调一波样式，再看情况补组件”这么松散的方式做。
+
+正式方法应该固定为下面三步。
+
+### Step 1：先迁视觉母版
+
+这一层解决的是“第一眼是否进入成熟后台审美区间”。
+
+范围包括：
+
+- token
+- 全局样式
+- auth / sidebar / topbar / workspace layout
+- button / input / select / card / badge / empty state / banner
+
+如果这层没完成，后面所有业务页都会显得散。
+
+### Step 2：再迁系统交互母版
+
+这一层解决的是“是不是只有样子像，还是连后台产品感都像”。
+
+范围包括：
+
+- 分页
+- 搜索输入
+- 顶栏语言切换
+- 公告 bell 与公告弹层
+- 顶栏个人菜单
+- toast
+- dialog / confirm
+- 导航进度条
+- 更成熟的表格容器与桌面/移动适配
+
+这一步不补，页面会出现一种很典型的问题：
+
+- 视觉已经像了
+- 但一交互就露馅
+
+### Step 3：最后迁业务页
+
+业务页接入必须站在前两层之上。
+
+否则会出现：
+
+- 页面先落一版
+- 后面为了补交互母版反复返工
+- 每个模块写出自己的一套列表页和弹层逻辑
 
 ## 第一批要落的壳层改造
 
@@ -162,7 +248,7 @@
 
 ## 实施顺序
 
-### Phase A：壳层重置
+### Phase A：视觉母版重置
 
 目标：
 
@@ -173,7 +259,20 @@
 - 登录页、侧栏、顶栏、表格页母版明显切到新风格
 - 现有首批页面无需重写业务即可同步变好看
 
-### Phase B：首批页面回刷
+### Phase B：系统交互母版补齐
+
+目标：
+
+- 让 `platform-web-vue` 不只是静态观感接近 `sub2api-base`
+- 而是把成熟后台常见的系统交互也迁完整
+
+完成标准：
+
+- 顶栏具备语言切换、公告、个人菜单等成熟上下文操作
+- 列表页具备统一分页、搜索输入和弹层策略
+- toast / dialog / confirm / navigation progress 成为真正的系统级公共件
+
+### Phase C：首批页面回刷
 
 目标：
 
@@ -183,7 +282,7 @@
 
 - 首批页面在视觉上不再像“同项目里混了两套设计”
 
-### Phase C：复杂模块迁移
+### Phase D：复杂模块迁移
 
 目标：
 
@@ -193,11 +292,41 @@
 
 - 复杂模块从第一天开始就长在正式视觉系统里，不需要后补大换皮
 
+## 当前落地复盘
+
+当前这轮已经完成的，其实不只是“换壳”：
+
+- `tailwind.config.js` 的 teal/cyan token、阴影、渐变、背景光晕迁入
+- `src/styles/index.css` 的 card / glass / sidebar / topbar / table / empty state / banner 基座重写
+- `AuthLayout / AppSidebar / TopContextBar / WorkspaceLayout` 第二轮壳层精修
+- `overview / projects / users / assistants / me / security / audit` 首批页面回刷到统一视觉语法
+- `runtime / runtime models / runtime tools / graphs` 已迁成真实数据页
+- `threads` 已迁成“先列表，后详情”的按需加载结构
+- `chat` 已落首次引导与最近目标复用逻辑
+- `testcase / cases / documents` 已具备正式工作区层级与文档预览下载前端链路
+
+但同时也必须承认，当前还缺的正是系统交互母版这一层：
+
+- `Pagination`
+- `LocaleSwitcher`
+- `AnnouncementBell`
+- 顶栏个人下拉菜单
+- `Toast / BaseDialog / ConfirmDialog`
+- `SearchInput`
+- 更完整的 `DataTable`
+- `NavigationProgress`
+
+所以这次迁移的下一步重点，不该再笼统表述成“继续做壳层”，而应该明确成：
+
+- 补齐系统交互母版
+- 再继续推进剩余业务页和复杂工作区
+
 ## 验收标准
 
-这次壳层迁移是否成功，按下面标准判断：
+这次分层迁移是否成功，按下面标准判断：
 
 - 用户一眼能看出它更接近 `sub2api-base` 的成熟度，而不是当前 `platform-web-vue` 的简化版
+- 不是只做到“样子像”，而是系统交互也进入成熟后台范式
 - 现有业务接口、路由和 workspace 语义不被上游业务模型污染
 - 页面改造以壳层替换为主，不出现大面积业务回归
 - 后续复杂模块可以继续沿同一视觉范式开发
@@ -211,3 +340,13 @@
 1. 把 `sub2api` 里最有价值的 UI 壳层资产抽出来
 2. 把它们迁入 `apps/platform-web-vue`
 3. 让 `apps/platform-web-vue` 成为既符合当前平台业务、又真正好看的正式新前端
+
+## 当前未完成重点
+
+当前还未完成：
+
+- `sql-agent` 真实聊天画布接入
+- `chat` 真实对话画布接入
+- `testcase/generate` 真实 `test_case_agent` 对话模板接入
+- 更完整的主题 preset 能力
+- 更深层的系统交互组件体系沉淀

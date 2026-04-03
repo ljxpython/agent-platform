@@ -119,15 +119,15 @@ function handleSubmit(event: Event) {
           class="space-y-5"
           @submit="handleSubmit"
         >
-          <div class="flex items-center gap-4 rounded-2xl bg-slate-50 p-4 dark:bg-dark-900">
+          <div class="pw-card-glass flex items-center gap-4 p-4">
             <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-lg font-semibold text-white shadow-glow">
               {{ (authStore.user?.username || 'U').slice(0, 1).toUpperCase() }}
             </div>
             <div>
-              <div class="text-base font-semibold text-slate-900 dark:text-white">
+              <div class="text-base font-semibold text-gray-900 dark:text-white">
                 {{ authStore.user?.username || '未加载' }}
               </div>
-              <div class="mt-1 text-sm text-slate-500 dark:text-dark-300">
+              <div class="mt-1 text-sm text-gray-500 dark:text-dark-300">
                 {{ authStore.roleLabel }}
               </div>
             </div>
@@ -176,10 +176,10 @@ function handleSubmit(event: Event) {
         <div class="pw-page-eyebrow">
           Session
         </div>
-        <div class="text-sm leading-7 text-slate-500 dark:text-dark-300">
+        <div class="text-sm leading-7 text-gray-500 dark:text-dark-300">
           当前登录账号：{{ authStore.user?.username || '未加载' }}
         </div>
-        <div class="text-sm leading-7 text-slate-500 dark:text-dark-300">
+        <div class="text-sm leading-7 text-gray-500 dark:text-dark-300">
           角色：{{ authStore.roleLabel }}
         </div>
         <BaseButton

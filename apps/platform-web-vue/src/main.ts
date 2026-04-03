@@ -13,7 +13,7 @@ async function bootstrap() {
   app.use(pinia)
 
   const themeStore = useThemeStore(pinia)
-  themeStore.applyTheme()
+  themeStore.init()
 
   app.use(router)
   app.use(i18n)

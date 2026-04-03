@@ -29,7 +29,7 @@ const iconClass = computed(() => {
 </script>
 
 <template>
-  <article class="pw-stat-card">
+  <article class="pw-stat-card pw-card-hover">
     <div
       class="pw-stat-icon"
       :class="iconClass"
@@ -40,13 +40,13 @@ const iconClass = computed(() => {
       />
     </div>
     <div class="min-w-0 flex-1">
-      <div class="text-sm text-slate-500 dark:text-dark-300">
+      <div class="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400 dark:text-dark-400">
         {{ label }}
       </div>
-      <div class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+      <div class="mt-2 text-[28px] font-semibold tracking-tight text-gray-950 dark:text-white">
         {{ value }}
       </div>
-      <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-dark-300">
+      <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-dark-300">
         {{ hint }}
       </p>
     </div>

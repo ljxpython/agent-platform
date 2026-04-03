@@ -9,19 +9,21 @@ const { sidebarCollapsed } = storeToRefs(uiStore)
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 text-surface-900 dark:bg-dark-950 dark:text-white">
-    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient dark:opacity-30" />
+  <div class="min-h-screen bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white">
+    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient opacity-80 dark:opacity-40" />
     <div class="pointer-events-none fixed inset-0 bg-workspace-glow" />
 
     <AppSidebar />
 
     <div
-      class="relative min-h-screen transition-all duration-300"
-      :class="sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'"
+      class="relative flex min-h-screen min-w-0 flex-col transition-all duration-300"
+      :class="sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64'"
     >
       <TopContextBar />
-      <main class="w-full px-4 py-6 md:px-6 lg:px-8">
-        <router-view />
+      <main class="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
+        <div class="min-w-0 w-full">
+          <router-view />
+        </div>
       </main>
     </div>
   </div>

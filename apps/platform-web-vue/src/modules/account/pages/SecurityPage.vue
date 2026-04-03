@@ -158,7 +158,7 @@ function handleSubmit(event: Event) {
         <div class="pw-page-eyebrow">
           Notes
         </div>
-        <div class="space-y-3 text-sm leading-7 text-slate-500 dark:text-dark-300">
+        <div class="space-y-3 text-sm leading-7 text-gray-500 dark:text-dark-300">
           <p>新密码至少 8 位，且不能和当前密码一致。</p>
           <p>如果你在多个终端登录，改密后最好重新登录其他会话，别留一堆过期状态在那恶心人。</p>
         </div>
