@@ -1,5 +1,19 @@
 # 04. 路线图与总清单
 
+## 基线锁定
+
+这轮迁移从现在开始只认下面三条：
+
+- 功能、页面、交互链路的迁移真相源是 `apps/platform-web`
+- 视觉、交互、美化特效的演进基线是当前 `apps/platform-web-vue`
+- `apps/platform-web-sub2api-base` 只作为按需回看的视觉资产库，不再作为正式目标
+
+额外说明：
+
+- `apps/platform-web-v2` 不再作为本轮功能迁移目标
+- 后续不再重开大范围风格试错，默认沿当前 `platform-web-vue` 继续精修
+- `Resources` 是 dev 资源中心，不是正式业务页的替代品
+
 ## 迁移目标
 
 最终目标不是“换成 Vue”这么空的话，而是：
@@ -158,11 +172,72 @@
 - 演示可稳定复现
 - 老板展示路径清晰
 
+## 当前主线执行顺序
+
+下面这份清单是当前真正要按顺序推进的主线，不再和历史 Phase 混着理解：
+
+### 1. 基线冻结与盘点
+
+- [x] 明确功能迁移基线为 `apps/platform-web`
+- [x] 明确视觉与交互基线为当前 `apps/platform-web-vue`
+- [x] 输出 `apps/platform-web -> apps/platform-web-vue` 页面/功能/状态链路对照矩阵
+- [x] 为剩余页面补齐“来源页 / 目标页 / 依赖接口 / 风险点 / 验收口径”表
+
+### 2. 高价值主线功能补齐
+
+- [x] `sql-agent`
+- [x] `chat`
+- [x] `chat` 执行态工作台补齐
+  - [x] 运行中取消
+  - [x] Debug / Continue
+  - [x] `todos / files` 执行面板
+  - [x] interrupt / HITL 处理
+  - [x] tool call 详情 / sub-agent 卡片 / artifact 侧栏
+- [x] `chat` markdown 级 AI 输出渲染
+- [x] `chat` 消息级操作与 history 增强
+  - [x] 消息级复制 / 重试 / 编辑
+  - [x] retry / edit 后的 branch 切换与默认最新分支修正
+  - [x] thread history 搜索 / 状态筛选 / 时间分组 / 删除
+- [ ] `testcase/generate`
+- [ ] `assistants/detail`
+- [ ] `assistants/new`
+- [ ] `projects/detail`
+- [ ] `users/detail`
+
+### 3. 系统级一致性与体验补完
+
+- [x] `chat` 会话列表默认折叠，改为抽屉式进入
+- [x] `chat` 运行上下文与参数改为草稿态编辑，并补齐 `确定 / 还原`
+- [x] `chat` 最近历史保留为调试折叠区，不再常驻主画布
+- [x] `chat` 目标来源提示支持手动关闭
+- [ ] `chat` checkpoint history 可视化与“查看此分支”交互细节
+- [ ] 公告真实数据接入或演示替身方案
+- [ ] tooltip / 帮助提示体系
+- [ ] 首次引导与入口提示体系
+- [ ] dark mode 全链路一致性复查
+- [ ] 大屏与小屏下关键页面占满与溢出复查
+
+### 4. 汇报与验收硬化
+
+- [ ] 演示账号、演示数据、演示路径固化
+- [ ] 关键链路烟测清单固化
+- [ ] 最终汇报口径整理
+- [ ] 验收回归与遗留清单归档
+
+### 5. Chat 执行态补齐顺序
+
+- [x] 第一步：运行中取消
+- [x] 第二步：Debug / Continue
+- [x] 第三步：`todos / files` 执行面板
+- [x] 第四步：interrupt / HITL
+- [x] 第五步：tool call 详情、sub-agent 卡片、artifact 侧栏
+
 ## 总清单
 
 ### A. 当前评估阶段
 
-- [x] 保留 `apps/platform-web-v2` 作为当前基线
+- [x] 明确功能迁移基线为 `apps/platform-web`
+- [x] 明确视觉与交互基线为当前 `apps/platform-web-vue`
 - [x] 拉取 `sub2api` 到 `apps/platform-web-sub2api-base`
 - [x] 确认上游前端技术栈
 - [x] 完成本地 `install`
@@ -177,6 +252,7 @@
 - [x] 输出现有页面到新模块的迁移映射与交付顺序
 - [x] 输出 `platform-web-vue` 的 package / script / env 初始化规范
 - [x] 输出 Phase 1 前置决策收敛文档
+- [x] 输出以 `apps/platform-web` 为源头的页面/功能对照矩阵
 
 ### B. 正式迁移前准备
 
@@ -263,9 +339,9 @@
 - [x] me
 - [x] security
 - [x] audit
-- [ ] sql-agent
+- [x] sql-agent
 - [x] threads
-- [ ] chat
+- [x] chat
 - [ ] testcase generate
 - [x] testcase cases
 - [x] testcase documents
@@ -315,6 +391,6 @@
 
 下一步正确动作应该是：
 
-1. 先补系统交互母版
-2. 再继续完成剩余复杂业务模块迁移
-3. 用统一分页、顶栏交互、通知与弹层体系回刷已完成列表页
+1. 先产出 `apps/platform-web -> apps/platform-web-vue` 的页面/功能对照矩阵
+2. 按顺序补齐 `testcase/generate -> assistant detail/new -> project detail -> user detail`
+3. 再做系统级一致性补完和最终汇报链路加固

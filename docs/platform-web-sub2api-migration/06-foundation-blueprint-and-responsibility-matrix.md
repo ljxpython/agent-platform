@@ -5,7 +5,7 @@
 这份文档要把一件事讲透：
 
 - 新前端到底应该怎么搭
-- 哪些能力从 `platform-web-v2` 继承
+- 哪些能力从 `apps/platform-web` 继承
 - 哪些能力从 `sub2api` 借鉴
 - 哪些东西必须在新 app 里重建
 
@@ -20,13 +20,13 @@
 
 当前结论不变：
 
-- 保留 `apps/platform-web-v2` 作为现有可运行基线
+- 固定 `apps/platform-web` 作为功能迁移基线
 - 保留 `apps/platform-web-sub2api-base` 作为视觉与交互参考基座
 - 正式开发在一个新的 Vue app 中进行
 
 原因很直接：
 
-- `v2` 的业务行为和接口已经有价值
+- `platform-web` 的业务行为和接口已经有价值
 - `sub2api` 的视觉系统和页面母版已经有价值
 - 但它们的目录结构、路由结构、状态结构不是同一套东西
 
@@ -50,15 +50,15 @@
 
 它的目标只有三个：
 
-1. 把 `v2` 的平台功能完整迁入
+1. 把 `apps/platform-web` 的平台功能完整迁入
 2. 把 `sub2api` 的成熟视觉范式迁入
 3. 在新的 Vue 工程边界下形成长期可维护的前端基座
 
 ## 二、三路来源的职责边界
 
-### A. `platform-web-v2` 负责提供什么
+### A. `apps/platform-web` 负责提供什么
 
-`v2` 不再作为最终 UI 基座，但它仍然是最重要的业务真相来源。
+`apps/platform-web` 不是最终技术栈答案，但它是本轮迁移最重要的业务真相来源。
 
 它负责提供：
 
@@ -87,7 +87,7 @@
 
 当前明确值得保留的抽象方向包括：
 
-- `workspace-shell-v2`
+- `workspace-shell`
 - `top-context-bar`
 - `page-header`
 - `filter-toolbar`
@@ -97,11 +97,12 @@
 - `empty-state`
 - `confirm-dialog`
 - `chat-entry-guide`
+- `base-chat-template`
 - `testcase-overview-strip`
 
 结论：
 
-- `v2` 提供的是“平台语义和业务行为”
+- `apps/platform-web` 提供的是“平台语义和业务行为”
 - 不是“最终视觉实现”
 
 ### B. `sub2api` 负责提供什么
@@ -160,8 +161,8 @@
 
 - `sub2api` 的 admin/user 双体系页面划分
 - `sub2api` 的 API 组织方式
-- `v2` 的 Next App Router 目录结构
-- `v2` 的 React 组件实现
+- `platform-web` 的 Next App Router 目录结构
+- `platform-web` 的 React 组件实现
 
 ## 三、正式新 app 的目录职责矩阵
 
@@ -328,6 +329,7 @@ src/
 - `users/users.service.ts`
 - `assistants/assistants.service.ts`
 - `graphs/graphs.service.ts`
+- `langgraph/client.ts`
 - `runtime/runtime.service.ts`
 - `threads/threads.service.ts`
 - `testcase/testcase.service.ts`
@@ -408,9 +410,9 @@ src/
 
 应该带过去的不是旧代码本身，而是下面这些抽象：
 
-- `v2` 的 workspace 语义
-- `v2` 的项目上下文切换能力
-- `v2` 的业务域切分
+- `platform-web` 的 workspace 语义
+- `platform-web` 的项目上下文切换能力
+- `platform-web` 的业务域切分
 - `sub2api` 的 token 和 layout 范式
 - `sub2api` 的基础组件模型
 - `sub2api` 的页面母版模型
@@ -419,8 +421,8 @@ src/
 
 不应该带过去的包括：
 
-- `v2` 的 Next App Router 页面目录
-- `v2` 的 React 组件实现
+- `platform-web` 的 Next App Router 页面目录
+- `platform-web` 的 React 组件实现
 - `sub2api` 的上游业务页面和业务 API
 - 超大单文件页面
 - 页面内裸请求
@@ -447,7 +449,7 @@ src/
 
 新 app 的基座职责可以压缩成一句话：
 
-- `v2` 提供业务真相
+- `apps/platform-web` 提供业务真相
 - `sub2api` 提供视觉骨架
 - `apps/platform-web-vue` 负责把二者重组为长期可维护的正式前端
 

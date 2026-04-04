@@ -39,10 +39,10 @@
 
 ### 2. 现有稳定参考
 
-`platform-web-v2` 当前已经明确：
+当前 monorepo 里的稳定参考已经明确：
 
 - `packageManager` 为 `pnpm@10.5.1`
-- `engines.node` 为 `>=20.17.0 <23`
+- `apps/platform-web-vue` 的 `engines.node` 为 `>=20.17.0 <23`
 
 `sub2api` 当前虽然没有声明 `packageManager` 和 `engines`，但它的 Vue/Vite 组合已经验证可运行。
 
@@ -50,7 +50,7 @@
 
 当前情况不太整齐：
 
-- `platform-web-v2` 没有 `.env.example`
+- `platform-web` 没有 `.env.example`
 - `sub2api/frontend` 没有 `.env.example`
 - 只有 `runtime-web` 提供了 `.env.example`
 
@@ -73,7 +73,7 @@
 
 原因：
 
-- 已与 `platform-web-v2`、`runtime-web` 保持一致
+- 已与 `platform-web`、`runtime-web`、`platform-web-vue` 当前实践保持一致
 - 现有上下文里已经实际使用过
 - 没必要在迁移时再引入第二套包管理器
 
@@ -315,7 +315,7 @@
 原因：
 
 - 新 app 没必要再退回 `.eslintrc`
-- 现有 `platform-web-v2` 已经在用新配置方式
+- 现有 `platform-web` 已经在用新配置方式
 
 ### 3. Tailwind 版本
 

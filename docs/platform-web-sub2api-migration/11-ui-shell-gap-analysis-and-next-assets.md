@@ -514,6 +514,48 @@
   - 先公共 dialog/confirm/action menu
   - 再迁具体业务 modal 模式
 
+## 五点五、Chat 执行态工作台缺口
+
+这部分不是简单的“聊天页面样式没补完”，而是旧版 `apps/platform-web` 真正带业务含义的 agent 工作台能力还没迁完。
+
+当前 `platform-web-vue` 已有：
+
+- 首次引导
+- 最近目标恢复
+- 真实 thread / run / stream
+- 会话抽屉
+- 运行参数抽屉
+- 运行中取消
+- Debug / Continue
+- `todos / files` 执行面板
+- interrupt / HITL 处理视图
+- tool call 详情卡片
+- sub-agent 卡片
+- artifact 侧栏与生成式 UI 承载位
+- 图片 / PDF 附件发送
+- 消息级复制 / 重试 / 编辑
+- retry / edit 后的 branch 切换
+- thread history 搜索 / 状态筛选 / 时间分组 / 删除
+- retry branch 默认落点与共享消息挂载点修正
+
+当前缺失：
+
+- 更完整的 checkpoint history 可视化
+- “查看此分支”与 branch 对比的交互打磨
+- 移动端 sheet / 小屏抽屉体验
+
+结论：
+
+- `chat` 现在已经不是“只有基座”的状态
+- 主链路工作台已经成型
+- 但离旧版业务工作台完全收口还差 history 可视化和移动端细节
+- 后续必须按下面顺序推进
+
+执行顺序：
+
+1. checkpoint history 可视化与 branch 细节
+2. 小屏 / 抽屉 / sheet 体验补完
+
 ## 五、哪些不该迁
 
 这部分也要说清楚，不然又会有人想着整仓复制。

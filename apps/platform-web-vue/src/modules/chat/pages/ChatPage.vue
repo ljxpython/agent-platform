@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { computed, watchEffect } from 'vue'
-import { useRoute } from 'vue-router'
-import BaseIcon from '@/components/base/BaseIcon.vue'
-import SurfaceCard from '@/components/base/SurfaceCard.vue'
-import PageHeader from '@/components/layout/PageHeader.vue'
+import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/platform/EmptyState.vue'
-import MetricCard from '@/components/platform/MetricCard.vue'
-import StateBanner from '@/components/platform/StateBanner.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import {
   clearRecentChatTarget,
@@ -14,8 +9,12 @@ import {
   readRecentChatTarget,
   writeRecentChatTarget
 } from '@/utils/chatTarget'
+import BaseChatTemplate from '../components/BaseChatTemplate.vue'
+import ChatEntryGuide from '../components/ChatEntryGuide.vue'
+import { resolveChatTarget } from '../types'
 
 const route = useRoute()
+const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 
 const explicitTarget = computed(() =>
@@ -26,7 +25,7 @@ const explicitTarget = computed(() =>
   })
 )
 
-const savedTarget = computed(() => {
+const recentTarget = computed(() => {
   const projectId = workspaceStore.currentProjectId
   if (!projectId || explicitTarget.value) {
     return null
@@ -34,11 +33,22 @@ const savedTarget = computed(() => {
   return readRecentChatTarget(projectId)
 })
 
-const activeTarget = computed(() => explicitTarget.value || savedTarget.value)
-const targetSource = computed(() => (explicitTarget.value ? 'query' : savedTarget.value ? 'recent' : 'none'))
-const threadId = computed(() =>
+const activeTarget = computed(() => resolveChatTarget(explicitTarget.value || recentTarget.value))
+const initialThreadId = computed(() =>
   typeof route.query.threadId === 'string' && route.query.threadId.trim() ? route.query.threadId.trim() : ''
 )
+
+const sourceNote = computed(() => {
+  if (explicitTarget.value) {
+    return '当前目标来自页面显式参数。只要你从 Assistants、Graphs 或 Threads 带着目标进入，这里就会直接落到真正的对话工作台。'
+  }
+
+  if (recentTarget.value) {
+    return '当前目标来自当前项目最近一次使用的聊天偏好。第一次选过 assistant 或 graph 之后，再打开 Chat 就不再显示引导页。'
+  }
+
+  return ''
+})
 
 watchEffect(() => {
   if (explicitTarget.value && workspaceStore.currentProjectId) {
@@ -46,59 +56,20 @@ watchEffect(() => {
   }
 })
 
-const stats = computed(() => [
-  {
-    label: '当前项目',
-    value: workspaceStore.currentProject?.name || '未选择',
-    hint: '聊天目标总是绑定到当前工作区项目',
-    icon: 'project',
-    tone: 'primary'
-  },
-  {
-    label: '目标类型',
-    value: activeTarget.value?.targetType || '未设置',
-    hint: activeTarget.value ? `来源：${targetSource.value}` : '首次进入时需要先选 assistant 或 graph',
-    icon: 'chat',
-    tone: 'success'
-  },
-  {
-    label: '目标 ID',
-    value: activeTarget.value?.graphId || activeTarget.value?.assistantId || '--',
-    hint: threadId.value ? `附带 threadId：${threadId.value}` : '当前没有 thread 上下文',
-    icon: 'assistant',
-    tone: 'warning'
-  }
-])
-
 function clearTarget() {
-  if (!workspaceStore.currentProjectId) {
-    return
+  if (workspaceStore.currentProjectId) {
+    clearRecentChatTarget(workspaceStore.currentProjectId)
   }
-  clearRecentChatTarget(workspaceStore.currentProjectId)
-  window.location.href = '/workspace/chat'
+
+  void router.replace({
+    path: '/workspace/chat',
+    query: {}
+  })
 }
 </script>
 
 <template>
   <section class="pw-page-shell">
-    <PageHeader
-      eyebrow="Chat"
-      title="Agent Chat"
-      description="聊天工作区先把目标选择和最近目标复用这条链路稳定下来。首次进入时引导用户先去选目标，之后默认复用当前项目最近一次使用的 assistant 或 graph。"
-    />
-
-    <div class="grid gap-4 xl:grid-cols-3">
-      <MetricCard
-        v-for="item in stats"
-        :key="item.label"
-        :label="item.label"
-        :value="item.value"
-        :hint="item.hint"
-        :icon="item.icon"
-        :tone="item.tone"
-      />
-    </div>
-
     <EmptyState
       v-if="!workspaceStore.currentProject"
       icon="project"
@@ -106,130 +77,32 @@ function clearTarget() {
       description="Chat 是项目级工作区。没有项目上下文，assistant、graph、thread 这些目标都不成立。"
     />
 
-    <div
+    <ChatEntryGuide
       v-else-if="!activeTarget"
-      class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]"
-    >
-      <SurfaceCard class="space-y-5">
-        <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-          <BaseIcon
-            name="chat"
-            size="sm"
-            class="text-primary-500"
-          />
-          首次进入引导
-        </div>
-        <p class="text-sm leading-7 text-gray-500 dark:text-dark-300">
-          当前项目还没有保存最近聊天目标。先去 Assistants 或 Graphs 里选一个真正要对话的目标，再回到这里。后面再打开 Chat，就不会再看到这块引导页了。
-        </p>
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="pw-card-glass p-4">
-            <div class="text-sm font-semibold text-gray-900 dark:text-white">
-              从 Assistants 进入
-            </div>
-            <p class="mt-2 text-sm leading-7 text-gray-500 dark:text-dark-300">
-              当你已经确认具体 assistant，需要按 assistant_id 固定聊天目标时，优先从这里进入。
-            </p>
-            <div class="mt-4">
-              <router-link
-                class="pw-btn pw-btn-secondary"
-                to="/workspace/assistants"
-              >
-                去选 Assistant
-              </router-link>
-            </div>
-          </div>
-          <div class="pw-card-glass p-4">
-            <div class="text-sm font-semibold text-gray-900 dark:text-white">
-              从 Graphs 进入
-            </div>
-            <p class="mt-2 text-sm leading-7 text-gray-500 dark:text-dark-300">
-              当你要调固定 graph，例如 `sql_agent` 或业务图谱目录里的某个 graph，优先从这里进入。
-            </p>
-            <div class="mt-4">
-              <router-link
-                class="pw-btn pw-btn-secondary"
-                to="/workspace/graphs"
-              >
-                去选 Graph
-              </router-link>
-            </div>
-          </div>
-        </div>
-      </SurfaceCard>
+      :project-name="workspaceStore.currentProject.name"
+    />
 
-      <SurfaceCard class="space-y-4">
-        <div class="pw-page-eyebrow">
-          Shortcuts
-        </div>
-        <div class="space-y-3 text-sm leading-7 text-gray-500 dark:text-dark-300">
-          <p>如果你要走固定 SQL 问答流程，可以直接去 SQL Agent，它会把 `sql_agent` 预绑定为聊天目标。</p>
-          <p>如果你是做 testcase AI 对话生成，后面会在 Testcase 的 generate 子页里绑定 `test_case_agent`。</p>
-        </div>
-      </SurfaceCard>
-    </div>
-
-    <div
+    <BaseChatTemplate
       v-else
-      class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]"
-    >
-      <SurfaceCard class="space-y-5">
-        <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-          <BaseIcon
-            name="chat"
-            size="sm"
-            class="text-primary-500"
-          />
-          当前聊天目标
-        </div>
-        <div class="pw-card-glass p-4">
-          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-dark-400">
-            Target
-          </div>
-          <div class="mt-2 text-lg font-semibold text-gray-950 dark:text-white">
-            {{ activeTarget.targetType === 'graph' ? 'Graph' : 'Assistant' }}
-          </div>
-          <div class="mt-2 break-all text-sm text-gray-500 dark:text-dark-300">
-            {{ activeTarget.graphId || activeTarget.assistantId }}
-          </div>
-          <div class="mt-2 text-xs text-gray-400 dark:text-dark-400">
-            来源：{{ targetSource }}{{ threadId ? ` · threadId=${threadId}` : '' }}
-          </div>
-        </div>
-
-        <StateBanner
-          title="目标复用已生效"
-          description="这次打开 Chat 已经不再显示首次引导，而是直接复用当前项目最近一次使用的目标。后续真实对话画布迁入时，会直接消费这份目标配置。"
-          variant="success"
-        />
-
-        <div class="flex flex-wrap gap-3">
-          <router-link
-            class="pw-btn pw-btn-secondary"
-            :to="activeTarget.targetType === 'graph' ? '/workspace/graphs' : '/workspace/assistants'"
-          >
-            切换目标来源
-          </router-link>
-          <button
-            type="button"
-            class="pw-btn pw-btn-ghost"
-            @click="clearTarget"
-          >
-            清空最近目标
-          </button>
-        </div>
-      </SurfaceCard>
-
-      <SurfaceCard class="space-y-4">
-        <div class="pw-page-eyebrow">
-          Notes
-        </div>
-        <div class="space-y-3 text-sm leading-7 text-gray-500 dark:text-dark-300">
-          <p>显式 query 参数优先级高于本地保存的最近目标。</p>
-          <p>只要带着目标进入一次，当前项目下后续再次打开 Chat 就会直接复用。</p>
-          <p>当需要彻底换方向时，去目标来源页重新选择，或者直接清空最近目标。</p>
-        </div>
-      </SurfaceCard>
-    </div>
+      :target="activeTarget"
+      :initial-thread-id="initialThreadId"
+      allow-reset-target
+      :source-note="sourceNote"
+      :display="{
+        title: 'Agent Chat',
+        description:
+          '通用对话工作台已经接上真实 thread、run 和流式消息，不再是那个只会展示说明文案的半残页。',
+        emptyTitle: '开始第一轮 Agent 对话',
+        emptyDescription:
+          '如果你是第一次用这个目标，直接输入消息就行。系统会自动创建 thread，并把后续历史沉淀到当前项目里。'
+      }"
+      :features="{
+        allowRunOptions: true,
+        showHistory: true,
+        showArtifacts: true,
+        showContextBar: true
+      }"
+      @reset-target="clearTarget"
+    />
   </section>
 </template>

@@ -1,14 +1,18 @@
-# Platform Web Vue 迁移评估
+# Platform Web Vue 迁移总览
 
-这组文档用于固化一个新结论：
+这组文档现在要固化的是最终执行口径，而不是继续讨论候选方案：
 
-- 当前 `apps/platform-web-v2` 保留，作为可运行基线
-- `sub2api` 已拉到本地，路径为 `apps/platform-web-sub2api-base`
-- 后续如果正式切 Vue 路线，不在 `apps/platform-web-v2` 上继续堆 UI
-- 先完成评估、裁剪、架构与规范设计，再进入真正的页面迁移
+- 功能迁移基线固定为 `apps/platform-web`
+- 视觉、交互、展示风格基线固定为当前 `apps/platform-web-vue`
+- `apps/platform-web-sub2api-base` 只作为视觉资产与交互参考源，不再作为正式开发载体
+- `apps/platform-web-v2` 只保留为历史参考，不再作为本轮迁移目标
+- 后续所有规划、开发、验收都按 `apps/platform-web -> apps/platform-web-vue` 这条主线推进
 
 ## 当前状态
 
+- [x] 明确功能迁移基线为 `apps/platform-web`
+- [x] 明确当前视觉与交互基线为 `apps/platform-web-vue`
+- [x] 明确 `apps/platform-web-v2` 不再作为正式迁移目标
 - [x] 将 `sub2api` 上游代码拉取到本地
 - [x] 确认其前端技术栈为 `Vue 3 + Vite + TypeScript + Vue Router + Pinia + Tailwind CSS 3`
 - [x] 完成本地基础验证
@@ -30,7 +34,27 @@
 - [x] 明确当前已经进入“视觉母版几乎复刻”阶段，而不是停留在最初的壳层试探阶段
 - [x] 完成 `runtime / runtime models / runtime tools / graphs` 目录型 agent 工作区迁移
 - [x] 完成 `threads` 懒加载详情页迁移，不再一次性渲染所有 thread 内容
-- [x] 完成 `chat` 首次进入引导与最近目标复用逻辑迁移
+- [x] 完成 `chat` 首次进入引导、最近目标复用、真实线程复用与流式对话工作台迁移
+- [x] 完成 `chat` 交互精修
+  - 会话列表默认折叠，改为左侧抽屉进入
+  - 运行上下文与参数改为右侧抽屉，并增加 `确定 / 还原`
+  - 最近历史降级为调试折叠区，不再常驻主界面
+  - 目标来源横幅支持手动关闭
+- [x] `chat` 执行态工作台补齐
+  - [x] 运行中取消
+  - [x] Debug / Continue
+  - [x] `todos / files` 执行面板
+  - [x] interrupt / HITL 处理视图
+  - [x] tool call 详情、sub-agent 卡片、artifact 侧栏
+- [x] `chat` markdown 级 AI 输出渲染
+- [x] `chat` 消息级操作与 history 第一版增强
+  - 消息级复制 / 重试 / 编辑
+  - retry / edit 后的 branch 切换与默认最新分支修正
+  - thread history 搜索 / 状态筛选 / 时间分组 / 删除
+- [ ] `chat` 剩余体验差距
+  - 更完整的 checkpoint history 可视化与“查看此分支”交互打磨
+  - 移动端 sheet / 小屏抽屉体验补完
+- [x] 完成 `sql-agent` 到通用 chat 基座的收敛，固定 `sql_agent` 对话已可直接使用
 - [x] 完成 `testcase` 一级入口与 `cases / documents` 二级页迁移，并恢复文档在线预览 / 原始下载前端链路
 - [x] 完成 `platform-web-vue` 本地 `pnpm check` 验证与浏览器基础烟测
 - [x] 确认正式采用“借壳不借魂”的 UI 壳层迁移路线
@@ -46,6 +70,8 @@
 - [x] 完成 dev 环境 `UI 资产库` 初版入口，开始沉淀 testcase 页面与共享 UI 母版资源
 - [x] 完成 dev 环境 `Resources` 三层收敛：`推荐模板 / 场景模板 / 模板库`
 - [x] 完成 `团队推荐 Top 10` 独立资源页与跨页跳转
+- [x] 确认当前阶段不再重开大范围 UI 风格试错，后续美化基于当前 `platform-web-vue` 持续收敛
+- [x] 产出 `apps/platform-web -> apps/platform-web-vue` 页面与功能对照矩阵
 
 ## 文档列表
 
@@ -71,7 +97,7 @@
    - 新功能如何持续做出同等级观感
 6. `06-foundation-blueprint-and-responsibility-matrix.md`
    - 新 app 基座怎么搭
-   - `v2`、`sub2api`、正式新 app 各自负责什么
+   - `platform-web`、`sub2api`、正式新 app 各自负责什么
    - 哪些抽象应该迁入，哪些包袱不能带过去
 7. `07-module-migration-map-and-delivery-order.md`
    - 现有页面到新模块的映射关系
@@ -99,25 +125,35 @@
    - testcase 页面资源如何沉淀进展示中心
    - `sub2api-base` 优秀前端页面如何作为参考区挂进去
    - 后续开发者如何把页面母版和共享交互件接入资源页
+13. `13-page-function-parity-matrix.md`
+   - `apps/platform-web` 到 `apps/platform-web-vue` 的页面/功能状态矩阵
+   - 已完成、部分完成、未开始、暂缓项一览
+   - 当前主线执行顺序
 
 ## 当前建议
 
-当前推荐路线不是：
+当前正式路线已经收敛为：
 
-- 直接在 `apps/platform-web-sub2api-base/frontend` 里一路魔改
+1. 以 `apps/platform-web` 作为页面、功能、交互链路的唯一迁移真相源
+2. 以当前 `apps/platform-web-vue` 作为视觉、交互、美化特效的持续演进基线
+3. 只在需要补资产时再回看 `apps/platform-web-sub2api-base`，不再围绕它重新开一条 UI 主线
+4. 先补齐 `apps/platform-web` 中尚未完成的高价值页面和链路，再做系统级收尾与汇报加固
+5. dev 环境的 `Resources` 只承担模板沉淀和参考作用，不再反向主导正式业务页设计
 
-而是：
+补充说明：
 
-1. 先保留 `apps/platform-web-sub2api-base` 作为上游参考基座
-2. 正式开工时，新建一个受当前 monorepo 管控的新 app
-3. 先从 `sub2api/frontend` 中迁视觉母版：token、style、layout、基础视觉组件
-4. 再迁系统交互母版：pagination、locale、announcement、user menu、toast、dialog、navigation progress
-5. 严格不带入上游业务路由、业务 store 和 API 语义
-6. 最后再把我们自己的平台业务页逐步接入
+- `chat/sql-agent` 已完成“可用对话基座 + 执行态工作台 + markdown 输出 + 消息级操作与 history 第一版”
+- 这轮额外修掉了 retry branch 默认分支与切换挂载点不正确的问题
+- 当前剩余主差距已经收敛到 `testcase/generate`、详情页补齐，以及 chat 的移动端 / history 可视化细节
+
+当前锁定的执行顺序见：
+
+1. [04-roadmap-and-checklist.md](/Users/bytedance/PycharmProjects/my_best/AITestLab/docs/platform-web-sub2api-migration/04-roadmap-and-checklist.md)
+2. [07-module-migration-map-and-delivery-order.md](/Users/bytedance/PycharmProjects/my_best/AITestLab/docs/platform-web-sub2api-migration/07-module-migration-map-and-delivery-order.md)
 
 ## 已知注意事项
 
 - `apps/platform-web-sub2api-base` 当前带有上游 `.git` 目录
 - 正式纳入当前 monorepo 前，需要先去掉这个嵌套仓库边界
 - `apps/platform-web-v3` 只是试验产物，已经从当前仓库工作目录移走，不再作为正式候选方案
-- 当前 `platform-web-vue` 的主要差距已经从“系统级交互母版缺失”转向“更大范围页面回刷、更多资源资产沉淀和深色细节统一”
+- 当前 `platform-web-vue` 的主要差距已经从“系统级交互母版缺失”转向“`apps/platform-web` 剩余页面与行为对齐、系统级细节一致性、最终汇报链路加固”

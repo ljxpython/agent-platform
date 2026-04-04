@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
@@ -20,8 +21,10 @@ import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
+import { writeRecentChatTarget } from '@/utils/chatTarget'
 import { formatDateTime, shortId } from '@/utils/format'
 
+const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUiStore()
 
@@ -183,8 +186,63 @@ function handlePendingAction(message: string) {
   })
 }
 
+function resolveAssistantTargetId(assistant: ManagementAssistant) {
+  return assistant.langgraph_assistant_id?.trim() || assistant.id
+}
+
+function openAssistantChat(assistant: ManagementAssistant) {
+  const assistantId = resolveAssistantTargetId(assistant)
+  const projectId = workspaceStore.currentProjectId
+
+  if (projectId) {
+    writeRecentChatTarget(projectId, {
+      targetType: 'assistant',
+      assistantId
+    })
+  }
+
+  void router.push({
+    path: '/workspace/chat',
+    query: {
+      targetType: 'assistant',
+      assistantId
+    }
+  })
+}
+
+function setAssistantAsRecentTarget(assistant: ManagementAssistant) {
+  const projectId = workspaceStore.currentProjectId
+  const assistantId = resolveAssistantTargetId(assistant)
+  if (!projectId) {
+    return
+  }
+
+  writeRecentChatTarget(projectId, {
+    targetType: 'assistant',
+    assistantId
+  })
+
+  uiStore.pushToast({
+    type: 'success',
+    title: '已设为聊天目标',
+    message: assistant.name || assistantId
+  })
+}
+
 function assistantActions(assistant: ManagementAssistant): ActionMenuItem[] {
   return [
+    {
+      key: 'open-chat',
+      label: '打开聊天',
+      icon: 'chat',
+      onSelect: () => openAssistantChat(assistant)
+    },
+    {
+      key: 'focus-chat-target',
+      label: '设为聊天目标',
+      icon: 'check',
+      onSelect: () => setAssistantAsRecentTarget(assistant)
+    },
     {
       key: 'copy-id',
       label: '复制助手 ID',
@@ -197,6 +255,13 @@ function assistantActions(assistant: ManagementAssistant): ActionMenuItem[] {
       icon: 'copy',
       disabled: !assistant.graph_id,
       onSelect: () => handleCopyValue('Graph ID', assistant.graph_id || '')
+    },
+    {
+      key: 'copy-langgraph-assistant-id',
+      label: assistant.langgraph_assistant_id ? '复制 LangGraph ID' : '未绑定 LangGraph ID',
+      icon: 'copy',
+      disabled: !assistant.langgraph_assistant_id,
+      onSelect: () => handleCopyValue('LangGraph Assistant ID', assistant.langgraph_assistant_id || '')
     },
     {
       key: 'detail',

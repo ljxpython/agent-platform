@@ -1,4 +1,9 @@
 import type { ManagementThread, ThreadHistoryEntry } from '@/types/management'
+import {
+  getMessageAttachments as extractMessageAttachments,
+  getMessageText as extractMessageText,
+  summarizeMessageContent
+} from '@/utils/chat-content'
 
 function coerceText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -88,7 +93,12 @@ function extractMessages(source: unknown): ThreadMessage[] {
     return []
   }
   const values = source as Record<string, unknown>
-  return Array.isArray(values.messages) ? (values.messages as ThreadMessage[]) : []
+  if (Array.isArray(values.messages)) {
+    return values.messages as ThreadMessage[]
+  }
+
+  const nestedValues = asRecord(values.values)
+  return Array.isArray(nestedValues.messages) ? (nestedValues.messages as ThreadMessage[]) : []
 }
 
 export function getThreadMessages(
@@ -103,31 +113,11 @@ export function getThreadMessages(
 }
 
 export function getMessageText(content: unknown): string {
-  if (typeof content === 'string') {
-    return content
-  }
+  return extractMessageText(content)
+}
 
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item
-        }
-        const block = asRecord(item)
-        if (block.type === 'text' && typeof block.text === 'string') {
-          return block.text
-        }
-        return ''
-      })
-      .filter(Boolean)
-      .join('\n')
-  }
-
-  if (content && typeof content === 'object') {
-    return JSON.stringify(content, null, 2)
-  }
-
-  return ''
+export function getMessageAttachments(content: unknown) {
+  return extractMessageAttachments(content)
 }
 
 export function getThreadPreviewText(thread?: Pick<ManagementThread, 'thread_id' | 'values'> | null): string {
@@ -139,7 +129,7 @@ export function getThreadPreviewText(thread?: Pick<ManagementThread, 'thread_id'
     return thread.thread_id
   }
   const firstMessage = messages[0]
-  return getMessageText(firstMessage?.content) || thread.thread_id
+  return summarizeMessageContent(firstMessage?.content) || thread.thread_id
 }
 
 export function getHistoryEntryId(entry: ThreadHistoryEntry, index: number): string {
@@ -172,4 +162,19 @@ export function toPrettyJson(value: unknown): string {
   } catch {
     return String(value)
   }
+}
+
+export function getThreadStateValues(
+  state?: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  if (!state || typeof state !== 'object') {
+    return null
+  }
+
+  const nestedValues = asRecord(state.values)
+  if (Object.keys(nestedValues).length > 0) {
+    return nestedValues
+  }
+
+  return state
 }

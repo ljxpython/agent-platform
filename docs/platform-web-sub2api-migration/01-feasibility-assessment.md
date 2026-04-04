@@ -130,17 +130,18 @@
 
 推荐采用下面这个策略：
 
-1. 保留 `apps/platform-web-v2` 作为现有可运行基线
-2. 把 `apps/platform-web-sub2api-base` 作为上游参考基座
-3. 正式迁移时，新建一个新的 Vue app
-4. 只抽取有价值的部分
+1. 固定以 `apps/platform-web` 作为功能迁移基线
+2. 把 `apps/platform-web-sub2api-base` 作为视觉与交互参考基座
+3. 正式迁移时，在 `apps/platform-web-vue` 中持续承接开发
+4. 只抽取有价值的视觉和交互资产
    - layout
    - style token
    - table/form/card/common
    - router/store/api 基础设施
-5. 平台业务全部按新规范重建
+5. 平台业务按 Vue 新架构逐页迁移并统一回刷
 
 一句话：
 
-- 可以借它的壳
-- 不能借它的业务尸体
+- 功能看 `platform-web`
+- 壳层学 `sub2api`
+- 正式落地在 `platform-web-vue`

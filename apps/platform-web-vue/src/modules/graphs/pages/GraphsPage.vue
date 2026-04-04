@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
@@ -38,6 +39,7 @@ function getSyncTone(status: string): 'neutral' | 'success' | 'warning' | 'dange
 
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUiStore()
+const router = useRouter()
 
 const items = ref<ManagementGraph[]>([])
 const queryInput = ref('')
@@ -219,6 +221,25 @@ function setAsRecentChatTarget(graph: ManagementGraph) {
   })
 }
 
+function openGraphChat(graph: ManagementGraph) {
+  const projectId = workspaceStore.currentProjectId
+
+  if (projectId) {
+    writeRecentChatTarget(projectId, {
+      targetType: 'graph',
+      graphId: graph.graph_id
+    })
+  }
+
+  void router.push({
+    path: '/workspace/chat',
+    query: {
+      targetType: 'graph',
+      graphId: graph.graph_id
+    }
+  })
+}
+
 async function handleCopyGraphId(graph: ManagementGraph) {
   const copied = await copyText(graph.graph_id)
   uiStore.pushToast({
@@ -238,6 +259,12 @@ function handlePendingAction(message: string) {
 
 function graphActions(graph: ManagementGraph): ActionMenuItem[] {
   return [
+    {
+      key: 'open-chat',
+      label: '打开聊天',
+      icon: 'chat',
+      onSelect: () => openGraphChat(graph)
+    },
     {
       key: 'focus-chat-target',
       label: '设为聊天目标',
