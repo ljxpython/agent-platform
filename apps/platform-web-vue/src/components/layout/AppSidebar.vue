@@ -52,6 +52,7 @@ const groups = computed(() => {
       label: 'Quality',
       items: [
         { to: '/workspace/testcase', label: t('nav.testcase'), icon: 'testcase' },
+        { to: '/workspace/announcements', label: t('nav.announcements'), icon: 'bell' },
         { to: '/workspace/me', label: t('nav.me'), icon: 'user' },
         { to: '/workspace/security', label: t('nav.security'), icon: 'lock' },
         { to: '/workspace/audit', label: t('nav.audit'), icon: 'audit' }

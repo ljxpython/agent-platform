@@ -42,6 +42,7 @@ export const zhCN = {
     threads: 'Threads',
     chat: 'Chat',
     testcase: 'Testcase',
+    announcements: '公告管理',
     uiAssets: 'UI 资产库',
     resourcesOverview: '资源总览',
     resourcePages: '页面模板',
@@ -63,6 +64,7 @@ export const zhCN = {
     announcementsMarked: '公告已全部标记已读',
     announcementsMarkedDesc: '这轮演示数据的已读状态已写入本地存储。',
     announcementsDemoHint: '当前为演示公告数据',
+    announcementsLiveHint: '当前为真实公告 feed',
     markAllRead: '全部已读',
     noUnread: '当前没有未读公告',
     moreSoon: '后续会继续把更多系统交互入口收敛到这里。'

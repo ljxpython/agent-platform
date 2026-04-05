@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import { useAnnouncementsStore } from '@/stores/announcements'
 import { useUiStore } from '@/stores/ui'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 const { t } = useI18n()
 const announcementsStore = useAnnouncementsStore()
 const uiStore = useUiStore()
+const workspaceStore = useWorkspaceStore()
 
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
@@ -78,21 +80,28 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => {
-  announcementsStore.init()
+  void announcementsStore.init(workspaceStore.currentProjectId)
   document.addEventListener('click', handleClickOutside)
 })
+
+watch(
+  () => workspaceStore.currentProjectId,
+  (projectId) => {
+    void announcementsStore.load(projectId)
+  }
+)
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-function selectAnnouncement(id: string) {
+async function selectAnnouncement(id: string) {
   selectedAnnouncementId.value = id
-  announcementsStore.markRead(id)
+  await announcementsStore.markRead(id)
 }
 
-function markAllRead() {
-  announcementsStore.markAllRead()
+async function markAllRead() {
+  await announcementsStore.markAllRead(workspaceStore.currentProjectId)
   uiStore.pushToast({
     type: 'success',
     title: t('topbar.announcementsMarked'),
@@ -149,6 +158,13 @@ function markAllRead() {
                   unreadCount > 0
                     ? t('topbar.announcementsUnread', { count: unreadCount })
                     : t('topbar.noUnread')
+                }}
+              </div>
+              <div class="mt-1 text-[11px] text-gray-400 dark:text-dark-500">
+                {{
+                  announcementsStore.mode === 'remote'
+                    ? t('topbar.announcementsLiveHint')
+                    : t('topbar.announcementsDemoHint')
                 }}
               </div>
             </div>
@@ -215,7 +231,11 @@ function markAllRead() {
                   {{ selectedAnnouncement.body }}
                 </p>
                 <div class="mt-3 text-[11px] text-gray-400 dark:text-dark-500">
-                  {{ t('topbar.announcementsDemoHint') }} · {{ formatAnnouncementTime(selectedAnnouncement.createdAt) }}
+                  {{
+                    announcementsStore.mode === 'remote'
+                      ? t('topbar.announcementsLiveHint')
+                      : t('topbar.announcementsDemoHint')
+                  }} · {{ formatAnnouncementTime(selectedAnnouncement.createdAt) }}
                 </div>
               </div>
             </div>

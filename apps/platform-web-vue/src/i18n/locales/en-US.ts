@@ -42,6 +42,7 @@ export const enUS = {
     threads: 'Threads',
     chat: 'Chat',
     testcase: 'Testcase',
+    announcements: 'Announcements',
     uiAssets: 'UI Assets',
     resourcesOverview: 'Resources',
     resourcePages: 'Page Templates',
@@ -63,6 +64,7 @@ export const enUS = {
     announcementsMarked: 'Announcements marked as read',
     announcementsMarkedDesc: 'Read state for the demo feed is now stored locally.',
     announcementsDemoHint: 'Demo announcement feed',
+    announcementsLiveHint: 'Live announcement feed',
     markAllRead: 'Mark all read',
     noUnread: 'No unread items',
     moreSoon: 'More system interactions will be added here later.'

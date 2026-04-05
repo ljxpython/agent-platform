@@ -111,9 +111,9 @@ modules/
 
 接着做：
 
-- announcement 数据或演示替身
-- tooltip / 帮助提示体系
-- 首次引导和入口提示体系
+- announcement 真实后端与管理页闭环
+- tooltip / 帮助提示体系扩展
+- 首次引导和入口提示体系扩展
 - dark mode 全链路一致性
 - 大屏、小屏下的布局占满和溢出治理
 

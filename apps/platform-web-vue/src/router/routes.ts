@@ -193,6 +193,12 @@ const workspaceChildren: RouteRecordRaw[] = [
     ]
   },
   {
+    path: 'announcements',
+    name: 'workspace-announcements',
+    component: () => import('@/modules/announcements/pages/AnnouncementsPage.vue'),
+    meta: { title: '公告管理', eyebrow: 'Announcements' }
+  },
+  {
     path: 'me',
     name: 'workspace-me',
     component: () => import('@/modules/account/pages/ProfilePage.vue'),

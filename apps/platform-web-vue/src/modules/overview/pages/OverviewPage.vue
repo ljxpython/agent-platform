@@ -5,6 +5,7 @@ import BaseIcon from '@/components/base/BaseIcon.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
+import GuidePanel from '@/components/platform/GuidePanel.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
@@ -166,6 +167,40 @@ watch(
       :description="error"
       variant="warning"
     />
+
+    <GuidePanel
+      guide-id="overview-demo-path"
+      title="建议演示路径"
+      description="如果你要快速演示当前迁移成果，优先按这个顺序走：1. 选项目 2. 打开 SQL Agent 或 Chat 3. 查看 Testcase 生成 / 文档链路 4. 回到 Resources 看沉淀的 UI 模板。"
+      tone="success"
+    >
+      <template #actions>
+        <router-link
+          class="pw-btn pw-btn-secondary"
+          to="/workspace/sql-agent"
+        >
+          去 SQL Agent
+        </router-link>
+        <router-link
+          class="pw-btn pw-btn-secondary"
+          to="/workspace/chat"
+        >
+          去 Chat
+        </router-link>
+        <router-link
+          class="pw-btn pw-btn-secondary"
+          to="/workspace/testcase/generate"
+        >
+          去 Testcase Generate
+        </router-link>
+        <router-link
+          class="pw-btn pw-btn-secondary"
+          to="/workspace/resources"
+        >
+          去 Resources
+        </router-link>
+      </template>
+    </GuidePanel>
 
     <div class="grid gap-4 xl:grid-cols-4">
       <MetricCard

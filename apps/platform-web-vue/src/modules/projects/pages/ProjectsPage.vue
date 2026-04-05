@@ -10,6 +10,7 @@ import ActionMenu from '@/components/platform/ActionMenu.vue'
 import BulkActionsBar from '@/components/platform/BulkActionsBar.vue'
 import DataTable from '@/components/platform/DataTable.vue'
 import FilterToolbar from '@/components/platform/FilterToolbar.vue'
+import GuidePanel from '@/components/platform/GuidePanel.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import PaginationBar from '@/components/platform/PaginationBar.vue'
 import SearchInput from '@/components/platform/SearchInput.vue'
@@ -307,6 +308,22 @@ onMounted(() => {
       :description="error"
       variant="danger"
     />
+
+    <GuidePanel
+      guide-id="projects-entry-guide"
+      title="项目页怎么用最快"
+      description="推荐这样用：1. 新建项目 2. 设为当前项目 3. 进入项目详情看成员和审计入口。后面 assistants、graphs、chat、testcase 都会跟着当前项目上下文走。"
+      tone="info"
+    >
+      <template #actions>
+        <BaseButton
+          variant="secondary"
+          @click="void router.push('/workspace/projects/new')"
+        >
+          去新建项目
+        </BaseButton>
+      </template>
+    </GuidePanel>
 
     <div class="grid gap-4 xl:grid-cols-3">
       <MetricCard

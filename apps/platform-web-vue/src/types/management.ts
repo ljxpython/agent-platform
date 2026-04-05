@@ -75,6 +75,22 @@ export type ManagementAuditRow = {
   user_id: string | null
 }
 
+export type ManagementAnnouncement = {
+  id: string
+  title: string
+  summary: string
+  body: string
+  tone: 'info' | 'warning' | 'success'
+  scope_type: string
+  scope_project_id: string | null
+  status: string
+  publish_at: string | null
+  expire_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  is_read: boolean
+}
+
 export type RuntimeModelItem = {
   id: string
   runtime_id: string
