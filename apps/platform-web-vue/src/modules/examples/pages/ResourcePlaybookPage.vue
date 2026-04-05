@@ -4,6 +4,7 @@ import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
+import BrandMark from '@/components/layout/BrandMark.vue'
 
 const stats = [
   {
@@ -152,6 +153,30 @@ const resourceLinks = [
     icon: 'runtime'
   }
 ] as const
+
+const brandCandidates = [
+  {
+    title: 'Workspace Frame',
+    variant: 'workspace-frame',
+    file: 'src/assets/brand/mark-workspace-frame.svg',
+    description: '左侧导航 + 主内容区的结构直接体现在图形里，最像正式平台工作台。',
+    recommendation: '备选'
+  },
+  {
+    title: 'Panel Stack',
+    variant: 'panel-stack',
+    file: 'src/assets/brand/mark-panel-stack.svg',
+    description: '更偏现代 SaaS 的多层面板感，适合后续做更轻一点的品牌语气。',
+    recommendation: '当前默认采用'
+  },
+  {
+    title: 'PW Monogram',
+    variant: 'monogram',
+    file: 'src/assets/brand/mark-monogram.svg',
+    description: '保留字母品牌识别，但比直接写 PW 更规整，适合保守路线。',
+    recommendation: '备选'
+  }
+] as const
 </script>
 
 <template>
@@ -179,6 +204,46 @@ const resourceLinks = [
         :tone="item.tone"
       />
     </div>
+
+    <SurfaceCard>
+      <div class="pw-page-eyebrow">
+        Brand Marks
+      </div>
+      <h2 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
+        品牌图标候选
+      </h2>
+      <p class="mt-2 text-sm leading-7 text-gray-500 dark:text-dark-300">
+        这 3 个 SVG 都已经落到仓库里，后续如果要换 favicon、登录页和侧栏品牌区，只需要切换同一套资源，不要再用临时字母块占位。
+      </p>
+      <div class="mt-5 grid gap-4 xl:grid-cols-3">
+        <article
+          v-for="item in brandCandidates"
+          :key="item.title"
+          class="rounded-[24px] border border-gray-100 bg-white/80 p-5 shadow-soft dark:border-dark-800 dark:bg-dark-950/35"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl">
+              <BrandMark
+                :variant="item.variant"
+                :alt="item.title"
+              />
+            </div>
+            <div class="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200">
+              {{ item.recommendation }}
+            </div>
+          </div>
+          <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+            {{ item.title }}
+          </h3>
+          <p class="mt-2 text-sm leading-7 text-gray-500 dark:text-dark-300">
+            {{ item.description }}
+          </p>
+          <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3 font-mono text-xs text-gray-600 dark:border-dark-800 dark:bg-dark-900/70 dark:text-dark-300">
+            {{ item.file }}
+          </div>
+        </article>
+      </div>
+    </SurfaceCard>
 
     <SurfaceCard>
       <div class="pw-page-eyebrow">

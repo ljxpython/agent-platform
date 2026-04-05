@@ -9,13 +9,8 @@
 ### 1. 页面迁移结果
 
 - `apps/platform-web` 源页面总数 `28`
-- 已完成 `27`
-- 暂缓 `1`
-
-当前唯一暂缓项：
-
-- `/auth/callback`
-  - 原因：当前演示环境只走用户名密码登录，不走第三方登录回调
+- 已完成 `28`
+- 暂缓 `0`
 
 ### 2. Agent 主线结果
 
@@ -60,6 +55,7 @@
 - 统一顶栏系统区：`ProjectSwitcher / LocaleSwitcher / AnnouncementCenter / UserMenu`
 - 统一 dark mode 和响应式约束
 - 统一 `Resources / Playbook` 开发范式入口
+- 正式界面文案已完成一轮收口，品牌区副标题统一展示当前版本号
 
 ## 推荐汇报顺序
 
@@ -94,7 +90,6 @@
 
 ### A. 非阻塞遗留
 
-- `/auth/callback` 未纳入本轮
 - `apps/platform-web-sub2api-base/.git` 嵌套仓库边界待清理
 - Node `25.x` 有 engine warning，建议切回 LTS
 

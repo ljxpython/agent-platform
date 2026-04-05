@@ -218,6 +218,7 @@
 - [x] 输出 `platform-web-vue` 正式前端开发手册，后续开发默认先看当前仓库文档与 Resources
 - [x] dark mode 全链路一致性复查
 - [x] 大屏与小屏下关键页面占满与溢出复查
+- [x] 公告中心改为真实后端优先，失败时才回退本地公告数据
 
 ### 4. 汇报与验收硬化
 
@@ -225,6 +226,9 @@
 - [x] 关键链路烟测清单固化
 - [x] 最终汇报口径整理
 - [x] 验收回归与遗留清单归档
+- [x] 正式界面对外文案收口，清理 `Phase 1 / 迁移初期 / demo` 等半成品字样
+- [x] 左上角品牌区副标题改为统一版本号展示
+- [x] `/auth/callback` 补齐最小回跳闭环，页面迁移矩阵清零暂缓项
 
 ### 5. Chat 执行态补齐顺序
 
@@ -314,7 +318,7 @@
 - `projects / users / audit` 已经回刷到统一分页母版
 - 顶栏系统区已接入 `LocaleSwitcher / AnnouncementBell / UserMenu`
 - `WorkspaceProjectSwitcher / LocaleSwitcher / AnnouncementCenter / UserMenu` 已统一顶栏触发器与 dropdown 壳层语法
-- `AnnouncementBell` 已优先接入真实公告接口，异常时回退演示数据
+- `AnnouncementBell` 已优先接入真实公告接口，异常时回退本地公告数据
 - `projects / users / audit` 已经接入统一 `DataTable / 列设置 / 排序持久化 / ActionMenu`
 - `projects / users` 已接入统一 `BulkActionsBar / 行选择`
 - `assistants / runtime models / runtime tools` 已经接入统一 `DataTable / 列设置 / 排序持久化 / ActionMenu`

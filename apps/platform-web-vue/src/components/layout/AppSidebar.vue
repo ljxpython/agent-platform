@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { appMeta } from '@/config/app-meta'
+import BrandMark from '@/components/layout/BrandMark.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useUiStore } from '@/stores/ui'
@@ -93,18 +95,18 @@ const initials = computed(() => (authStore.user?.username || 'PW').slice(0, 2).t
     :class="uiStore.sidebarCollapsed ? 'w-[72px]' : 'w-64'"
   >
     <div class="pw-sidebar-header">
-      <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-primary text-sm font-semibold text-white shadow-glow">
-        {{ uiStore.sidebarCollapsed ? 'P' : 'PW' }}
+      <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
+        <BrandMark alt="Platform Workspace mark" />
       </div>
       <div
         v-if="!uiStore.sidebarCollapsed"
         class="flex min-w-0 flex-col"
       >
         <div class="truncate text-base font-bold text-gray-900 dark:text-white">
-          Platform Workspace
+          {{ appMeta.name }}
         </div>
         <div class="mt-0.5 text-xs uppercase tracking-[0.16em] text-gray-400 dark:text-dark-500">
-          platform console
+          {{ appMeta.versionLabel }}
         </div>
       </div>
     </div>

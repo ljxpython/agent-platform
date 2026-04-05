@@ -18,6 +18,16 @@ const selectedAnnouncementId = ref('')
 
 const items = computed(() => announcementsStore.items)
 const unreadCount = computed(() => announcementsStore.unreadCount)
+const loading = computed(() => announcementsStore.loading)
+const sourceHint = computed(() => {
+  if (announcementsStore.mode === 'initial') {
+    return ''
+  }
+
+  return announcementsStore.mode === 'remote'
+    ? t('topbar.announcementsLiveHint')
+    : t('topbar.announcementsDemoHint')
+})
 const selectedAnnouncement = computed(() => {
   const selectedId = selectedAnnouncementId.value || items.value[0]?.id || ''
   return items.value.find((item) => item.id === selectedId) || null
@@ -164,17 +174,16 @@ async function markAllRead() {
                     : t('topbar.noUnread')
                 }}
               </div>
-              <div class="mt-1 text-[11px] text-gray-400 dark:text-dark-500">
-                {{
-                  announcementsStore.mode === 'remote'
-                    ? t('topbar.announcementsLiveHint')
-                    : t('topbar.announcementsDemoHint')
-                }}
+              <div
+                v-if="sourceHint"
+                class="mt-1 text-[11px] text-gray-400 dark:text-dark-500"
+              >
+                {{ sourceHint }}
               </div>
             </div>
             <BaseButton
               variant="ghost"
-              :disabled="unreadCount === 0"
+              :disabled="loading || unreadCount === 0"
               @click="markAllRead"
             >
               {{ t('topbar.markAllRead') }}
@@ -182,7 +191,16 @@ async function markAllRead() {
           </div>
         </div>
         <div class="grid gap-4 px-4 py-4">
-          <div class="grid gap-2">
+          <div
+            v-if="loading"
+            class="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm leading-7 text-gray-500 dark:border-dark-700 dark:text-dark-300"
+          >
+            正在同步公告列表...
+          </div>
+          <div
+            v-else-if="items.length"
+            class="grid gap-2"
+          >
             <button
               v-for="item in items"
               :key="item.id"
@@ -214,9 +232,20 @@ async function markAllRead() {
               </div>
             </button>
           </div>
+          <div
+            v-else
+            class="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm leading-7 text-gray-500 dark:border-dark-700 dark:text-dark-300"
+          >
+            <div class="font-semibold text-gray-900 dark:text-white">
+              {{ t('topbar.announcementsEmptyTitle') }}
+            </div>
+            <p class="mt-2">
+              {{ t('topbar.announcementsEmptyDescription') }}
+            </p>
+          </div>
 
           <div
-            v-if="selectedAnnouncement"
+            v-if="!loading && selectedAnnouncement"
             class="rounded-2xl border px-4 py-4"
             :class="toneClasses(selectedAnnouncement.tone).card"
           >
@@ -235,11 +264,7 @@ async function markAllRead() {
                   {{ selectedAnnouncement.body }}
                 </p>
                 <div class="mt-3 text-[11px] text-gray-400 dark:text-dark-500">
-                  {{
-                    announcementsStore.mode === 'remote'
-                      ? t('topbar.announcementsLiveHint')
-                      : t('topbar.announcementsDemoHint')
-                  }} · {{ formatAnnouncementTime(selectedAnnouncement.createdAt) }}
+                  {{ sourceHint || t('topbar.announcements') }} · {{ formatAnnouncementTime(selectedAnnouncement.createdAt) }}
                 </div>
               </div>
             </div>

@@ -23,9 +23,9 @@ const ANNOUNCEMENTS_STORAGE_KEY = 'pw:announcements:read-ids'
 const ANNOUNCEMENT_SEED: AnnouncementItem[] = [
   {
     id: 'migration-shell',
-    title: 'Platform Web Vue 已切为正式迁移前端',
-    summary: '页面迁移主线已经稳定，当前进入系统级一致性和演示硬化阶段。',
-    body: '当前工作台已完成页面迁移主线，后续重点转向 chat/sql-agent 收口、系统级一致性和最终汇报硬化。',
+    title: '平台工作台版本已更新',
+    summary: '当前正式前端宿主已经统一为 platform-web-vue。',
+    body: '平台工作台、Agent 页面和后续前端开发都以 platform-web-vue 为正式宿主，页面与工程规范按同一套基座继续演进。',
     tone: 'info',
     createdAt: '2026-04-05T09:00:00+08:00',
     isRead: false
@@ -41,9 +41,9 @@ const ANNOUNCEMENT_SEED: AnnouncementItem[] = [
   },
   {
     id: 'demo-data',
-    title: '公告中心当前使用演示数据',
-    summary: '真实公告接口和已读状态回写还需要后端配合，当前先提供稳定演示壳层。',
-    body: '为了保证汇报链路稳定，当前公告中心先采用前端演示数据 + 本地已读状态持久化方案，不依赖后端接口也能完整展示交互。',
+    title: '公告中心提供稳定回退能力',
+    summary: '公告中心优先读取真实后端，接口异常时自动回退到本地公告数据。',
+    body: '为了保证正式工作台在异常场景下也能稳定展示，公告中心保留了回退公告数据与本地已读状态能力，但默认仍以真实后端数据为准。',
     tone: 'warning',
     createdAt: '2026-04-05T09:40:00+08:00',
     isRead: false
@@ -98,9 +98,9 @@ function persistIds(ids: string[]) {
 export const useAnnouncementsStore = defineStore('announcements', {
   state: () => ({
     hydrated: false,
-    items: ANNOUNCEMENT_SEED as AnnouncementItem[],
+    items: [] as AnnouncementItem[],
     readIds: [] as string[],
-    mode: 'fallback' as 'fallback' | 'remote',
+    mode: 'initial' as 'initial' | 'fallback' | 'remote',
     loading: false,
     currentProjectId: ''
   }),
@@ -151,7 +151,10 @@ export const useAnnouncementsStore = defineStore('announcements', {
         try {
           await markAnnouncementRead(id)
         } catch {
-          // fallback to local optimistic state
+          if (!this.readIds.includes(id)) {
+            this.readIds = [...this.readIds, id]
+            persistIds(this.readIds)
+          }
         }
       } else if (!this.readIds.includes(id)) {
         this.readIds = [...this.readIds, id]
@@ -172,7 +175,8 @@ export const useAnnouncementsStore = defineStore('announcements', {
         try {
           await markAllAnnouncementsRead(projectId || undefined)
         } catch {
-          // fallback to local optimistic state
+          this.readIds = this.items.map((item) => item.id)
+          persistIds(this.readIds)
         }
       } else {
         this.readIds = this.items.map((item) => item.id)

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { appMeta } from '@/config/app-meta'
+import BrandMark from '@/components/layout/BrandMark.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -18,15 +20,12 @@ const { t } = useI18n()
 
     <div class="relative z-10 grid w-full max-w-6xl gap-10 xl:grid-cols-[1.1fr_0.9fr]">
       <div class="hidden flex-col justify-center xl:flex">
-        <div class="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary text-white shadow-glow">
-          <BaseIcon
-            name="sparkle"
-            size="lg"
-          />
+        <div class="mb-6 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-glow">
+          <BrandMark alt="Platform Workspace mark" />
         </div>
         <div>
           <div class="pw-page-eyebrow">
-            Platform Workspace
+            {{ appMeta.name }}
           </div>
           <h1 class="mt-3 text-5xl font-semibold tracking-tight text-gray-900 dark:text-white">
             平台前端要先把壳子搭对，再谈业务规模化迁移。
@@ -68,14 +67,14 @@ const { t } = useI18n()
       <div class="flex items-center justify-center">
         <div class="w-full max-w-md">
           <div class="mb-8 text-center">
-            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary text-white shadow-glow">
-              PW
+            <div class="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-glow">
+              <BrandMark alt="Platform Workspace mark" />
             </div>
             <div class="mt-5 text-3xl font-bold text-gray-900 dark:text-white">
-              Platform Workspace
+              {{ appMeta.name }}
             </div>
             <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-              Mature admin console baseline
+              {{ appMeta.versionLabel }}
             </p>
           </div>
 

@@ -190,7 +190,6 @@ curl -X POST "http://localhost:2024/_management/auth/login" \
 
 ## 七、已知非阻塞项
 
-- `/auth/callback` 仍为暂缓项，不在当前用户名密码演示主线内
 - `apps/platform-web-sub2api-base/.git` 嵌套仓库边界仍未清理，这是仓库整理项，不阻塞当前演示
 - Node `25.x` 仍会触发 engine warning，正式建议使用 `20 LTS` 或 `22 LTS`
 

@@ -437,7 +437,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="Announcements"
       title="公告管理"
-      description="这里负责真实公告的创建、编辑和删除。当前已接通 platform-api 的公告 feed、已读回写和后台 CRUD，前端不再只是演示壳。"
+      description="这里负责真实公告的创建、编辑和删除。当前已接通 platform-api 的公告 feed、已读回写和后台 CRUD，前端不再只是静态壳层。"
     >
       <template #actions>
         <BaseButton
@@ -489,7 +489,7 @@ onMounted(() => {
 
       <StateBanner
         title="当前管理模式"
-        :description="`${managementModeLabel}。公告中心优先读取真实后端；只有接口不可用时，顶栏公告才会回退到演示数据。`"
+        :description="`${managementModeLabel}。公告中心优先读取真实后端；只有接口不可用时，顶栏公告才会回退到本地公告数据。`"
         variant="info"
       />
 

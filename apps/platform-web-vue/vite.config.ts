@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -8,6 +9,10 @@ export default defineConfig(({ mode }) => {
   const devPort = Number(env.VITE_DEV_PORT || 3000)
   const proxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://localhost:2024'
   const workspaceRoot = resolve(__dirname, '../..')
+  const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as {
+    version?: string
+  }
+  const appVersion = packageJson.version?.trim() || '0.0.0'
 
   return {
     plugins: [
@@ -24,7 +29,8 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      __INTLIFY_JIT_COMPILATION__: true
+      __INTLIFY_JIT_COMPILATION__: true,
+      __APP_VERSION__: JSON.stringify(appVersion)
     },
     server: {
       host: '0.0.0.0',

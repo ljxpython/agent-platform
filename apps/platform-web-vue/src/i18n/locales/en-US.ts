@@ -21,15 +21,15 @@ export const enUS = {
   },
   brand: {
     title: 'Platform Workspace',
-    subtitle: 'Platform Workspace'
+    subtitle: 'Official workspace shell'
   },
   auth: {
     title: 'Welcome to Platform Workspace',
-    description: 'Phase 1 focuses on a runnable shell, then business modules will be migrated progressively.',
+    description: 'A unified workspace entry for platform operations, agent workspaces, and quality workflows.',
     username: 'Username',
     password: 'Password',
     login: 'Log in',
-    hint: 'This is an early migration build. Login is wired to the real platform backend and more modules will be integrated next.'
+    hint: 'Sign in with your platform account to enter the official workspace.'
   },
   nav: {
     overview: 'Overview',
@@ -60,16 +60,16 @@ export const enUS = {
     operator: 'Platform Operator',
     language: 'Language',
     announcements: 'Announcements',
-    announcementsEmptyTitle: 'Announcement center is not connected yet',
-    announcementsEmptyDescription: 'This area can be delivered now as a shell. Real data and read status still need backend support.',
+    announcementsEmptyTitle: 'No announcements yet',
+    announcementsEmptyDescription: 'There are no announcements available in the current scope.',
     announcementsUnread: '{count} unread announcements',
     announcementsMarked: 'Announcements marked as read',
-    announcementsMarkedDesc: 'Read state for the demo feed is now stored locally.',
-    announcementsDemoHint: 'Demo announcement feed',
+    announcementsMarkedDesc: 'Read state has been updated.',
+    announcementsDemoHint: 'Fallback announcement feed',
     announcementsLiveHint: 'Live announcement feed',
     markAllRead: 'Mark all read',
     noUnread: 'No unread items',
-    moreSoon: 'More system interactions will be added here later.'
+    moreSoon: 'More system entries will continue to be consolidated here.'
   },
   pagination: {
     previous: 'Previous',

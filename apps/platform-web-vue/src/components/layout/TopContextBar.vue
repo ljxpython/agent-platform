@@ -4,24 +4,19 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AnnouncementCenter from '@/components/layout/AnnouncementCenter.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { appMeta } from '@/config/app-meta'
 import LocaleSwitcher from '@/components/layout/LocaleSwitcher.vue'
 import UserMenu from '@/components/layout/UserMenu.vue'
 import WorkspaceProjectSwitcher from '@/components/platform/WorkspaceProjectSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useWorkspaceStore } from '@/stores/workspace'
 
 const authStore = useAuthStore()
-const workspaceStore = useWorkspaceStore()
 const route = useRoute()
 const { t } = useI18n()
 
 const routeTitle = computed(() => String(route.meta.title || t('brand.title')))
 const routeEyebrow = computed(() => String(route.meta.eyebrow || t('common.workspace')))
-const routeSubtitle = computed(() =>
-  workspaceStore.currentProject?.name
-    ? t('topbar.projectContext', { project: workspaceStore.currentProject.name })
-    : t('topbar.globalContext')
-)
+const routeSubtitle = computed(() => appMeta.versionLabel)
 const roleLabel = computed(() => (authStore.user?.is_super_admin ? t('common.admin') : t('common.member')))
 </script>
 

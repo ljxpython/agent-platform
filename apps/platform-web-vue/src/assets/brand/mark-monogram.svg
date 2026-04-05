@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="monogram-bg" x1="10" y1="9" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#195B9B" />
+      <stop offset="1" stop-color="#0E223F" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="16" fill="url(#monogram-bg)" />
+  <path
+    d="M18 17H31C37.627 17 43 22.373 43 29C43 35.627 37.627 41 31 41H25.5V49H18V17ZM25.5 33.5H30.5C33.261 33.5 35.5 31.261 35.5 28.5C35.5 25.739 33.261 23.5 30.5 23.5H25.5V33.5Z"
+    fill="#F8FBFF"
+  />
+  <path
+    d="M31 21L35.5 21L39.5 36.5L43 26.5L47.5 26.5L41 47H36.8L33.2 33.7L29.5 47H25.4L22 36.2L26.8 36.2L27.8 39.9L31 21Z"
+    fill="#8BD5FF"
+  />
+</svg>

@@ -84,7 +84,7 @@
 - [x] 产出 `apps/platform-web -> apps/platform-web-vue` 页面与功能对照矩阵
 - [x] 公告中心真实后端最小闭环已打通
   - `feed / read / read-all`
-  - 前端优先走真实接口，失败回退演示数据
+  - 前端优先走真实接口，失败回退本地公告数据
 - [x] 完成公告后台管理第一版闭环
   - `/workspace/announcements` 管理页已落地
   - 后端已补齐 `list / create / update / delete`

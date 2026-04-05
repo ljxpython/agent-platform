@@ -237,6 +237,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'login',
         name: 'auth-login',
         component: () => import('@/views/auth/LoginView.vue')
+      },
+      {
+        path: 'callback',
+        name: 'auth-callback',
+        component: () => import('@/views/auth/AuthCallbackView.vue')
       }
     ]
   },

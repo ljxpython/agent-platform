@@ -21,15 +21,15 @@ export const zhCN = {
   },
   brand: {
     title: 'Platform Workspace',
-    subtitle: '平台工作台'
+    subtitle: '当前正式工作台'
   },
   auth: {
     title: '欢迎进入平台工作台',
-    description: 'Phase 1 先搭建可运行基座，后续在此基础上逐步迁移所有平台能力。',
+    description: '统一平台工作台入口，承接项目治理、Agent 工作台与质量链路。',
     username: '用户名',
     password: '密码',
     login: '登录',
-    hint: '当前为迁移初期版本，登录已接入真实平台后端，后续继续补齐业务模块。'
+    hint: '使用平台账号登录后，可直接进入当前正式工作台。'
   },
   nav: {
     overview: '总览',
@@ -60,16 +60,16 @@ export const zhCN = {
     operator: '平台操作员',
     language: '语言',
     announcements: '公告',
-    announcementsEmptyTitle: '公告中心暂未接入',
-    announcementsEmptyDescription: '这一块前端壳层可以先落地，真实公告数据和已读状态还需要后端接口配合。',
+    announcementsEmptyTitle: '暂无公告',
+    announcementsEmptyDescription: '当前范围内还没有可展示的公告。',
     announcementsUnread: '当前有 {count} 条未读公告',
     announcementsMarked: '公告已全部标记已读',
-    announcementsMarkedDesc: '这轮演示数据的已读状态已写入本地存储。',
-    announcementsDemoHint: '当前为演示公告数据',
-    announcementsLiveHint: '当前为真实公告 feed',
+    announcementsMarkedDesc: '已读状态已同步更新。',
+    announcementsDemoHint: '当前为回退公告数据',
+    announcementsLiveHint: '当前为真实公告数据',
     markAllRead: '全部已读',
     noUnread: '当前没有未读公告',
-    moreSoon: '后续会继续把更多系统交互入口收敛到这里。'
+    moreSoon: '更多系统入口会继续统一收敛到这里。'
   },
   pagination: {
     previous: '上一页',
