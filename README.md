@@ -191,6 +191,14 @@ AITestLab/
 - `docs/development-guidelines.md`
 - `docs/project-story.md`
 
+### 我想做正式发版
+
+先看：
+
+- `docs/releases/release-policy.md`
+- `docs/releases/v0.1.0-agent-workspace-demo-draft.md`
+- `docs/releases/v0.1.0-release-runbook.md`
+
 <a id="ai-deploy"></a>
 
 ### 我想让 AI 代理帮我部署
