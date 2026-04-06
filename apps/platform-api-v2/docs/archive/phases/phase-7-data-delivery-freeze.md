@@ -53,7 +53,7 @@ Phase C 要完成五件事：
 ### P0 数据基线
 
 - [x] `SQLite` 继续保留为默认开发库
-- [x] `postgres-baseline.md` 明确了 PostgreSQL 切主路径
+- [x] `delivery/postgres-baseline.md` 明确了 PostgreSQL 切主路径
 - [x] `docker-compose.example.yml` 增加了 PostgreSQL profile 示例
 
 ### P1 队列与 worker
@@ -66,7 +66,7 @@ Phase C 要完成五件事：
 
 - [x] `backup_db.sh` 支持 `sqlite / postgres`
 - [x] `restore_db.sh` 支持 `sqlite / postgres`
-- [x] `release-template.md`、`runbook.md` 保持为正式模板入口
+- [x] `delivery/release-template.md`、`delivery/runbook.md` 保持为正式模板入口
 
 ### P3 环境分层冻结
 
@@ -90,8 +90,8 @@ Phase C 要完成五件事：
 - 交付物入口已经固定到：
   - `deploy/env/*.example.env`
   - `deploy/docker-compose.example.yml`
-  - `docs/runbook.md`
-  - `docs/release-template.md`
+  - `docs/delivery/runbook.md`
+  - `docs/delivery/release-template.md`
   - `scripts/backup_db.sh`
   - `scripts/restore_db.sh`
 

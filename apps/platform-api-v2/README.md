@@ -86,39 +86,16 @@ apps/platform-api-v2/
 
 优先阅读：
 
-1. `docs/architecture-v2.md`
-2. `docs/engineering-standards.md`
-3. `docs/permission-standard.md`
-4. `docs/audit-standard.md`
-5. `docs/operations-standard.md`
-6. `docs/harness-playbook.md`
-7. `docs/frontend-switch-strategy.md`
-8. `docs/phase-1-checklist.md`
-9. `docs/phase-2-checklist.md`
-10. `docs/phase-2-p1-runtime-workspace.md`
-11. `docs/phase-2-governance-baseline.md`
-12. `docs/phase-2-smoke-checklist.md`
-13. `docs/phase-2-completion.md`
-14. `docs/phase-2-release-draft.md`
-15. `docs/phase-3-checklist.md`
-16. `docs/phase-3-p0-operations-worker.md`
-17. `docs/phase-3-p1-runtime-policies.md`
-18. `docs/phase-3-p2-operations-center.md`
-19. `docs/phase-3-p4-platform-config.md`
-20. `docs/phase-3-completion.md`
-21. `docs/phase-3-chat-acceptance-checklist.md`
-22. `docs/phase-4-checklist.md`
-23. `docs/phase-4-p2-observability-and-security.md`
-24. `docs/phase-4-p4-delivery-and-release.md`
-25. `docs/phase-4-p5-harness-and-templates.md`
-26. `docs/phase-5-legacy-sunset-and-final-standard-freeze.md`
-27. `docs/phase-6-control-plane-freeze.md`
-28. `docs/phase-7-data-delivery-freeze.md`
-29. `docs/phase-8-final-standard-freeze.md`
-30. `docs/change-delivery-checklist.md`
-31. `docs/module-delivery-template.md`
-32. `docs/runbook.md`
-33. `docs/release-template.md`
+1. `docs/README.md`
+2. `docs/handbook/project-handbook.md`
+3. `docs/handbook/architecture.md`
+4. `docs/handbook/development-playbook.md`
+5. `docs/standards/permission-standard.md`
+6. `docs/standards/audit-standard.md`
+7. `docs/standards/operations-standard.md`
+8. `docs/delivery/change-delivery-checklist.md`
+9. `docs/delivery/module-delivery-template.md`
+10. `docs/delivery/runbook.md`
 
 ## 和旧平台后端的关系
 
@@ -144,10 +121,10 @@ apps/platform-api-v2/
 
 具体开发约束、Harness 思想和启动口径见：
 
-- `docs/engineering-standards.md`
-- `docs/harness-playbook.md`
-- `docs/phase-3-p0-operations-worker.md`
-- `docs/phase-3-completion.md`
+- `docs/handbook/project-handbook.md`
+- `docs/handbook/development-playbook.md`
+- `docs/archive/phases/phase-3-p0-operations-worker.md`
+- `docs/archive/phases/phase-3-completion.md`
 
 ## 一键启动
 

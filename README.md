@@ -55,7 +55,8 @@
 当前正式标准与模板入口：
 
 - `apps/platform-api-v2/docs/README.md`
-- `apps/platform-api-v2/docs/change-delivery-checklist.md`
+- `apps/platform-api-v2/docs/handbook/project-handbook.md`
+- `apps/platform-api-v2/docs/delivery/change-delivery-checklist.md`
 - `apps/platform-web-vue/docs/control-plane-page-standard.md`
 
 如果你是第一次跑这个仓库，建议先区分清楚两件事：
@@ -77,6 +78,7 @@
 平台控制面后端这部分，当前专用的落地蓝图与正式标准已经统一写入：
 
 - `apps/platform-api-v2/docs/README.md`
+- `apps/platform-api-v2/docs/handbook/project-handbook.md`
 
 一句话说，这个仓库已经不是“让 AI 随便写代码”，而是“让 AI 在明确边界、稳定契约和现成范式中持续完成开发”。
 

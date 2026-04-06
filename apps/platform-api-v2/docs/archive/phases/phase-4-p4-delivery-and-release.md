@@ -28,8 +28,8 @@
 
 ### 发布模板
 
-- `apps/platform-api-v2/docs/release-template.md`
-- `apps/platform-api-v2/docs/runbook.md`
+- `apps/platform-api-v2/docs/delivery/release-template.md`
+- `apps/platform-api-v2/docs/delivery/runbook.md`
 
 ## 2. 当前设计口径
 

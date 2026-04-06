@@ -44,13 +44,13 @@ Phase D 要完成五件事：
 
 ### P2 协作与验收冻结
 
-- [x] 新增 `change-delivery-checklist.md`
-- [x] `harness-playbook.md` 已补正式协作入口
+- [x] 新增 `delivery/change-delivery-checklist.md`
+- [x] `handbook/development-playbook.md` 已补正式协作入口
 - [x] 已明确“代码、测试、文档、验收、提交”五件套缺一不可
 
 ### P3 模板冻结
 
-- [x] 新增 `module-delivery-template.md`
+- [x] 新增 `delivery/module-delivery-template.md`
 - [x] 新增 `apps/platform-web-vue/docs/control-plane-page-standard.md`
 - [x] 后续新模块和新页面不再从旧实现里猜做法
 
@@ -97,9 +97,10 @@ bash "./scripts/dev-down.sh"
 2. `docs/local-deployment-contract.yaml`
 3. `docs/development-paradigm.md`
 4. `apps/platform-api-v2/docs/README.md`
-5. `apps/platform-api-v2/docs/change-delivery-checklist.md`
-6. `apps/platform-api-v2/docs/module-delivery-template.md`
-7. `apps/platform-web-vue/docs/control-plane-page-standard.md`
+5. `apps/platform-api-v2/docs/handbook/project-handbook.md`
+6. `apps/platform-api-v2/docs/delivery/change-delivery-checklist.md`
+7. `apps/platform-api-v2/docs/delivery/module-delivery-template.md`
+8. `apps/platform-web-vue/docs/control-plane-page-standard.md`
 
 ---
 

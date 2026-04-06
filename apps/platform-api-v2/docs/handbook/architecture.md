@@ -25,7 +25,27 @@
 
 ## 2. 服务边界
 
-### 2.1 上游与下游关系
+### 2.1 整体架构图
+
+```mermaid
+flowchart LR
+    Web[apps/platform-web-vue<br/>Agent Platform Console]
+    RuntimeWeb[apps/runtime-web<br/>Runtime 调试前端]
+    API[apps/platform-api-v2<br/>Control Plane API]
+    Runtime[apps/runtime-service<br/>Runtime Plane]
+    IDS[apps/interaction-data-service<br/>Result Domain]
+    DB[(SQLite / PostgreSQL)]
+    Queue[(db_polling / Redis Queue)]
+
+    Web --> API
+    RuntimeWeb --> Runtime
+    API --> Runtime
+    API --> IDS
+    API --> DB
+    API --> Queue
+```
+
+### 2.2 上游与下游关系
 
 ```text
 platform-web-vue
@@ -36,13 +56,13 @@ platform-web-vue
        -> future: redis / worker / notification adapters
 ```
 
-### 2.2 三条原则
+### 2.3 三条原则
 
 - `platform-api-v2` 只做 control plane
 - `runtime-service` 继续做 runtime plane
 - `interaction-data-service` 继续做结果域服务
 
-### 2.3 数据库策略
+### 2.4 数据库策略
 
 当前数据库策略直接定死：
 

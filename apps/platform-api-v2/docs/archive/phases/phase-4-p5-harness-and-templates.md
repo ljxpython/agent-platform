@@ -7,12 +7,12 @@
 优先阅读：
 
 1. `docs/README.md`
-2. `docs/engineering-standards.md`
-3. `docs/harness-playbook.md`
-4. `docs/permission-standard.md`
-5. `docs/audit-standard.md`
-6. `docs/operations-standard.md`
-7. `docs/phase-4-checklist.md`
+2. `docs/handbook/project-handbook.md`
+3. `docs/handbook/development-playbook.md`
+4. `docs/standards/permission-standard.md`
+5. `docs/standards/audit-standard.md`
+6. `docs/standards/operations-standard.md`
+7. `docs/archive/phases/phase-4-checklist.md`
 
 ## 2. 已沉淀出的固定范式
 

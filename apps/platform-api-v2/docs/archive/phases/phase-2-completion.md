@@ -41,7 +41,7 @@
 
 详见：
 
-- `postgres-baseline.md`
+- `delivery/postgres-baseline.md`
 - `phase-2-governance-baseline.md`
 
 ### 1.4 前端继续迁移与收口

@@ -85,7 +85,7 @@ phase-4 的目标不是再继续搭基础，而是把已经成型的控制面推
   - worker heartbeat
   - `/_system/probes/live`
   - `/_system/probes/ready`
-  - `docs/runbook.md`
+  - `docs/delivery/runbook.md`
 - `P3` 已补齐：
   - service account / API key 第一版
   - OIDC/SSO 边界快照
@@ -106,11 +106,11 @@ phase-4 的目标不是再继续搭基础，而是把已经成型的控制面推
   - `scripts/backup_db.sh`
   - `scripts/restore_db.sh`
   - `.github/workflows/ci.yml`
-  - `docs/release-template.md`
+  - `docs/delivery/release-template.md`
 - `P5` 已补齐：
   - `docs/README.md` 开发者入口
-  - `docs/phase-4-p5-harness-and-templates.md`
-  - `docs/harness-playbook.md`
+  - `docs/archive/phases/phase-4-p5-harness-and-templates.md`
+  - `docs/handbook/development-playbook.md`
   - 前端 `platform-config` 正式治理展示
 
 ## 当前建议执行顺序

@@ -295,6 +295,7 @@ graph = make_graph
 - `docs/development-guidelines.md`
 - `docs/project-story.md`
 - `apps/platform-api-v2/docs/README.md`
+- `apps/platform-api-v2/docs/handbook/project-handbook.md`
 - `apps/platform-web/README.md`
 - `apps/runtime-web/README.md`
 - `apps/runtime-service/runtime_service/docs/README.md`
