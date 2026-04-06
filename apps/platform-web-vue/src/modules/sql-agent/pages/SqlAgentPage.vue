@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { computed, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import EmptyState from '@/components/platform/EmptyState.vue'
-import { useWorkspaceStore } from '@/stores/workspace'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
 import BaseChatTemplate from '@/modules/chat/components/BaseChatTemplate.vue'
 import { resolveChatTarget } from '@/modules/chat/types'
 
 const route = useRoute()
-const workspaceStore = useWorkspaceStore()
-const activeProjectId = computed(() => workspaceStore.runtimeScopedProjectId)
-const activeProject = computed(() => workspaceStore.runtimeScopedProject)
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 
 const sqlAgentTarget = computed(() =>
   resolveChatTarget({

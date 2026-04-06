@@ -1,29 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch, watchEffect } from 'vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import TestcaseOverviewStrip from '@/components/platform/TestcaseOverviewStrip.vue'
 import TestcaseWorkspaceNav from '@/components/platform/TestcaseWorkspaceNav.vue'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { getTestcaseOverview } from '@/services/testcase/testcase.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { TestcaseOverview } from '@/types/management'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
 import BaseChatTemplate from '@/modules/chat/components/BaseChatTemplate.vue'
 import { resolveChatTarget } from '@/modules/chat/types'
 
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 
 const overview = ref<TestcaseOverview | null>(null)
 const loading = ref(false)
 const error = ref('')
-const testcaseUseRuntimeApi = computed(() => resolvePlatformClientScope('testcase') === 'v2')
-const activeProjectId = computed(() =>
-  testcaseUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
-const activeProject = computed(() =>
-  testcaseUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
 
 const testcaseTarget = computed(() =>
   resolveChatTarget({
@@ -51,10 +43,7 @@ async function loadOverview(projectId: string) {
   error.value = ''
 
   try {
-    overview.value = await getTestcaseOverview(
-      projectId,
-      testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
+    overview.value = await getTestcaseOverview(projectId)
   } catch (loadError) {
     overview.value = null
     error.value = loadError instanceof Error ? loadError.message : 'Testcase 概览加载失败'
@@ -106,7 +95,7 @@ watch(
       :display="{
         title: 'Testcase · AI 对话生成',
         description:
-          '这里已经不再是占位页，而是固定绑定 `test_case_agent` 的正式生成工作台。上传 PDF 后可以直接发起解析、提炼和用例生成对话。',
+          '这里固定绑定 `test_case_agent`，用于发起文档解析、提炼和测试用例生成对话。',
         emptyTitle: '上传 PDF 开始生成',
         emptyDescription:
           '推荐使用真实需求文档。第一条消息发出时会自动创建 testcase 生成线程，后续历史和运行记录都会沉淀在当前项目里。'

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import GuidePanel from '@/components/platform/GuidePanel.vue'
@@ -50,6 +51,8 @@ const error = ref('')
 const notice = ref('')
 const snapshot = ref<PlatformConfigSnapshot | null>(null)
 const editableFlags = ref<Record<string, boolean>>({})
+const authorization = useAuthorization()
+const canWritePlatformConfig = computed(() => authorization.can('platform.config.write'))
 
 const stats = computed(() => {
   const current = snapshot.value
@@ -162,6 +165,10 @@ async function loadSnapshot() {
 }
 
 async function saveFlags() {
+  if (!canWritePlatformConfig.value) {
+    error.value = '当前账号没有平台配置写权限'
+    return
+  }
   saving.value = true
   error.value = ''
   notice.value = ''
@@ -204,16 +211,16 @@ onMounted(() => {
         </BaseButton>
         <BaseButton
           variant="secondary"
-          :disabled="saving || !hasPendingChanges"
+          :disabled="saving || !hasPendingChanges || !canWritePlatformConfig"
           @click="resetFlags"
         >
           还原变更
         </BaseButton>
         <BaseButton
-          :disabled="saving || !hasPendingChanges"
+          :disabled="saving || !hasPendingChanges || !canWritePlatformConfig"
           @click="saveFlags"
         >
-          {{ saving ? '保存中...' : '保存开关' }}
+          {{ canWritePlatformConfig ? (saving ? '保存中...' : '保存开关') : '当前账号只读' }}
         </BaseButton>
       </template>
     </PageHeader>
@@ -778,6 +785,7 @@ onMounted(() => {
                 :class="flag.value
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200'
                   : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-300'"
+                :disabled="!canWritePlatformConfig"
                 @click="toggleFlag(flag.key)"
               >
                 {{ flag.value ? 'enabled' : 'disabled' }}

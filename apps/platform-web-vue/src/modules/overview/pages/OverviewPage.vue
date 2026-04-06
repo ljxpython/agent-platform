@@ -11,7 +11,6 @@ import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import { listAssistantsPage } from '@/services/assistants/assistants.service'
 import { listAudit } from '@/services/audit/audit.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { listProjectsPage } from '@/services/projects/projects.service'
 import { listUsersPage } from '@/services/users/users.service'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -30,16 +29,8 @@ const recentProjects = ref<ManagementProject[]>([])
 const recentAuditRows = ref<ManagementAuditRow[]>([])
 const currentProjectAssistants = ref<ManagementAssistant[]>([])
 
-const projectsUseRuntimeApi = computed(() => resolvePlatformClientScope('projects') === 'v2')
-const usersUseRuntimeApi = computed(() => resolvePlatformClientScope('users') === 'v2')
-const auditUseRuntimeApi = computed(() => resolvePlatformClientScope('audit') === 'v2')
-const assistantsUseRuntimeApi = computed(() => resolvePlatformClientScope('assistants') === 'v2')
-const currentProject = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
-const assistantProject = computed(() =>
-  assistantsUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
+const currentProject = computed(() => workspaceStore.currentProject)
+const assistantProject = computed(() => workspaceStore.currentProject)
 const stats = computed(() => [
   {
     label: '项目总量',
@@ -51,7 +42,7 @@ const stats = computed(() => [
   {
     label: '成员总量',
     value: userTotal.value,
-    hint: usersUseRuntimeApi.value ? '当前来自 v2 用户目录' : '当前仍来自 legacy 用户列表接口',
+    hint: '当前来自正式控制面的用户目录',
     icon: 'users',
     tone: 'success'
   },
@@ -67,7 +58,7 @@ const stats = computed(() => [
   {
     label: '审计记录',
     value: auditTotal.value,
-    hint: auditUseRuntimeApi.value ? '优先展示 v2 控制面的最近操作轨迹' : '优先展示最近的管理端操作轨迹',
+    hint: '优先展示正式控制面的最近操作轨迹',
     icon: 'activity',
     tone: 'danger'
   }
@@ -86,15 +77,11 @@ function getAuditTone(statusCode: number): 'success' | 'warning' | 'danger' {
 }
 
 async function ensureOverviewRuntimeContext() {
-  if (!projectsUseRuntimeApi.value && !auditUseRuntimeApi.value && !assistantsUseRuntimeApi.value) {
+  if (workspaceStore.projects.length > 0) {
     return
   }
 
-  if (workspaceStore.runtimeProjects.length > 0) {
-    return
-  }
-
-  await workspaceStore.hydrateRuntimeContext()
+  await workspaceStore.hydrateContext()
 }
 
 async function loadOverview() {
@@ -102,29 +89,14 @@ async function loadOverview() {
   error.value = ''
 
   await ensureOverviewRuntimeContext()
-  const auditProjectId = auditUseRuntimeApi.value
-    ? workspaceStore.runtimeProjectId
-    : workspaceStore.currentProjectId
-  const assistantProjectId = assistantsUseRuntimeApi.value
-    ? workspaceStore.runtimeProjectId
-    : workspaceStore.currentProjectId
+  const auditProjectId = workspaceStore.currentProjectId
+  const assistantProjectId = workspaceStore.currentProjectId
   const results = await Promise.allSettled([
-    listProjectsPage(
-      { limit: 6, offset: 0 },
-      projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    ),
-    listUsersPage({ limit: 6, offset: 0 }, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined),
-    listAudit(
-      auditProjectId || null,
-      { limit: 6, offset: 0 },
-      auditUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    ),
+    listProjectsPage({ limit: 6, offset: 0 }),
+    listUsersPage({ limit: 6, offset: 0 }),
+    listAudit(auditProjectId || null, { limit: 6, offset: 0 }),
     assistantProjectId
-      ? listAssistantsPage(
-          assistantProjectId,
-          { limit: 6, offset: 0 },
-          assistantsUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-        )
+      ? listAssistantsPage(assistantProjectId, { limit: 6, offset: 0 })
       : Promise.resolve({ items: [], total: 0 })
   ])
 
@@ -173,14 +145,7 @@ async function loadOverview() {
 }
 
 watch(
-  () => [
-    workspaceStore.currentProjectId,
-    workspaceStore.runtimeProjectId,
-    projectsUseRuntimeApi.value,
-    usersUseRuntimeApi.value,
-    auditUseRuntimeApi.value,
-    assistantsUseRuntimeApi.value
-  ],
+  () => workspaceStore.currentProjectId,
   () => {
     void loadOverview()
   },
@@ -193,7 +158,7 @@ watch(
     <PageHeader
       eyebrow="Overview"
       title="Agent Platform Console 总览"
-      description="先把当前工作台的项目、成员、助手和最近操作压缩成一个真正能汇报的概览面板，而不是空壳页面。"
+      description="把当前工作台的项目、成员、助手和最近操作压缩成一张可直接汇报的概览面板。"
     >
       <template #actions>
         <BaseButton
@@ -219,7 +184,7 @@ watch(
     <GuidePanel
       guide-id="overview-demo-path"
       title="建议演示路径"
-      description="如果你要快速演示当前迁移成果，优先按这个顺序走：1. 选项目 2. 打开 SQL Agent 或 Chat 3. 查看 Testcase 生成 / 文档链路 4. 回到 Resources 看沉淀的 UI 模板。"
+      description="如果你要快速演示当前成果，优先按这个顺序走：1. 选项目 2. 打开 SQL Agent 或 Chat 3. 查看 Testcase 生成 / 文档链路 4. 回到 Resources 看沉淀的 UI 模板。"
       tone="success"
     >
       <template #actions>
@@ -281,7 +246,7 @@ watch(
         <p class="text-sm leading-7 text-gray-500 dark:text-dark-300">
           {{
             currentProject?.description ||
-              '这里展示的是当前控制面项目上下文；当 projects / audit / assistants 切到 v2 后，总览会直接复用 runtime 项目上下文。'
+              '这里展示的是当前工作区项目上下文，后续治理页和工作台页面都会沿用这套统一项目口径。'
           }}
         </p>
 
@@ -333,7 +298,7 @@ watch(
                   size="sm"
                   class="text-primary-500"
                 />
-                {{ assistantsUseRuntimeApi ? '当前助手上下文' : '当前项目助手' }}
+                当前项目助手
               </div>
               <StatusPill :tone="assistantProject ? 'info' : 'neutral'">
                 {{ assistantProject?.name || '未选择' }}

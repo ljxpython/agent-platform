@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import { findAssistantByTargetId } from '@/services/assistants/assistants.service'
 import { getGraphCatalogItem } from '@/services/graphs/graphs.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 import {
   clearRecentChatTarget,
   hasChatTargetDisplayName,
@@ -20,9 +20,7 @@ import { resolveChatTarget } from '../types'
 
 const route = useRoute()
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
-const activeProjectId = computed(() => workspaceStore.runtimeScopedProjectId)
-const activeProject = computed(() => workspaceStore.runtimeScopedProject)
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 
 const explicitTarget = computed(() =>
   normalizeChatTarget({
@@ -91,7 +89,7 @@ watch(
     try {
       if (target.targetType === 'graph') {
         const graphId = target.graphId?.trim() || target.assistantId?.trim() || ''
-        const graph = await getGraphCatalogItem(projectId, graphId, { mode: 'runtime' })
+        const graph = await getGraphCatalogItem(projectId, graphId)
         if (!cancelled && graph) {
           hydratedTargetPreference.value = mergeChatTargets(
             {
@@ -105,7 +103,7 @@ watch(
       }
 
       const assistantId = target.assistantId?.trim() || ''
-      const assistant = await findAssistantByTargetId(projectId, assistantId, { mode: 'runtime' })
+      const assistant = await findAssistantByTargetId(projectId, assistantId)
       if (!cancelled && assistant) {
         hydratedTargetPreference.value = mergeChatTargets(
           {

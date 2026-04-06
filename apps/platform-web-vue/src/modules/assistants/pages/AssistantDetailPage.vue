@@ -5,6 +5,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -14,12 +15,10 @@ import {
   deleteAssistant,
   getAssistant,
   getAssistantParameterSchema,
-  resyncAssistant,
   resyncAssistantByOperation,
   updateAssistant
 } from '@/services/assistants/assistants.service'
 import { getOperationFailureMessage } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant } from '@/types/management'
@@ -47,7 +46,9 @@ const route = useRoute()
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const canManageAssistant = computed(() => authorization.currentProjectCan('project.assistant.write'))
 
 const assistantId = computed(() =>
   typeof route.params.assistantId === 'string' ? route.params.assistantId.trim() : ''
@@ -226,7 +227,7 @@ async function loadAssistantDetail() {
   notice.value = ''
 
   try {
-    const payload = await getAssistant(assistantId.value, projectId, { mode: 'runtime' })
+    const payload = await getAssistant(assistantId.value, projectId)
     fillForm(payload)
   } catch (loadError) {
     item.value = null
@@ -248,7 +249,7 @@ async function loadSchema() {
   schemaLoading.value = true
 
   try {
-    schema.value = (await getAssistantParameterSchema(graphId, projectId, { mode: 'runtime' })) as ParameterSchemaResponse
+    schema.value = (await getAssistantParameterSchema(graphId, projectId)) as ParameterSchemaResponse
   } catch {
     schema.value = null
   } finally {
@@ -259,6 +260,10 @@ async function loadSchema() {
 async function handleSave() {
   const projectId = workspaceStore.runtimeScopedProjectId
   if (!projectId || !assistantId.value) {
+    return
+  }
+  if (!canManageAssistant.value) {
+    error.value = '当前账号没有助手治理写权限'
     return
   }
 
@@ -278,8 +283,7 @@ async function handleSave() {
         context: parseObjectJson(editContext.value, 'context'),
         metadata: parseObjectJson(editMetadata.value, 'metadata')
       },
-      projectId,
-      { mode: 'runtime' }
+      projectId
     )
 
     fillForm(updated)
@@ -296,24 +300,23 @@ async function handleResync() {
   if (!projectId || !assistantId.value) {
     return
   }
+  if (!canManageAssistant.value) {
+    error.value = '当前账号没有助手治理写权限'
+    return
+  }
 
   resyncing.value = true
   error.value = ''
   notice.value = ''
 
   try {
-    if (resolvePlatformClientScope('operations') === 'v2') {
-      const operation = await resyncAssistantByOperation(assistantId.value, projectId, {
-        idempotencyKey: `assistant-resync:${assistantId.value}`
-      })
-      if (operation.status !== 'succeeded') {
-        throw new Error(getOperationFailureMessage(operation))
-      }
-      await loadAssistantDetail()
-    } else {
-      const updated = await resyncAssistant(assistantId.value, projectId, { mode: 'runtime' })
-      fillForm(updated)
+    const operation = await resyncAssistantByOperation(assistantId.value, projectId, {
+      idempotencyKey: `assistant-resync:${assistantId.value}`
+    })
+    if (operation.status !== 'succeeded') {
+      throw new Error(getOperationFailureMessage(operation))
     }
+    await loadAssistantDetail()
     notice.value = '助手已完成上游重同步'
   } catch (resyncError) {
     error.value = resyncError instanceof Error ? resyncError.message : '助手重同步失败'
@@ -323,7 +326,7 @@ async function handleResync() {
 }
 
 function openDeleteDialog() {
-  if (!item.value) {
+  if (!item.value || !canManageAssistant.value) {
     return
   }
 
@@ -353,8 +356,7 @@ async function confirmDelete() {
         deleteRuntime: true,
         deleteThreads: false
       },
-      projectId,
-      { mode: 'runtime' }
+      projectId
     )
 
     uiStore.pushToast({
@@ -449,14 +451,14 @@ watch([configPropertyDefs, editConfig], () => {
         </BaseButton>
         <BaseButton
           variant="danger"
-          :disabled="!item || deleting"
+          :disabled="!item || deleting || !canManageAssistant"
           @click="openDeleteDialog"
         >
           <BaseIcon
             name="alert"
             size="sm"
           />
-          {{ deleting ? '删除中...' : '删除助手' }}
+          {{ canManageAssistant ? (deleting ? '删除中...' : '删除助手') : '当前账号只读' }}
         </BaseButton>
       </template>
     </PageHeader>
@@ -519,16 +521,16 @@ watch([configPropertyDefs, editConfig], () => {
             <div class="flex flex-wrap gap-2">
               <BaseButton
                 variant="secondary"
-                :disabled="resyncing || !item"
+                :disabled="resyncing || !item || !canManageAssistant"
                 @click="handleResync"
               >
-                {{ resyncing ? '同步中...' : '上游重同步' }}
+                {{ canManageAssistant ? (resyncing ? '同步中...' : '上游重同步') : '当前账号只读' }}
               </BaseButton>
               <BaseButton
-                :disabled="saving || !item"
+                :disabled="saving || !item || !canManageAssistant"
                 @click="handleSave"
               >
-                {{ saving ? '保存中...' : '保存' }}
+                {{ canManageAssistant ? (saving ? '保存中...' : '保存') : '当前账号只读' }}
               </BaseButton>
             </div>
           </div>

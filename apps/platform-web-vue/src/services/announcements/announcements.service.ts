@@ -11,15 +11,8 @@ type AnnouncementListResponse = {
   total: number
 }
 
-export type AnnouncementServiceMode = 'legacy' | 'runtime'
-
-export type AnnouncementServiceOptions = {
-  mode?: AnnouncementServiceMode
-}
-
 export async function listAnnouncementsFeed(
-  projectId?: string,
-  _requestOptions?: AnnouncementServiceOptions
+  projectId?: string
 ): Promise<AnnouncementsFeedResponse> {
   const response = await platformV2HttpClient.get('/api/announcements/feed', {
     params: {
@@ -31,8 +24,7 @@ export async function listAnnouncementsFeed(
 }
 
 export async function markAnnouncementRead(
-  announcementId: string,
-  _requestOptions?: AnnouncementServiceOptions
+  announcementId: string
 ): Promise<{
   ok: boolean
   read_at: string
@@ -42,8 +34,7 @@ export async function markAnnouncementRead(
 }
 
 export async function markAllAnnouncementsRead(
-  projectId?: string,
-  _requestOptions?: AnnouncementServiceOptions
+  projectId?: string
 ): Promise<{
   ok: boolean
   count: number
@@ -63,7 +54,7 @@ export async function listAnnouncements(options?: {
   status?: string
   projectId?: string
   scopeType?: string
-}, _requestOptions?: AnnouncementServiceOptions): Promise<AnnouncementListResponse> {
+}): Promise<AnnouncementListResponse> {
   const response = await platformV2HttpClient.get('/api/announcements', {
     params: {
       limit: options?.limit ?? 50,
@@ -88,7 +79,7 @@ export async function createAnnouncement(payload: {
   status: 'draft' | 'published' | 'archived'
   publish_at?: string | null
   expire_at?: string | null
-}, _requestOptions?: AnnouncementServiceOptions): Promise<ManagementAnnouncement> {
+}): Promise<ManagementAnnouncement> {
   const response = await platformV2HttpClient.post('/api/announcements', payload)
   return response.data as ManagementAnnouncement
 }
@@ -105,16 +96,14 @@ export async function updateAnnouncement(
     status?: 'draft' | 'published' | 'archived'
     publish_at?: string | null
     expire_at?: string | null
-  },
-  _requestOptions?: AnnouncementServiceOptions
+  }
 ): Promise<ManagementAnnouncement> {
   const response = await platformV2HttpClient.patch(`/api/announcements/${announcementId}`, payload)
   return response.data as ManagementAnnouncement
 }
 
 export async function deleteAnnouncement(
-  announcementId: string,
-  _requestOptions?: AnnouncementServiceOptions
+  announcementId: string
 ): Promise<{ ok: boolean }> {
   const response = await platformV2HttpClient.delete(`/api/announcements/${announcementId}`)
   return response.data as { ok: boolean }

@@ -6,6 +6,7 @@ import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -43,6 +44,7 @@ import { resolvePlatformHttpErrorMessage } from '@/utils/http-error'
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 const pagination = usePagination({
   initialPageSize: 20,
   storageKey: 'pw:operations:page-size'
@@ -75,6 +77,15 @@ const selectedOperation = ref<ManagementOperation | null>(null)
 
 const activeProjectId = computed(() => workspaceStore.runtimeProjectId)
 const currentProject = computed(() => workspaceStore.runtimeProject)
+const canReadGlobalOperations = computed(() => authorization.can('platform.operation.read'))
+const canReadProjectOperations = computed(() =>
+  authorization.can('project.operation.read', activeProjectId.value)
+)
+const canMutateCurrentScope = computed(() =>
+  scope.value === 'global'
+    ? authorization.can('platform.operation.write')
+    : authorization.can('project.operation.write', activeProjectId.value)
+)
 
 const runningCount = computed(() =>
   items.value.filter((item) => item.status === 'submitted' || item.status === 'running').length
@@ -188,6 +199,12 @@ function statusTone(statusValue: OperationStatus): 'neutral' | 'success' | 'warn
 
 function operationFromRow(row: Record<string, unknown>) {
   return row as ManagementOperation
+}
+
+function canMutateOperation(operation: ManagementOperation): boolean {
+  return operation.project_id
+    ? authorization.can('project.operation.write', operation.project_id)
+    : authorization.can('platform.operation.write')
 }
 
 function formatJson(value: Record<string, unknown> | null | undefined) {
@@ -370,6 +387,10 @@ function closeOperationDetail() {
 }
 
 async function handleCancel(operation: ManagementOperation) {
+  if (!canMutateOperation(operation)) {
+    error.value = '当前账号没有修改该操作的权限'
+    return
+  }
   cancellingId.value = operation.id
   error.value = ''
   notice.value = ''
@@ -397,6 +418,10 @@ async function handleBulkCancel() {
   if (!selectedRunningOperationIds.value.length) {
     return
   }
+  if (!canMutateCurrentScope.value) {
+    error.value = '当前账号没有批量修改操作的权限'
+    return
+  }
   bulkPending.value = true
   error.value = ''
   try {
@@ -415,6 +440,10 @@ async function handleBulkArchive() {
   if (!selectedTerminalOperationIds.value.length) {
     return
   }
+  if (!canMutateCurrentScope.value) {
+    error.value = '当前账号没有批量修改操作的权限'
+    return
+  }
   bulkPending.value = true
   error.value = ''
   try {
@@ -431,6 +460,10 @@ async function handleBulkArchive() {
 
 async function handleBulkRestore() {
   if (!selectedArchivedOperationIds.value.length) {
+    return
+  }
+  if (!canMutateCurrentScope.value) {
+    error.value = '当前账号没有批量修改操作的权限'
     return
   }
   bulkPending.value = true
@@ -470,6 +503,10 @@ async function handleDownloadArtifact(operation: ManagementOperation) {
 }
 
 async function handleCleanupExpiredArtifacts() {
+  if (!authorization.can('platform.operation.write')) {
+    error.value = '当前账号没有清理操作产物的权限'
+    return
+  }
   cleanupPending.value = true
   error.value = ''
   notice.value = ''
@@ -493,6 +530,10 @@ async function handleCleanupExpiredArtifacts() {
 }
 
 async function handleSingleArchive(operation: ManagementOperation) {
+  if (!canMutateOperation(operation)) {
+    error.value = '当前账号没有修改该操作的权限'
+    return
+  }
   bulkPending.value = true
   error.value = ''
   try {
@@ -510,6 +551,10 @@ async function handleSingleArchive(operation: ManagementOperation) {
 }
 
 async function handleSingleRestore(operation: ManagementOperation) {
+  if (!canMutateOperation(operation)) {
+    error.value = '当前账号没有修改该操作的权限'
+    return
+  }
   bulkPending.value = true
   error.value = ''
   try {
@@ -557,7 +602,7 @@ function operationActions(operation: ManagementOperation): ActionMenuItem[] {
       key: 'restore',
       label: '恢复归档',
       icon: 'refresh',
-      disabled: bulkPending.value,
+      disabled: bulkPending.value || !canMutateOperation(operation),
       onSelect: () => void handleSingleRestore(operation)
     })
   } else if (isTerminal(operation.status)) {
@@ -565,7 +610,7 @@ function operationActions(operation: ManagementOperation): ActionMenuItem[] {
       key: 'archive',
       label: '归档',
       icon: 'archive',
-      disabled: bulkPending.value,
+      disabled: bulkPending.value || !canMutateOperation(operation),
       onSelect: () => void handleSingleArchive(operation)
     })
   }
@@ -584,7 +629,7 @@ function operationActions(operation: ManagementOperation): ActionMenuItem[] {
       key: 'cancel',
       label: cancellingId.value === operation.id ? '取消中...' : '取消操作',
       icon: 'x',
-      disabled: cancellingId.value === operation.id,
+      disabled: cancellingId.value === operation.id || !canMutateOperation(operation),
       onSelect: () => void handleCancel(operation)
     })
   }
@@ -608,7 +653,7 @@ const bulkActions = computed<BulkActionItem[]>(() => [
     label: '批量取消',
     icon: 'x',
     variant: 'danger',
-    disabled: bulkPending.value || selectedRunningOperationIds.value.length === 0,
+    disabled: bulkPending.value || selectedRunningOperationIds.value.length === 0 || !canMutateCurrentScope.value,
     onSelect: handleBulkCancel
   },
   {
@@ -616,7 +661,7 @@ const bulkActions = computed<BulkActionItem[]>(() => [
     label: '批量归档',
     icon: 'archive',
     variant: 'secondary',
-    disabled: bulkPending.value || selectedTerminalOperationIds.value.length === 0,
+    disabled: bulkPending.value || selectedTerminalOperationIds.value.length === 0 || !canMutateCurrentScope.value,
     onSelect: handleBulkArchive
   },
   {
@@ -624,7 +669,7 @@ const bulkActions = computed<BulkActionItem[]>(() => [
     label: '恢复归档',
     icon: 'refresh',
     variant: 'secondary',
-    disabled: bulkPending.value || selectedArchivedOperationIds.value.length === 0,
+    disabled: bulkPending.value || selectedArchivedOperationIds.value.length === 0 || !canMutateCurrentScope.value,
     onSelect: handleBulkRestore
   }
 ])
@@ -773,7 +818,7 @@ watch(scope, (nextScope, previousScope) => {
 })
 
 onMounted(() => {
-  if (!activeProjectId.value) {
+  if (!activeProjectId.value || !canReadProjectOperations.value) {
     scope.value = 'global'
   }
   restartLiveUpdates()
@@ -796,14 +841,14 @@ onBeforeUnmount(() => {
       <template #actions>
         <BaseButton
           variant="secondary"
-          :disabled="cleanupPending"
+          :disabled="cleanupPending || !authorization.can('platform.operation.write')"
           @click="handleCleanupExpiredArtifacts"
         >
           <BaseIcon
             name="archive"
             size="sm"
           />
-          {{ cleanupPending ? '清理中...' : '清理过期产物' }}
+          {{ authorization.can('platform.operation.write') ? (cleanupPending ? '清理中...' : '清理过期产物') : '无清理权限' }}
         </BaseButton>
         <div
           class="mr-2 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold"
@@ -869,12 +914,15 @@ onBeforeUnmount(() => {
           <div class="grid gap-4 xl:grid-cols-[180px_minmax(0,1fr)_180px_180px_auto_auto]">
             <BaseSelect v-model="scope">
               <option
-                v-if="activeProjectId"
+                v-if="activeProjectId && canReadProjectOperations"
                 value="project"
               >
                 当前项目
               </option>
-              <option value="global">
+              <option
+                v-if="canReadGlobalOperations"
+                value="global"
+              >
                 全局
               </option>
             </BaseSelect>
@@ -1104,7 +1152,7 @@ onBeforeUnmount(() => {
               <BaseButton
                 v-if="!isTerminal(selectedOperation.status)"
                 variant="danger"
-                :disabled="cancellingId === selectedOperation.id"
+                :disabled="cancellingId === selectedOperation.id || !canMutateOperation(selectedOperation)"
                 @click="handleCancel(selectedOperation)"
               >
                 <BaseIcon

@@ -7,6 +7,7 @@ import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -22,6 +23,7 @@ import {
   revokeServiceAccountToken,
   updateServiceAccount
 } from '@/services/system/service-accounts.service'
+import { formatPlatformRoleLabel } from '@/services/auth/permissions'
 import { getPlatformConfigSnapshot } from '@/services/system/platform-config.service'
 import { useUiStore } from '@/stores/ui'
 import type { ManagementServiceAccount, ManagementServiceAccountToken } from '@/types/management'
@@ -37,6 +39,7 @@ type RevokeTokenTarget = {
 }
 
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 const loading = ref(false)
 const submitting = ref(false)
 const savingAccount = ref(false)
@@ -68,6 +71,7 @@ const pagination = usePagination({
   initialPageSize: 10,
   storageKey: 'pw:service-accounts:page-size'
 })
+const canManageServiceAccounts = computed(() => authorization.can('platform.service_account.write'))
 
 const createForm = ref({
   name: '',
@@ -86,9 +90,9 @@ const tokenForm = ref({
 })
 
 const roleOptions = [
-  { value: 'platform_viewer', label: 'platform_viewer' },
-  { value: 'platform_operator', label: 'platform_operator' },
-  { value: 'platform_super_admin', label: 'platform_super_admin' }
+  { value: 'platform_viewer', label: formatPlatformRoleLabel('platform_viewer') },
+  { value: 'platform_operator', label: formatPlatformRoleLabel('platform_operator') },
+  { value: 'platform_super_admin', label: formatPlatformRoleLabel('platform_super_admin') }
 ]
 
 const statusOptions = [
@@ -231,11 +235,17 @@ function resetCreateForm() {
 }
 
 function openCreateDialog() {
+  if (!canManageServiceAccounts.value) {
+    return
+  }
   resetCreateForm()
   createDialogOpen.value = true
 }
 
 function openEditDialog(account: ManagementServiceAccount) {
+  if (!canManageServiceAccounts.value) {
+    return
+  }
   selectedAccount.value = account
   editForm.value = {
     description: account.description || '',
@@ -251,6 +261,10 @@ function openAccountDetail(account: ManagementServiceAccount) {
 }
 
 async function submitCreateForm() {
+  if (!canManageServiceAccounts.value) {
+    error.value = '当前账号没有 service account 写权限'
+    return
+  }
   submitting.value = true
   error.value = ''
   notice.value = ''
@@ -273,6 +287,10 @@ async function submitCreateForm() {
 
 async function submitEditForm() {
   if (!selectedAccount.value) {
+    return
+  }
+  if (!canManageServiceAccounts.value) {
+    error.value = '当前账号没有 service account 写权限'
     return
   }
 
@@ -301,6 +319,10 @@ async function submitEditForm() {
 }
 
 async function toggleAccountStatus(account: ManagementServiceAccount) {
+  if (!canManageServiceAccounts.value) {
+    error.value = '当前账号没有 service account 写权限'
+    return
+  }
   error.value = ''
   notice.value = ''
 
@@ -324,6 +346,9 @@ async function toggleAccountStatus(account: ManagementServiceAccount) {
 }
 
 function openTokenDialog(account: ManagementServiceAccount) {
+  if (!canManageServiceAccounts.value) {
+    return
+  }
   selectedAccount.value = account
   tokenForm.value = {
     name: '',
@@ -335,6 +360,10 @@ function openTokenDialog(account: ManagementServiceAccount) {
 
 async function submitTokenForm() {
   if (!selectedAccount.value) {
+    return
+  }
+  if (!canManageServiceAccounts.value) {
+    error.value = '当前账号没有 service account 写权限'
     return
   }
 
@@ -358,6 +387,9 @@ async function submitTokenForm() {
 }
 
 function requestRevokeToken(account: ManagementServiceAccount, token: ManagementServiceAccountToken) {
+  if (!canManageServiceAccounts.value) {
+    return
+  }
   pendingRevokeTarget.value = {
     accountId: account.id,
     accountName: account.name,
@@ -370,6 +402,10 @@ function requestRevokeToken(account: ManagementServiceAccount, token: Management
 async function confirmRevokeToken() {
   const target = pendingRevokeTarget.value
   if (!target) {
+    return
+  }
+  if (!canManageServiceAccounts.value) {
+    error.value = '当前账号没有 service account 写权限'
     return
   }
 
@@ -426,12 +462,15 @@ onMounted(() => {
           />
           刷新
         </BaseButton>
-        <BaseButton @click="openCreateDialog">
+        <BaseButton
+          :disabled="!canManageServiceAccounts"
+          @click="openCreateDialog"
+        >
           <BaseIcon
             name="users"
             size="sm"
           />
-          新建账号
+          {{ canManageServiceAccounts ? '新建账号' : '当前账号只读' }}
         </BaseButton>
       </template>
     </PageHeader>
@@ -485,7 +524,7 @@ onMounted(() => {
           Default TTL
         </div>
         <div class="text-sm font-semibold text-gray-900 dark:text-white">
-          {{ summary.default_token_ttl_days }} days
+          {{ summary.default_token_ttl_days }} 天
         </div>
       </SurfaceCard>
       <SurfaceCard class="space-y-2">
@@ -566,13 +605,13 @@ onMounted(() => {
                 :key="role"
                 class="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-950/30 dark:text-primary-200"
               >
-                {{ role }}
+                {{ formatPlatformRoleLabel(role) }}
               </span>
             </div>
             <div class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500 dark:text-dark-300">
               <span>ID {{ shortId(account.id) }}</span>
-              <span>created {{ formatDateTime(account.created_at) }}</span>
-              <span>last used {{ formatDateTime(account.last_used_at) }}</span>
+              <span>创建于 {{ formatDateTime(account.created_at) }}</span>
+              <span>最近使用 {{ formatDateTime(account.last_used_at) }}</span>
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -584,18 +623,21 @@ onMounted(() => {
             </BaseButton>
             <BaseButton
               variant="secondary"
+              :disabled="!canManageServiceAccounts"
               @click="openEditDialog(account)"
             >
               编辑
             </BaseButton>
             <BaseButton
               variant="secondary"
+              :disabled="!canManageServiceAccounts"
               @click="openTokenDialog(account)"
             >
               发 Token
             </BaseButton>
             <BaseButton
               variant="secondary"
+              :disabled="!canManageServiceAccounts"
               @click="toggleAccountStatus(account)"
             >
               {{ account.status === 'active' ? '停用' : '启用' }}
@@ -646,7 +688,7 @@ onMounted(() => {
                 </div>
                 <BaseButton
                   variant="secondary"
-                  :disabled="token.status !== 'active'"
+                  :disabled="token.status !== 'active' || !canManageServiceAccounts"
                   @click="requestRevokeToken(account, token)"
                 >
                   撤销
@@ -706,7 +748,7 @@ onMounted(() => {
             取消
           </BaseButton>
           <BaseButton
-            :disabled="submitting || !createForm.name.trim()"
+            :disabled="submitting || !createForm.name.trim() || !canManageServiceAccounts"
             @click="submitCreateForm"
           >
             {{ submitting ? '创建中...' : '确认创建' }}
@@ -754,7 +796,7 @@ onMounted(() => {
             取消
           </BaseButton>
           <BaseButton
-            :disabled="savingAccount"
+            :disabled="savingAccount || !canManageServiceAccounts"
             @click="submitEditForm"
           >
             {{ savingAccount ? '保存中...' : '确认保存' }}
@@ -822,7 +864,7 @@ onMounted(() => {
             关闭
           </BaseButton>
           <BaseButton
-            :disabled="submitting || !tokenForm.name.trim()"
+            :disabled="submitting || !tokenForm.name.trim() || !canManageServiceAccounts"
             @click="submitTokenForm"
           >
             {{ submitting ? '创建中...' : '确认创建' }}
@@ -864,12 +906,14 @@ onMounted(() => {
             <div class="flex flex-wrap gap-2">
               <BaseButton
                 variant="secondary"
+                :disabled="!canManageServiceAccounts"
                 @click="openEditDialog(selectedAccount)"
               >
                 编辑
               </BaseButton>
               <BaseButton
                 variant="secondary"
+                :disabled="!canManageServiceAccounts"
                 @click="openTokenDialog(selectedAccount)"
               >
                 发 Token
@@ -896,7 +940,7 @@ onMounted(() => {
               :key="role"
               class="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-950/30 dark:text-primary-200"
             >
-              {{ role }}
+              {{ formatPlatformRoleLabel(role) }}
             </span>
           </div>
         </div>
@@ -958,7 +1002,7 @@ onMounted(() => {
                 </div>
                 <BaseButton
                   variant="secondary"
-                  :disabled="token.status !== 'active'"
+                  :disabled="token.status !== 'active' || !canManageServiceAccounts"
                   @click="requestRevokeToken(selectedAccount, token)"
                 >
                   撤销

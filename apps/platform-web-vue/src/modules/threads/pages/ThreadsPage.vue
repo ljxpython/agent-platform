@@ -404,7 +404,7 @@ watch(
       Promise.all(
         assistantIds.map(async (assistantId) => {
           try {
-            const assistant = await findAssistantByTargetId(projectId, assistantId, { mode: 'runtime' })
+            const assistant = await findAssistantByTargetId(projectId, assistantId)
             return [assistantId, assistant?.name || ''] as const
           } catch {
             return [assistantId, ''] as const
@@ -414,7 +414,7 @@ watch(
       Promise.all(
         graphIds.map(async (graphId) => {
           try {
-            const graph = await getGraphCatalogItem(projectId, graphId, { mode: 'runtime' })
+            const graph = await getGraphCatalogItem(projectId, graphId)
             return [graphId, graph?.display_name || ''] as const
           } catch {
             return [graphId, ''] as const

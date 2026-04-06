@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -20,11 +21,9 @@ import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data
 import {
   deleteAssistant,
   listAssistantsPage,
-  resyncAssistant,
   resyncAssistantByOperation
 } from '@/services/assistants/assistants.service'
 import { getOperationFailureMessage } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant } from '@/types/management'
@@ -35,6 +34,7 @@ import { formatDateTime, shortId } from '@/utils/format'
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 
 const queryInput = ref('')
 const query = ref('')
@@ -91,6 +91,7 @@ const columns = computed<DataTableColumn[]>(() => [
 ])
 
 const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const canManageAssistants = computed(() => authorization.currentProjectCan('project.assistant.write'))
 const activeCount = computed(() => items.value.filter((item) => item.status === 'active').length)
 const syncIssueCount = computed(() =>
   items.value.filter((item) => item.sync_status !== 'synced' && item.sync_status !== 'ready').length
@@ -154,8 +155,7 @@ async function loadAssistants() {
         limit: pagination.pageSize.value,
         offset: pagination.offset.value,
         query: query.value
-      },
-      { mode: 'runtime' }
+      }
     )
 
     items.value = payload.items
@@ -204,20 +204,20 @@ async function handleResyncAssistant(assistant: ManagementAssistant) {
   if (!projectId) {
     return
   }
+  if (!canManageAssistants.value) {
+    error.value = '当前账号没有助手治理写权限'
+    return
+  }
 
   actionBusyAssistantId.value = assistant.id
   error.value = ''
 
   try {
-    if (resolvePlatformClientScope('operations') === 'v2') {
-      const operation = await resyncAssistantByOperation(assistant.id, projectId, {
-        idempotencyKey: `assistant-resync:${assistant.id}`
-      })
-      if (operation.status !== 'succeeded') {
-        throw new Error(getOperationFailureMessage(operation))
-      }
-    } else {
-      await resyncAssistant(assistant.id, projectId, { mode: 'runtime' })
+    const operation = await resyncAssistantByOperation(assistant.id, projectId, {
+      idempotencyKey: `assistant-resync:${assistant.id}`
+    })
+    if (operation.status !== 'succeeded') {
+      throw new Error(getOperationFailureMessage(operation))
     }
 
     uiStore.pushToast({
@@ -234,6 +234,9 @@ async function handleResyncAssistant(assistant: ManagementAssistant) {
 }
 
 function openDeleteDialog(assistant: ManagementAssistant) {
+  if (!canManageAssistants.value) {
+    return
+  }
   deletingAssistant.value = assistant
   showDeleteDialog.value = true
 }
@@ -261,8 +264,7 @@ async function confirmDelete() {
         deleteRuntime: true,
         deleteThreads: false
       },
-      projectId,
-      { mode: 'runtime' }
+      projectId
     )
 
     uiStore.pushToast({
@@ -353,7 +355,7 @@ function assistantActions(assistant: ManagementAssistant): ActionMenuItem[] {
       key: 'resync',
       label: '上游重同步',
       icon: 'refresh',
-      disabled: busy,
+      disabled: busy || !canManageAssistants.value,
       onSelect: () => handleResyncAssistant(assistant)
     },
     {
@@ -389,7 +391,7 @@ function assistantActions(assistant: ManagementAssistant): ActionMenuItem[] {
       label: '删除助手',
       icon: 'alert',
       danger: true,
-      disabled: busy,
+      disabled: busy || !canManageAssistants.value,
       onSelect: () => openDeleteDialog(assistant)
     }
   ]
@@ -422,14 +424,14 @@ watch([() => pagination.page.value, () => pagination.pageSize.value], () => {
     >
       <template #actions>
         <BaseButton
-          :disabled="!currentProject"
+          :disabled="!currentProject || !canManageAssistants"
           @click="void router.push('/workspace/assistants/new')"
         >
           <BaseIcon
             name="assistant"
             size="sm"
           />
-          新建助手
+          {{ canManageAssistants ? '新建助手' : '当前账号只读' }}
         </BaseButton>
         <BaseButton
           variant="secondary"

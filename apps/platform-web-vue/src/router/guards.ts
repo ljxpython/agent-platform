@@ -1,14 +1,59 @@
 import type { Router } from 'vue-router'
+import {
+  hasAnyProjectPermission,
+  hasPermission,
+  isProjectPermission
+} from '@/services/auth/permissions'
 import { getAccessToken } from '@/services/auth/token'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
-import { getWorkspaceProjectContextModule } from '@/services/platform/workspace-context'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
+import type { PermissionCode } from '@/types/management'
+
+function resolveRoutePermissionProjectId(
+  params: Record<string, unknown>,
+  workspaceStore: ReturnType<typeof useWorkspaceStore>,
+  source?: 'workspace' | 'route'
+): string {
+  if (source === 'route') {
+    if (typeof params.projectId === 'string') {
+      return params.projectId.trim()
+    }
+    return ''
+  }
+
+  return workspaceStore.currentProjectId
+}
+
+function hasRoutePermission(
+  requiredPermissions: PermissionCode[],
+  mode: 'all' | 'any',
+  projectId: string,
+  allowWithoutProject: boolean,
+  authStore: ReturnType<typeof useAuthStore>
+): boolean {
+  const evaluator = (permission: PermissionCode) => {
+    if (!isProjectPermission(permission)) {
+      return hasPermission(authStore.user, permission)
+    }
+
+    if (projectId) {
+      return hasPermission(authStore.user, permission, projectId)
+    }
+
+    return allowWithoutProject ? hasAnyProjectPermission(authStore.user, permission) : false
+  }
+
+  return mode === 'any'
+    ? requiredPermissions.some((permission) => evaluator(permission))
+    : requiredPermissions.every((permission) => evaluator(permission))
+}
 
 export function registerRouterGuards(router: Router) {
   router.beforeEach(async (to) => {
     const authStore = useAuthStore()
     const workspaceStore = useWorkspaceStore()
+    const uiStore = useUiStore()
 
     await authStore.hydrate()
     if (getAccessToken() && !authStore.user) {
@@ -36,15 +81,35 @@ export function registerRouterGuards(router: Router) {
       await workspaceStore.hydrateContext()
     }
 
-    const contextModule = getWorkspaceProjectContextModule(to.path)
-    if (
-      to.path.startsWith('/workspace') &&
-      isAuthenticated &&
-      contextModule &&
-      resolvePlatformClientScope(contextModule) === 'v2' &&
-      !workspaceStore.runtimeProjects.length
-    ) {
-      await workspaceStore.hydrateRuntimeContext()
+    if (to.path.startsWith('/workspace')) {
+      const requiredPermissions = Array.isArray(to.meta.requiredPermissions)
+        ? (to.meta.requiredPermissions as PermissionCode[])
+        : []
+
+      if (requiredPermissions.length > 0) {
+        const permissionMode = to.meta.permissionMode === 'any' ? 'any' : 'all'
+        const projectId = resolveRoutePermissionProjectId(
+          to.params as Record<string, unknown>,
+          workspaceStore,
+          to.meta.permissionProjectSource
+        )
+        const allowed = hasRoutePermission(
+          requiredPermissions,
+          permissionMode,
+          projectId,
+          Boolean(to.meta.allowWithoutProject),
+          authStore
+        )
+
+        if (!allowed) {
+          uiStore.pushToast({
+            type: 'warning',
+            title: '无访问权限',
+            message: '当前账号没有访问该页面所需的权限。'
+          })
+          return '/workspace/overview'
+        }
+      }
     }
 
     return true

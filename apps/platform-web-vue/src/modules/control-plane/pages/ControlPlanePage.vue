@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import GuidePanel from '@/components/platform/GuidePanel.vue'
@@ -22,6 +23,7 @@ import type {
   ManagementAuditRow,
   ManagementOperation,
   ManagementServiceAccount,
+  PermissionCode,
   PlatformConfigSnapshot
 } from '@/types/management'
 import { formatDateTime, shortId } from '@/utils/format'
@@ -31,8 +33,11 @@ type QuickLinkItem = {
   label: string
   description: string
   icon: 'activity' | 'audit' | 'lock' | 'shield' | 'users'
+  requiredPermissions: PermissionCode[]
+  permissionMode?: 'all' | 'any'
 }
 
+const authorization = useAuthorization()
 const loading = ref(false)
 const error = ref('')
 const snapshot = ref<PlatformConfigSnapshot | null>(null)
@@ -47,33 +52,54 @@ const quickLinks: QuickLinkItem[] = [
     to: '/workspace/operations',
     label: 'Operations',
     description: '看异步任务、队列与执行结果',
-    icon: 'activity'
+    icon: 'activity',
+    requiredPermissions: ['platform.operation.read', 'project.operation.read'],
+    permissionMode: 'any'
   },
   {
     to: '/workspace/audit',
     label: 'Audit',
     description: '查请求链路与治理操作记录',
-    icon: 'audit'
+    icon: 'audit',
+    requiredPermissions: ['platform.audit.read', 'project.audit.read'],
+    permissionMode: 'any'
   },
   {
     to: '/workspace/platform-config',
     label: 'Platform Config',
     description: '查看环境、feature flags 与配置快照',
-    icon: 'lock'
+    icon: 'lock',
+    requiredPermissions: ['platform.config.read']
   },
   {
     to: '/workspace/system-governance',
     label: 'System Governance',
     description: '看 live / ready / health / metrics',
-    icon: 'shield'
+    icon: 'shield',
+    requiredPermissions: ['platform.config.read']
   },
   {
     to: '/workspace/service-accounts',
     label: 'Service Accounts',
     description: '治理平台级 token 与账号权限',
-    icon: 'users'
+    icon: 'users',
+    requiredPermissions: ['platform.service_account.read']
   }
 ]
+
+const visibleQuickLinks = computed(() =>
+  quickLinks.filter((item) => {
+    const mode = item.permissionMode === 'any' ? 'any' : 'all'
+    const evaluator = (permission: PermissionCode) =>
+      permission.startsWith('project.')
+        ? authorization.currentProjectCan(permission) || authorization.canAnyProject(permission)
+        : authorization.can(permission)
+
+    return mode === 'any'
+      ? item.requiredPermissions.some((permission) => evaluator(permission))
+      : item.requiredPermissions.every((permission) => evaluator(permission))
+  })
+)
 
 const heroStats = computed(() => {
   const current = snapshot.value
@@ -208,8 +234,7 @@ async function loadControlPlane() {
       {
         limit: 6,
         offset: 0
-      },
-      { mode: 'runtime' }
+      }
     ),
     listServiceAccounts({
       limit: 6,
@@ -380,7 +405,7 @@ onMounted(() => {
           </div>
           <div class="grid gap-3 xl:grid-cols-5">
             <router-link
-              v-for="item in quickLinks"
+              v-for="item in visibleQuickLinks"
               :key="item.to"
               :to="item.to"
               class="rounded-[24px] border border-gray-100 bg-white px-4 py-4 shadow-soft transition hover:border-primary-200 hover:bg-primary-50/50 dark:border-dark-800 dark:bg-dark-900/80 dark:hover:border-primary-900/40 dark:hover:bg-primary-950/10"

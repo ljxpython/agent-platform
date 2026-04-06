@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import {
-  type AnnouncementServiceOptions,
   listAnnouncementsFeed,
   markAllAnnouncementsRead,
   markAnnouncementRead
@@ -111,15 +110,15 @@ export const useAnnouncementsStore = defineStore('announcements', {
     }
   },
   actions: {
-    async init(projectId = '', requestOptions?: AnnouncementServiceOptions) {
+    async init(projectId = '') {
       if (!this.hydrated) {
         this.readIds = readStoredIds()
         this.hydrated = true
       }
 
-      await this.load(projectId, requestOptions)
+      await this.load(projectId)
     },
-    async load(projectId = '', requestOptions?: AnnouncementServiceOptions) {
+    async load(projectId = '') {
       const normalizedProjectId = projectId.trim()
       if (!this.hydrated) {
         this.readIds = readStoredIds()
@@ -130,10 +129,7 @@ export const useAnnouncementsStore = defineStore('announcements', {
       this.currentProjectId = normalizedProjectId
 
       try {
-        const payload = await listAnnouncementsFeed(
-          normalizedProjectId || undefined,
-          requestOptions
-        )
+        const payload = await listAnnouncementsFeed(normalizedProjectId || undefined)
         this.items = Array.isArray(payload.items) ? payload.items.map(normalizeRemoteItem) : []
         this.mode = 'remote'
       } catch {
@@ -146,14 +142,14 @@ export const useAnnouncementsStore = defineStore('announcements', {
     isRead(id: string) {
       return this.items.find((item) => item.id === id)?.isRead ?? this.readIds.includes(id)
     },
-    async markRead(id: string, requestOptions?: AnnouncementServiceOptions) {
+    async markRead(id: string) {
       if (!id.trim() || this.items.find((item) => item.id === id)?.isRead) {
         return
       }
 
       if (this.mode === 'remote') {
         try {
-          await markAnnouncementRead(id, requestOptions)
+          await markAnnouncementRead(id)
         } catch {
           if (!this.readIds.includes(id)) {
             this.readIds = [...this.readIds, id]
@@ -174,10 +170,10 @@ export const useAnnouncementsStore = defineStore('announcements', {
           : item
       )
     },
-    async markAllRead(projectId = '', requestOptions?: AnnouncementServiceOptions) {
+    async markAllRead(projectId = '') {
       if (this.mode === 'remote') {
         try {
-          await markAllAnnouncementsRead(projectId || undefined, requestOptions)
+          await markAllAnnouncementsRead(projectId || undefined)
         } catch {
           this.readIds = this.items.map((item) => item.id)
           persistIds(this.readIds)

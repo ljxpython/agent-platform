@@ -1,27 +1,16 @@
 import { platformV2HttpClient } from '@/services/http/client'
+import { normalizeManagementUser, normalizeProjectRole } from '@/services/auth/permissions'
 import type {
   ManagementUser,
   ManagementUserListResponse,
   ManagementUserProject
 } from '@/types/management'
 
-export type UserServiceMode = 'legacy' | 'runtime'
-
-type UserServiceOptions = {
-  mode?: UserServiceMode
-}
-
-export async function getMe(): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.get('/api/identity/me')
-  return response.data as ManagementUser
-}
-
-export async function updateMe(payload: {
-  username?: string
-  email?: string
-}): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.patch('/api/identity/me', payload)
-  return response.data as ManagementUser
+function normalizeUserProject(payload: ManagementUserProject): ManagementUserProject {
+  return {
+    ...payload,
+    role: normalizeProjectRole(payload.role) || 'project_executor'
+  }
 }
 
 export async function listUsersPage(options?: {
@@ -30,7 +19,7 @@ export async function listUsersPage(options?: {
   query?: string
   status?: string
   excludeUserIds?: string[]
-}, _requestOptions?: UserServiceOptions): Promise<ManagementUserListResponse> {
+}): Promise<ManagementUserListResponse> {
   const response = await platformV2HttpClient.get('/api/users', {
     params: {
       limit: options?.limit ?? 50,
@@ -44,29 +33,31 @@ export async function listUsersPage(options?: {
     }
   })
 
-  return response.data as ManagementUserListResponse
+  const payload = response.data as ManagementUserListResponse
+  return {
+    items: Array.isArray(payload.items) ? payload.items.map((item) => normalizeManagementUser(item)) : [],
+    total: typeof payload.total === 'number' ? payload.total : 0
+  }
 }
 
 export async function createUser(payload: {
   username: string
   password: string
   is_super_admin?: boolean
-}, _requestOptions?: UserServiceOptions): Promise<ManagementUser> {
+}): Promise<ManagementUser> {
   const response = await platformV2HttpClient.post('/api/users', payload)
-  return response.data as ManagementUser
+  return normalizeManagementUser(response.data as ManagementUser)
 }
 
 export async function getUser(
-  userId: string,
-  _requestOptions?: UserServiceOptions
+  userId: string
 ): Promise<ManagementUser> {
   const response = await platformV2HttpClient.get(`/api/users/${userId}`)
-  return response.data as ManagementUser
+  return normalizeManagementUser(response.data as ManagementUser)
 }
 
 export async function listUserProjects(
-  userId: string,
-  _requestOptions?: UserServiceOptions
+  userId: string
 ): Promise<{
   items: ManagementUserProject[]
   total: number
@@ -78,7 +69,7 @@ export async function listUserProjects(
   }
 
   return {
-    items: Array.isArray(payload.items) ? payload.items : [],
+    items: Array.isArray(payload.items) ? payload.items.map((item) => normalizeUserProject(item)) : [],
     total: typeof payload.total === 'number' ? payload.total : Array.isArray(payload.items) ? payload.items.length : 0
   }
 }
@@ -90,9 +81,8 @@ export async function updateUser(
     password?: string
     status?: 'active' | 'disabled'
     is_super_admin?: boolean
-  },
-  _requestOptions?: UserServiceOptions
+  }
 ): Promise<ManagementUser> {
   const response = await platformV2HttpClient.patch(`/api/users/${userId}`, payload)
-  return response.data as ManagementUser
+  return normalizeManagementUser(response.data as ManagementUser)
 }

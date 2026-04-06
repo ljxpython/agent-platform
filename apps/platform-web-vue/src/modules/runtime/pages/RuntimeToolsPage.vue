@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -14,10 +15,8 @@ import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import {
   listRuntimeTools,
-  refreshRuntimeTools,
   submitRuntimeRefreshOperation,
   waitForRuntimeRefreshOperation
 } from '@/services/runtime/runtime.service'
@@ -50,10 +49,14 @@ const notice = ref('')
 const lastSyncedAt = ref<string | null>(null)
 const workspaceStore = useWorkspaceStore()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 const pagination = usePagination({
   initialPageSize: 20,
   storageKey: 'pw:runtime-tools:page-size'
 })
+const canRefreshCatalog = computed(() =>
+  authorization.can('platform.catalog.refresh') || authorization.currentProjectCan('project.runtime.write')
+)
 const toolRows = computed(() => filteredItems.value as unknown as Record<string, unknown>[])
 const columns = computed<DataTableColumn[]>(() => [
   {
@@ -163,31 +166,27 @@ async function loadTools() {
 
 async function handleRefreshCatalog() {
   const projectId = workspaceStore.runtimeScopedProjectId
+  if (!canRefreshCatalog.value) {
+    error.value = '当前账号没有刷新 Runtime 目录的权限'
+    return
+  }
   refreshing.value = true
   error.value = ''
   notice.value = ''
 
   try {
-    if (
-      resolvePlatformClientScope('runtime_catalog') === 'v2' &&
-      resolvePlatformClientScope('operations') === 'v2'
-    ) {
-      const operation = await submitRuntimeRefreshOperation('tools', projectId)
-      notice.value = `工具目录刷新任务已提交，任务号 ${shortId(operation.id)}`
-      const finalOperation = await waitForRuntimeRefreshOperation(operation.id, {
-        timeoutMs: 90000
-      })
-      if (finalOperation.status !== 'succeeded') {
-        throw new Error(
-          (finalOperation.error_payload?.message as string | undefined) || 'Runtime 工具目录刷新未成功完成'
-        )
-      }
-      const count = Number(finalOperation.result_payload?.count || 0)
-      notice.value = `Runtime 工具目录已刷新，当前同步 ${count} 条记录`
-    } else {
-      const payload = await refreshRuntimeTools(projectId)
-      notice.value = `Runtime 工具目录已刷新，当前同步 ${payload.count} 条记录`
+    const operation = await submitRuntimeRefreshOperation('tools', projectId)
+    notice.value = `工具目录刷新任务已提交，任务号 ${shortId(operation.id)}`
+    const finalOperation = await waitForRuntimeRefreshOperation(operation.id, {
+      timeoutMs: 90000
+    })
+    if (finalOperation.status !== 'succeeded') {
+      throw new Error(
+        (finalOperation.error_payload?.message as string | undefined) || 'Runtime 工具目录刷新未成功完成'
+      )
     }
+    const count = Number(finalOperation.result_payload?.count || 0)
+    notice.value = `Runtime 工具目录已刷新，当前同步 ${count} 条记录`
     await loadTools()
   } catch (refreshError) {
     error.value = refreshError instanceof Error ? refreshError.message : 'Runtime 工具目录刷新失败'
@@ -297,14 +296,14 @@ watch(
         </router-link>
         <BaseButton
           variant="secondary"
-          :disabled="refreshing"
+          :disabled="refreshing || !canRefreshCatalog"
           @click="handleRefreshCatalog"
         >
           <BaseIcon
             name="refresh"
             size="sm"
           />
-          {{ refreshing ? '刷新中...' : '刷新目录' }}
+          {{ canRefreshCatalog ? (refreshing ? '刷新中...' : '刷新目录') : '当前账号只读' }}
         </BaseButton>
       </template>
     </PageHeader>

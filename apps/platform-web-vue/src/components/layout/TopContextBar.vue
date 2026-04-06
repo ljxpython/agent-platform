@@ -2,22 +2,21 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useAuthorization } from '@/composables/useAuthorization'
 import AnnouncementCenter from '@/components/layout/AnnouncementCenter.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { appMeta } from '@/config/app-meta'
 import LocaleSwitcher from '@/components/layout/LocaleSwitcher.vue'
 import UserMenu from '@/components/layout/UserMenu.vue'
 import WorkspaceProjectSwitcher from '@/components/platform/WorkspaceProjectSwitcher.vue'
-import { useAuthStore } from '@/stores/auth'
-
-const authStore = useAuthStore()
 const route = useRoute()
 const { t } = useI18n()
+const authorization = useAuthorization()
 
 const routeTitle = computed(() => String(route.meta.title || t('brand.title')))
 const routeEyebrow = computed(() => String(route.meta.eyebrow || t('common.workspace')))
 const routeSubtitle = computed(() => appMeta.versionLabel)
-const roleLabel = computed(() => (authStore.user?.is_super_admin ? t('common.admin') : t('common.member')))
+const roleLabel = computed(() => authorization.roleLabel.value)
 </script>
 
 <template>

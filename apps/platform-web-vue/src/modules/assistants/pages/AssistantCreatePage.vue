@@ -263,7 +263,7 @@ async function loadGraphs() {
 
   graphLoading.value = true
   try {
-    const payload = await listGraphsPage(projectId, { limit: 500, offset: 0 }, { mode: 'runtime' })
+    const payload = await listGraphsPage(projectId, { limit: 500, offset: 0 })
     graphOptions.value = payload.items.filter(
       (item): item is ManagementGraph =>
         typeof item.graph_id === 'string' && item.graph_id.trim().length > 0
@@ -315,8 +315,7 @@ async function loadSchema() {
   try {
     schema.value = (await getAssistantParameterSchema(
       normalizedGraphId,
-      projectId,
-      { mode: 'runtime' }
+      projectId
     )) as ParameterSchemaResponse
   } catch (loadError) {
     schema.value = null
@@ -358,8 +357,7 @@ async function handleSubmit() {
         config?: Record<string, unknown>
         context?: Record<string, unknown>
         metadata?: Record<string, unknown>
-      },
-      { mode: 'runtime' }
+      }
     )
 
     notice.value = `已创建助手：${created.name}`

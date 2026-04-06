@@ -2,26 +2,29 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
+import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
+import { formatProjectRoleLabel, isProjectAdminRole, isProjectEditorRole } from '@/services/auth/permissions'
+import { deleteProject } from '@/services/projects/projects.service'
 import { listProjectMembers } from '@/services/members/members.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
-import type { ManagementProjectMember } from '@/types/management'
+import type { ManagementProjectMember, ProjectRole } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { shortId } from '@/utils/format'
 
 function getRoleTone(role: string): 'info' | 'success' | 'warning' {
-  if (role === 'admin') {
+  if (isProjectAdminRole(role as ProjectRole)) {
     return 'warning'
   }
-  if (role === 'editor') {
+  if (isProjectEditorRole(role as ProjectRole)) {
     return 'info'
   }
   return 'success'
@@ -29,18 +32,12 @@ function getRoleTone(role: string): 'info' | 'success' | 'warning' {
 
 const route = useRoute()
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { workspaceStore, activeProjectId, activeProjects, setActiveProjectId } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 
 const projectId = computed(() =>
   typeof route.params.projectId === 'string' ? route.params.projectId.trim() : ''
-)
-const projectsUseRuntimeApi = computed(() => resolvePlatformClientScope('projects') === 'v2')
-const activeProjects = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeProjects : workspaceStore.projects
-)
-const activeProjectId = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
 )
 
 const project = computed(() =>
@@ -50,6 +47,9 @@ const project = computed(() =>
 const members = ref<ManagementProjectMember[]>([])
 const loadingMembers = ref(false)
 const membersError = ref('')
+const deletingProject = ref(false)
+const showDeleteDialog = ref(false)
+const canManageProject = computed(() => authorization.can('project.member.write', projectId.value))
 
 const stats = computed(() => [
   {
@@ -68,8 +68,8 @@ const stats = computed(() => [
   },
   {
     label: '管理员',
-    value: members.value.filter((item) => item.role === 'admin').length,
-    hint: '当前项目 admin 角色成员',
+    value: members.value.filter((item) => isProjectAdminRole(item.role)).length,
+    hint: '当前项目管理员角色成员',
     icon: 'shield',
     tone: 'warning'
   },
@@ -103,11 +103,7 @@ function focusProject() {
     return
   }
 
-  if (projectsUseRuntimeApi.value) {
-    workspaceStore.setRuntimeProjectId(project.value.id)
-  } else {
-    workspaceStore.setProjectId(project.value.id)
-  }
+  setActiveProjectId(project.value.id)
   uiStore.pushToast({
     type: 'success',
     title: '已切换当前项目',
@@ -120,11 +116,7 @@ function openAudit() {
     return
   }
 
-  if (projectsUseRuntimeApi.value) {
-    workspaceStore.setRuntimeProjectId(project.value.id)
-  } else {
-    workspaceStore.setProjectId(project.value.id)
-  }
+  setActiveProjectId(project.value.id)
   void router.push('/workspace/audit')
 }
 
@@ -139,17 +131,54 @@ async function loadMembers() {
   membersError.value = ''
 
   try {
-    members.value = await listProjectMembers(
-      projectId.value,
-      undefined,
-      projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
+    members.value = await listProjectMembers(projectId.value)
   } catch (loadError) {
     members.value = []
     membersError.value =
       loadError instanceof Error ? loadError.message : '项目成员加载失败'
   } finally {
     loadingMembers.value = false
+  }
+}
+
+function openDeleteDialog() {
+  if (!project.value || !canManageProject.value) {
+    return
+  }
+
+  showDeleteDialog.value = true
+}
+
+function closeDeleteDialog() {
+  showDeleteDialog.value = false
+}
+
+async function confirmDeleteProject() {
+  if (!project.value) {
+    closeDeleteDialog()
+    return
+  }
+
+  deletingProject.value = true
+  membersError.value = ''
+
+  try {
+    await deleteProject(project.value.id)
+    if (activeProjectId.value === project.value.id) {
+      setActiveProjectId('')
+    }
+    await workspaceStore.hydrateContext()
+    uiStore.pushToast({
+      type: 'success',
+      title: '项目已删除',
+      message: project.value.name
+    })
+    closeDeleteDialog()
+    await router.replace('/workspace/projects')
+  } catch (deleteError) {
+    membersError.value = deleteError instanceof Error ? deleteError.message : '项目删除失败'
+  } finally {
+    deletingProject.value = false
   }
 }
 
@@ -167,7 +196,7 @@ watch(
     <PageHeader
       eyebrow="Projects"
       :title="project?.name || '项目详情'"
-      description="项目详情页当前按真实后端能力收敛为概览入口，不硬造不存在的编辑接口。这里负责承接项目信息、成员预览和工作区跳转。"
+      description="项目详情页负责承接正式项目信息、成员预览、工作区切换与删除治理，不再伪装不存在的编辑能力。"
     >
       <template #actions>
         <BaseButton
@@ -196,6 +225,14 @@ watch(
             size="sm"
           />
           设为当前项目
+        </BaseButton>
+        <BaseButton
+          v-if="canManageProject"
+          variant="danger"
+          :disabled="!project || deletingProject"
+          @click="openDeleteDialog"
+        >
+          {{ deletingProject ? '删除中...' : '删除项目' }}
         </BaseButton>
       </template>
     </PageHeader>
@@ -364,13 +401,24 @@ watch(
                   </div>
                 </div>
                 <StatusPill :tone="getRoleTone(member.role)">
-                  {{ member.role }}
+                  {{ formatProjectRoleLabel(member.role) }}
                 </StatusPill>
               </div>
             </div>
           </div>
         </SurfaceCard>
       </div>
+
+      <ConfirmDialog
+        :show="showDeleteDialog"
+        title="删除项目"
+        :message="project ? `删除后项目 ${project.name} 将进入删除态，确认继续吗？` : ''"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        danger
+        @cancel="closeDeleteDialog"
+        @confirm="confirmDeleteProject"
+      />
     </template>
   </section>
 </template>

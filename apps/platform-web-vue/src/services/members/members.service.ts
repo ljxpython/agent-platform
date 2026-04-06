@@ -1,20 +1,21 @@
 import { platformV2HttpClient } from '@/services/http/client'
+import { normalizeProjectRole } from '@/services/auth/permissions'
 import type { ManagementProjectMember } from '@/types/management'
 
 type MemberListResponse = {
   items: ManagementProjectMember[]
 }
 
-export type MemberServiceMode = 'legacy' | 'runtime'
-
-type MemberServiceOptions = {
-  mode?: MemberServiceMode
+function normalizeProjectMember(payload: ManagementProjectMember): ManagementProjectMember {
+  return {
+    ...payload,
+    role: normalizeProjectRole(payload.role) || 'project_executor'
+  }
 }
 
 export async function listProjectMembers(
   projectId: string,
-  options?: { query?: string },
-  _requestOptions?: MemberServiceOptions
+  options?: { query?: string }
 ): Promise<ManagementProjectMember[]> {
   if (!projectId) {
     return []
@@ -27,28 +28,27 @@ export async function listProjectMembers(
   })
 
   const payload = response.data as MemberListResponse
-  return Array.isArray(payload.items) ? payload.items : []
+  return Array.isArray(payload.items) ? payload.items.map((item) => normalizeProjectMember(item)) : []
 }
 
 export async function upsertProjectMember(payload: {
   projectId: string
   userId: string
-  role: 'admin' | 'editor' | 'executor'
-}, _requestOptions?: MemberServiceOptions): Promise<ManagementProjectMember> {
+  role: ManagementProjectMember['role']
+}): Promise<ManagementProjectMember> {
   const response = await platformV2HttpClient.put(
     `/api/projects/${payload.projectId}/members/${payload.userId}`,
     {
-      role: payload.role
+      role: normalizeProjectRole(payload.role)
     }
   )
 
-  return response.data as ManagementProjectMember
+  return normalizeProjectMember(response.data as ManagementProjectMember)
 }
 
 export async function deleteProjectMember(
   projectId: string,
-  userId: string,
-  _requestOptions?: MemberServiceOptions
+  userId: string
 ): Promise<{ ok: boolean }> {
   const response = await platformV2HttpClient.delete(`/api/projects/${projectId}/members/${userId}`)
 

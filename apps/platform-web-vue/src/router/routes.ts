@@ -29,49 +29,77 @@ const workspaceChildren: RouteRecordRaw[] = [
     path: 'projects/:projectId',
     name: 'workspace-project-detail',
     component: () => import('@/modules/projects/pages/ProjectDetailPage.vue'),
-    meta: { title: '项目详情', eyebrow: 'Projects' }
+    meta: {
+      title: '项目详情',
+      eyebrow: 'Projects',
+      requiredPermissions: ['project.member.read'],
+      permissionProjectSource: 'route'
+    }
   },
   {
     path: 'projects/:projectId/members',
     name: 'workspace-project-members',
     component: () => import('@/modules/projects/pages/ProjectMembersPage.vue'),
-    meta: { title: '项目成员', eyebrow: 'Projects' }
+    meta: {
+      title: '项目成员',
+      eyebrow: 'Projects',
+      requiredPermissions: ['project.member.read'],
+      permissionProjectSource: 'route'
+    }
   },
   {
     path: 'users',
     name: 'workspace-users',
     component: () => import('@/modules/users/pages/UsersPage.vue'),
-    meta: { title: '用户', eyebrow: 'Users' }
+    meta: { title: '用户', eyebrow: 'Users', requiredPermissions: ['platform.user.read'] }
   },
   {
     path: 'users/new',
     name: 'workspace-user-create',
     component: () => import('@/modules/users/pages/UserCreatePage.vue'),
-    meta: { title: '新建用户', eyebrow: 'Users' }
+    meta: { title: '新建用户', eyebrow: 'Users', requiredPermissions: ['platform.user.write'] }
   },
   {
     path: 'users/:userId',
     name: 'workspace-user-detail',
     component: () => import('@/modules/users/pages/UserDetailPage.vue'),
-    meta: { title: '用户详情', eyebrow: 'Users' }
+    meta: { title: '用户详情', eyebrow: 'Users', requiredPermissions: ['platform.user.read'] }
   },
   {
     path: 'assistants',
     name: 'workspace-assistants',
     component: () => import('@/modules/assistants/pages/AssistantsPage.vue'),
-    meta: { title: '助手', eyebrow: 'Assistants' }
+    meta: {
+      title: '助手',
+      eyebrow: 'Assistants',
+      requiredPermissions: ['project.assistant.read'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'assistants/new',
     name: 'workspace-assistant-create',
     component: () => import('@/modules/assistants/pages/AssistantCreatePage.vue'),
-    meta: { title: '新建助手', eyebrow: 'Assistants' }
+    meta: {
+      title: '新建助手',
+      eyebrow: 'Assistants',
+      requiredPermissions: ['project.assistant.write'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'assistants/:assistantId',
     name: 'workspace-assistant-detail',
     component: () => import('@/modules/assistants/pages/AssistantDetailPage.vue'),
-    meta: { title: '助手详情', eyebrow: 'Assistants' }
+    meta: {
+      title: '助手详情',
+      eyebrow: 'Assistants',
+      requiredPermissions: ['project.assistant.read'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'runtime',
@@ -81,25 +109,49 @@ const workspaceChildren: RouteRecordRaw[] = [
         path: '',
         name: 'workspace-runtime',
         component: () => import('@/modules/runtime/pages/RuntimePage.vue'),
-        meta: { title: 'Runtime', eyebrow: 'Runtime' }
+        meta: {
+          title: 'Runtime',
+          eyebrow: 'Runtime',
+          requiredPermissions: ['project.runtime.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       },
       {
         path: 'models',
         name: 'workspace-runtime-models',
         component: () => import('@/modules/runtime/pages/RuntimeModelsPage.vue'),
-        meta: { title: 'Runtime Models', eyebrow: 'Runtime' }
+        meta: {
+          title: 'Runtime Models',
+          eyebrow: 'Runtime',
+          requiredPermissions: ['project.runtime.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       },
       {
         path: 'tools',
         name: 'workspace-runtime-tools',
         component: () => import('@/modules/runtime/pages/RuntimeToolsPage.vue'),
-        meta: { title: 'Runtime Tools', eyebrow: 'Runtime' }
+        meta: {
+          title: 'Runtime Tools',
+          eyebrow: 'Runtime',
+          requiredPermissions: ['project.runtime.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       },
       {
         path: 'policies',
         name: 'workspace-runtime-policies',
         component: () => import('@/modules/runtime/pages/RuntimePoliciesPage.vue'),
-        meta: { title: 'Runtime Policies', eyebrow: 'Runtime' }
+        meta: {
+          title: 'Runtime Policies',
+          eyebrow: 'Runtime',
+          requiredPermissions: ['project.runtime.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       }
     ]
   },
@@ -107,37 +159,73 @@ const workspaceChildren: RouteRecordRaw[] = [
     path: 'control-plane',
     name: 'workspace-control-plane',
     component: () => import('@/modules/control-plane/pages/ControlPlanePage.vue'),
-    meta: { title: 'Control Plane', eyebrow: 'Governance' }
+    meta: {
+      title: 'Control Plane',
+      eyebrow: 'Governance',
+      requiredPermissions: ['platform.config.read'],
+      permissionMode: 'any'
+    }
   },
   {
     path: 'operations',
     name: 'workspace-operations',
     component: () => import('@/modules/operations/pages/OperationsPage.vue'),
-    meta: { title: 'Operations', eyebrow: 'Governance' }
+    meta: {
+      title: 'Operations',
+      eyebrow: 'Governance',
+      requiredPermissions: ['platform.operation.read', 'project.operation.read'],
+      permissionMode: 'any',
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'graphs',
     name: 'workspace-graphs',
     component: () => import('@/modules/graphs/pages/GraphsPage.vue'),
-    meta: { title: 'Graphs', eyebrow: 'Graphs' }
+    meta: {
+      title: 'Graphs',
+      eyebrow: 'Graphs',
+      requiredPermissions: ['project.runtime.read'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'sql-agent',
     name: 'workspace-sql-agent',
     component: () => import('@/modules/sql-agent/pages/SqlAgentPage.vue'),
-    meta: { title: 'SQL Agent', eyebrow: 'Agent' }
+    meta: {
+      title: 'SQL Agent',
+      eyebrow: 'Agent',
+      requiredPermissions: ['project.runtime.read'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'threads',
     name: 'workspace-threads',
     component: () => import('@/modules/threads/pages/ThreadsPage.vue'),
-    meta: { title: 'Threads', eyebrow: 'Threads' }
+    meta: {
+      title: 'Threads',
+      eyebrow: 'Threads',
+      requiredPermissions: ['project.runtime.read'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'chat',
     name: 'workspace-chat',
     component: () => import('@/modules/chat/pages/ChatPage.vue'),
-    meta: { title: 'Chat', eyebrow: 'Chat' }
+    meta: {
+      title: 'Chat',
+      eyebrow: 'Chat',
+      requiredPermissions: ['project.runtime.read'],
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'resources',
@@ -194,25 +282,49 @@ const workspaceChildren: RouteRecordRaw[] = [
         path: '',
         name: 'workspace-testcase',
         redirect: '/workspace/testcase/generate',
-        meta: { title: 'Testcase', eyebrow: 'Testcase' }
+        meta: {
+          title: 'Testcase',
+          eyebrow: 'Testcase',
+          requiredPermissions: ['project.testcase.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       },
       {
         path: 'generate',
         name: 'workspace-testcase-generate',
         component: () => import('@/modules/testcase/pages/TestcaseGeneratePage.vue'),
-        meta: { title: '用例生成', eyebrow: 'Testcase' }
+        meta: {
+          title: '用例生成',
+          eyebrow: 'Testcase',
+          requiredPermissions: ['project.testcase.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       },
       {
         path: 'cases',
         name: 'workspace-testcase-cases',
         component: () => import('@/modules/testcase/pages/TestcaseCasesPage.vue'),
-        meta: { title: '用例管理', eyebrow: 'Testcase' }
+        meta: {
+          title: '用例管理',
+          eyebrow: 'Testcase',
+          requiredPermissions: ['project.testcase.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       },
       {
         path: 'documents',
         name: 'workspace-testcase-documents',
         component: () => import('@/modules/testcase/pages/TestcaseDocumentsPage.vue'),
-        meta: { title: '文档管理', eyebrow: 'Testcase' }
+        meta: {
+          title: '文档管理',
+          eyebrow: 'Testcase',
+          requiredPermissions: ['project.testcase.read'],
+          permissionProjectSource: 'workspace',
+          allowWithoutProject: true
+        }
       }
     ]
   },
@@ -220,7 +332,14 @@ const workspaceChildren: RouteRecordRaw[] = [
     path: 'announcements',
     name: 'workspace-announcements',
     component: () => import('@/modules/announcements/pages/AnnouncementsPage.vue'),
-    meta: { title: '公告管理', eyebrow: 'Announcements' }
+    meta: {
+      title: '公告管理',
+      eyebrow: 'Announcements',
+      requiredPermissions: ['platform.announcement.write', 'project.announcement.write'],
+      permissionMode: 'any',
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'me',
@@ -238,25 +357,36 @@ const workspaceChildren: RouteRecordRaw[] = [
     path: 'audit',
     name: 'workspace-audit',
     component: () => import('@/modules/audit/pages/AuditPage.vue'),
-    meta: { title: '审计日志', eyebrow: 'Audit' }
+    meta: {
+      title: '审计日志',
+      eyebrow: 'Audit',
+      requiredPermissions: ['platform.audit.read', 'project.audit.read'],
+      permissionMode: 'any',
+      permissionProjectSource: 'workspace',
+      allowWithoutProject: true
+    }
   },
   {
     path: 'platform-config',
     name: 'workspace-platform-config',
     component: () => import('@/modules/platform-config/pages/PlatformConfigPage.vue'),
-    meta: { title: '平台配置', eyebrow: 'Governance' }
+    meta: { title: '平台配置', eyebrow: 'Governance', requiredPermissions: ['platform.config.read'] }
   },
   {
     path: 'service-accounts',
     name: 'workspace-service-accounts',
     component: () => import('@/modules/service-accounts/pages/ServiceAccountsPage.vue'),
-    meta: { title: 'Service Accounts', eyebrow: 'Governance' }
+    meta: {
+      title: 'Service Accounts',
+      eyebrow: 'Governance',
+      requiredPermissions: ['platform.service_account.read']
+    }
   },
   {
     path: 'system-governance',
     name: 'workspace-system-governance',
     component: () => import('@/modules/system-governance/pages/SystemGovernancePage.vue'),
-    meta: { title: 'System Probes', eyebrow: 'Governance' }
+    meta: { title: 'System Probes', eyebrow: 'Governance', requiredPermissions: ['platform.config.read'] }
   }
 ]
 

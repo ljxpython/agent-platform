@@ -9,7 +9,6 @@ import EmptyState from '@/components/platform/EmptyState.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import { createProject } from '@/services/projects/projects.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { useWorkspaceStore } from '@/stores/workspace'
 
 const router = useRouter()
@@ -21,13 +20,8 @@ const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
 
-const projectsUseRuntimeApi = computed(() => resolvePlatformClientScope('projects') === 'v2')
-const activeProjects = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeProjects : workspaceStore.projects
-)
-const activeLoading = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeLoading : workspaceStore.loading
-)
+const activeProjects = computed(() => workspaceStore.projects)
+const activeLoading = computed(() => workspaceStore.loading)
 const normalizedName = computed(() => name.value.trim())
 const requestPreview = computed(() => ({
   name: normalizedName.value,
@@ -64,15 +58,10 @@ async function handleSubmit() {
     const created = await createProject({
       name: normalizedName.value,
       description: description.value.trim() || undefined
-    }, projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
 
-    if (projectsUseRuntimeApi.value) {
-      workspaceStore.setRuntimeProjectId(created.id)
-      await workspaceStore.hydrateRuntimeContext()
-    } else {
-      workspaceStore.setProjectId(created.id)
-      await workspaceStore.hydrateContext()
-    }
+    workspaceStore.setProjectId(created.id)
+    await workspaceStore.hydrateContext()
     notice.value = `已创建项目：${created.name}`
     void router.replace('/workspace/projects')
   } catch (createError) {

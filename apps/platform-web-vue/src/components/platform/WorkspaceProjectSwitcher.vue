@@ -1,31 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
 import BaseIcon from '@/components/base/BaseIcon.vue'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
-import { getWorkspaceProjectContextModule } from '@/services/platform/workspace-context'
-import { useWorkspaceStore } from '@/stores/workspace'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 
 const { t } = useI18n()
-const route = useRoute()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProjects, setActiveProjectId } = useWorkspaceProjectContext()
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
-const contextModule = computed(() => getWorkspaceProjectContextModule(route.path))
-const useDedicatedRuntimeContext = computed(() => {
-  const module = contextModule.value
-  if (!module) {
-    return false
-  }
-  return resolvePlatformClientScope(module) === 'v2'
-})
-const activeProjects = computed(() =>
-  useDedicatedRuntimeContext.value ? workspaceStore.runtimeProjects : workspaceStore.projects
-)
-const activeProjectId = computed(() =>
-  useDedicatedRuntimeContext.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
 
 const projectOptions = computed(() =>
   activeProjects.value.map((project) => ({
@@ -51,11 +33,7 @@ function toggle() {
 }
 
 function selectProject(projectId: string) {
-  if (useDedicatedRuntimeContext.value) {
-    workspaceStore.setRuntimeProjectId(projectId)
-  } else {
-    workspaceStore.setProjectId(projectId)
-  }
+  setActiveProjectId(projectId)
   close()
 }
 

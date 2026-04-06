@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginRequest, logout as logoutRequest } from '@/services/auth/auth.service'
+import { describePlatformRole } from '@/services/auth/permissions'
 import {
   clearAllTokenSets,
   getAccessToken,
@@ -17,7 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
   const hydrated = ref(false)
 
   const isAuthenticated = computed(() => Boolean(getAccessToken()) && Boolean(user.value))
-  const roleLabel = computed(() => (user.value?.is_super_admin ? '管理员' : '成员'))
+  const roleLabel = computed(() => describePlatformRole(user.value))
 
   async function fetchCurrentUser(): Promise<ManagementUser | null> {
     if (!getAccessToken()) {

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -11,19 +12,25 @@ import MetricCard from '@/components/platform/MetricCard.vue'
 import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import {
+  describePlatformRole,
+  formatPlatformRoleLabel,
+  formatProjectRoleLabel,
+  isProjectAdminRole,
+  isProjectEditorRole
+} from '@/services/auth/permissions'
 import { listAudit } from '@/services/audit/audit.service'
 import { useUiStore } from '@/stores/ui'
-import type { ManagementAuditRow, ManagementUser, ManagementUserProject } from '@/types/management'
+import type { ManagementAuditRow, ManagementUser, ManagementUserProject, ProjectRole } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { formatDateTime, shortId } from '@/utils/format'
 import { getUser, listUserProjects, updateUser } from '@/services/users/users.service'
 
 function getRoleTone(role: string): 'info' | 'success' | 'warning' {
-  if (role === 'admin') {
+  if (isProjectAdminRole(role as ProjectRole)) {
     return 'warning'
   }
-  if (role === 'editor') {
+  if (isProjectEditorRole(role as ProjectRole)) {
     return 'info'
   }
   return 'success'
@@ -42,12 +49,11 @@ function getStatusTone(statusCode: number): 'success' | 'warning' | 'danger' {
 const route = useRoute()
 const router = useRouter()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 
 const userId = computed(() =>
   typeof route.params.userId === 'string' ? route.params.userId.trim() : ''
 )
-const usersUseRuntimeApi = computed(() => resolvePlatformClientScope('users') === 'v2')
-const auditUseRuntimeApi = computed(() => resolvePlatformClientScope('audit') === 'v2')
 
 const user = ref<ManagementUser | null>(null)
 const projects = ref<ManagementUserProject[]>([])
@@ -67,6 +73,7 @@ const projectSearchInput = ref('')
 const projectQuery = ref('')
 const auditSearchInput = ref('')
 const auditQuery = ref('')
+const canManageUsers = computed(() => authorization.can('platform.user.write'))
 
 const filteredProjects = computed(() => {
   const keyword = projectQuery.value.trim().toLowerCase()
@@ -108,7 +115,7 @@ const stats = computed(() => [
   {
     label: '状态',
     value: user.value?.status || '--',
-    hint: user.value?.is_super_admin ? 'super admin' : 'regular user',
+    hint: describePlatformRole(user.value),
     icon: 'shield',
     tone: user.value?.is_super_admin ? 'warning' : 'success'
   },
@@ -142,13 +149,9 @@ async function reload() {
 
   try {
     const [userRow, projectsPayload, auditPayload] = await Promise.all([
-      getUser(userId.value, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined),
-      listUserProjects(userId.value, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined),
-      listAudit(
-        null,
-        { limit: 10, offset: 0, targetId: userId.value },
-        auditUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-      )
+      getUser(userId.value),
+      listUserProjects(userId.value),
+      listAudit(null, { limit: 10, offset: 0, targetId: userId.value })
     ])
 
     user.value = userRow
@@ -172,6 +175,11 @@ async function saveProfile() {
     return
   }
 
+  if (!canManageUsers.value) {
+    error.value = '当前账号没有用户治理写权限'
+    return
+  }
+
   const normalizedUsername = username.value.trim()
   if (!normalizedUsername) {
     error.value = '用户名不能为空'
@@ -187,7 +195,7 @@ async function saveProfile() {
       username: normalizedUsername,
       status: status.value,
       is_super_admin: isSuperAdmin.value
-    }, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
     user.value = updated
     notice.value = '资料已更新'
   } catch (saveError) {
@@ -199,6 +207,11 @@ async function saveProfile() {
 
 async function updatePassword() {
   if (!user.value) {
+    return
+  }
+
+  if (!canManageUsers.value) {
+    error.value = '当前账号没有用户治理写权限'
     return
   }
 
@@ -219,8 +232,7 @@ async function updatePassword() {
   try {
     await updateUser(
       user.value.id,
-      { password: newPassword.value },
-      usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined
+      { password: newPassword.value }
     )
     newPassword.value = ''
     confirmNewPassword.value = ''
@@ -332,7 +344,7 @@ watch(
                 </div>
               </div>
               <StatusPill :tone="user.is_super_admin ? 'warning' : 'info'">
-                {{ user.is_super_admin ? 'super admin' : 'member' }}
+                {{ describePlatformRole(user) }}
               </StatusPill>
             </div>
 
@@ -342,14 +354,14 @@ watch(
                 <input
                   v-model="username"
                   class="pw-input"
-                  :disabled="savingProfile"
+                  :disabled="savingProfile || !canManageUsers"
                 >
               </label>
               <label class="block">
                 <span class="pw-input-label">状态</span>
                 <BaseSelect
                   v-model="status"
-                  :disabled="savingProfile"
+                  :disabled="savingProfile || !canManageUsers"
                 >
                   <option value="active">active</option>
                   <option value="disabled">disabled</option>
@@ -362,9 +374,11 @@ watch(
                 v-model="isSuperAdmin"
                 type="checkbox"
                 class="pw-table-checkbox"
-                :disabled="savingProfile"
+                :disabled="savingProfile || !canManageUsers"
               >
-              <span class="font-medium text-gray-900 dark:text-white">Super admin</span>
+              <span class="font-medium text-gray-900 dark:text-white">
+                {{ formatPlatformRoleLabel('platform_super_admin') }}
+              </span>
             </label>
 
             <div class="grid gap-4 md:grid-cols-2">
@@ -407,10 +421,10 @@ watch(
 
             <div class="flex justify-end">
               <BaseButton
-                :disabled="savingProfile"
+                :disabled="savingProfile || !canManageUsers"
                 @click="saveProfile"
               >
-                {{ savingProfile ? '保存中...' : '保存资料' }}
+                {{ canManageUsers ? (savingProfile ? '保存中...' : '保存资料') : '当前账号只读' }}
               </BaseButton>
             </div>
           </SurfaceCard>
@@ -432,7 +446,7 @@ watch(
                   v-model="newPassword"
                   type="password"
                   class="pw-input"
-                  :disabled="updatingPassword"
+                  :disabled="updatingPassword || !canManageUsers"
                 >
               </label>
               <label class="block">
@@ -441,7 +455,7 @@ watch(
                   v-model="confirmNewPassword"
                   type="password"
                   class="pw-input"
-                  :disabled="updatingPassword"
+                  :disabled="updatingPassword || !canManageUsers"
                 >
               </label>
             </div>
@@ -449,16 +463,16 @@ watch(
             <div class="flex flex-wrap justify-end gap-3">
               <BaseButton
                 variant="secondary"
-                :disabled="updatingPassword"
+                :disabled="updatingPassword || !canManageUsers"
                 @click="clearPasswordInputs"
               >
                 清空
               </BaseButton>
               <BaseButton
-                :disabled="updatingPassword"
+                :disabled="updatingPassword || !canManageUsers"
                 @click="updatePassword"
               >
-                {{ updatingPassword ? '更新中...' : '更新密码' }}
+                {{ canManageUsers ? (updatingPassword ? '更新中...' : '更新密码') : '当前账号只读' }}
               </BaseButton>
             </div>
           </SurfaceCard>
@@ -521,7 +535,7 @@ watch(
                   </div>
                   <div class="flex flex-col items-end gap-2">
                     <StatusPill :tone="getRoleTone(projectItem.role)">
-                      {{ projectItem.role }}
+                      {{ formatProjectRoleLabel(projectItem.role) }}
                     </StatusPill>
                     <StatusPill :tone="projectItem.project_status === 'active' ? 'success' : 'warning'">
                       {{ projectItem.project_status }}

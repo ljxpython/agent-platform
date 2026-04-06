@@ -5,6 +5,8 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -17,16 +19,15 @@ import {
   listProjectMembers,
   upsertProjectMember
 } from '@/services/members/members.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { listUsersPage } from '@/services/users/users.service'
-import { useWorkspaceStore } from '@/stores/workspace'
-import type { ManagementProjectMember, ManagementUser } from '@/types/management'
+import type { ManagementProjectMember, ManagementUser, ProjectRole } from '@/types/management'
+import { formatProjectRoleLabel, isProjectAdminRole, isProjectEditorRole } from '@/services/auth/permissions'
 
 function getRoleTone(role: string): 'info' | 'success' | 'warning' {
-  if (role === 'admin') {
+  if (isProjectAdminRole(role as ProjectRole)) {
     return 'warning'
   }
-  if (role === 'editor') {
+  if (isProjectEditorRole(role as ProjectRole)) {
     return 'info'
   }
   return 'success'
@@ -34,15 +35,11 @@ function getRoleTone(role: string): 'info' | 'success' | 'warning' {
 
 const route = useRoute()
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { activeProjects } = useWorkspaceProjectContext()
+const authorization = useAuthorization()
 
 const projectId = computed(() =>
   typeof route.params.projectId === 'string' ? route.params.projectId.trim() : ''
-)
-const projectsUseRuntimeApi = computed(() => resolvePlatformClientScope('projects') === 'v2')
-const usersUseRuntimeApi = computed(() => resolvePlatformClientScope('users') === 'v2')
-const activeProjects = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeProjects : workspaceStore.projects
 )
 const project = computed(() =>
   activeProjects.value.find((item) => item.id === projectId.value) ?? null
@@ -55,7 +52,7 @@ const userId = ref('')
 const userSearch = ref('')
 const userCandidates = ref<ManagementUser[]>([])
 const searchingUsers = ref(false)
-const role = ref<'admin' | 'editor' | 'executor'>('executor')
+const role = ref<ProjectRole>('project_executor')
 const loading = ref(false)
 const saving = ref(false)
 const removingUserId = ref('')
@@ -64,16 +61,22 @@ const error = ref('')
 const notice = ref('')
 
 const existingMemberUserIds = computed(() => new Set(items.value.map((item) => item.user_id)))
-const adminCount = computed(() => items.value.filter((item) => item.role === 'admin').length)
+const adminCount = computed(() => items.value.filter((item) => isProjectAdminRole(item.role)).length)
 const targetExistingMember = computed(() =>
   items.value.find((item) => item.user_id === userId.value.trim())
 )
 const downgradeLastAdminBlocked = computed(
   () =>
-    targetExistingMember.value?.role === 'admin' &&
-    role.value !== 'admin' &&
+    isProjectAdminRole(targetExistingMember.value?.role) &&
+    !isProjectAdminRole(role.value) &&
     adminCount.value <= 1
 )
+const canManageMembers = computed(() => authorization.can('project.member.write', projectId.value))
+const roleOptions: Array<{ value: ProjectRole; label: string }> = [
+  { value: 'project_admin', label: formatProjectRoleLabel('project_admin') },
+  { value: 'project_editor', label: formatProjectRoleLabel('project_editor') },
+  { value: 'project_executor', label: formatProjectRoleLabel('project_executor') }
+]
 
 const stats = computed(() => [
   {
@@ -93,7 +96,7 @@ const stats = computed(() => [
   {
     label: '管理员',
     value: adminCount.value,
-    hint: adminCount.value <= 1 ? '最后一个 admin 受保护' : '可正常调整',
+    hint: adminCount.value <= 1 ? '最后一个项目管理员受保护' : '可正常调整',
     icon: 'shield',
     tone: 'warning'
   },
@@ -119,8 +122,7 @@ async function refreshMembers() {
   try {
     items.value = await listProjectMembers(
       projectId.value,
-      { query: memberQuery.value },
-      projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined
+      { query: memberQuery.value }
     )
   } catch (loadError) {
     items.value = []
@@ -154,7 +156,7 @@ async function saveMember() {
       projectId: projectId.value,
       userId: userId.value.trim(),
       role: role.value
-    }, projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
     notice.value = `已保存成员：${row.username}`
     userId.value = ''
     userSearch.value = ''
@@ -172,11 +174,7 @@ async function confirmDelete(member: ManagementProjectMember) {
   notice.value = ''
 
   try {
-    await deleteProjectMember(
-      projectId.value,
-      member.user_id,
-      projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
+    await deleteProjectMember(projectId.value, member.user_id)
     notice.value = `已移除成员：${member.username}`
     await refreshMembers()
   } catch (deleteError) {
@@ -229,7 +227,7 @@ watch(
           query: nextValue,
           status: 'active',
           excludeUserIds: Array.from(existingMemberUserIds.value)
-        }, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+        })
         if (!cancelled) {
           userCandidates.value = payload.items.filter(
             (candidate) => !existingMemberUserIds.value.has(candidate.id)
@@ -259,7 +257,7 @@ watch(
     <PageHeader
       eyebrow="Projects"
       :title="project ? `${project.name} · 成员管理` : '项目成员管理'"
-      description="项目成员页承接旧版成员管理链路：搜索候选用户、设置角色、保护最后一个 admin，并支持删除成员。"
+      description="项目成员页负责搜索候选用户、设置项目角色、保护最后一个管理员并支持移除成员。"
     >
       <template #actions>
         <BaseButton
@@ -363,10 +361,15 @@ watch(
             <span class="pw-input-label">角色</span>
             <BaseSelect
               v-model="role"
+              :disabled="!canManageMembers"
             >
-              <option value="admin">admin</option>
-              <option value="editor">editor</option>
-              <option value="executor">executor</option>
+              <option
+                v-for="item in roleOptions"
+                :key="item.value"
+                :value="item.value"
+              >
+                {{ item.label }}
+              </option>
             </BaseSelect>
           </label>
 
@@ -374,19 +377,19 @@ watch(
             v-if="downgradeLastAdminBlocked"
             class="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-4 text-sm leading-7 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100"
           >
-            当前项目的最后一个 admin 不能被降级。
+            当前项目的最后一个管理员不能被降级。
           </div>
 
           <div class="flex justify-end">
             <BaseButton
-              :disabled="saving"
+              :disabled="saving || !canManageMembers"
               @click="saveMember"
             >
               <BaseIcon
                 name="check"
                 size="sm"
               />
-              {{ saving ? '保存中...' : '保存成员' }}
+              {{ canManageMembers ? (saving ? '保存中...' : '保存成员') : '当前账号不可写' }}
             </BaseButton>
           </div>
         </SurfaceCard>
@@ -398,7 +401,7 @@ watch(
                 当前成员
               </div>
               <div class="mt-1 text-sm text-gray-500 dark:text-dark-300">
-                支持按用户名筛选，删除时会做最后一个 admin 保护。
+                支持按用户名筛选，删除时会做最后一个项目管理员保护。
               </div>
             </div>
             <BaseButton
@@ -474,19 +477,21 @@ watch(
                 </div>
                 <div class="flex flex-col items-end gap-2">
                   <StatusPill :tone="getRoleTone(member.role)">
-                    {{ member.role }}
+                    {{ formatProjectRoleLabel(member.role) }}
                   </StatusPill>
                   <BaseButton
                     variant="danger"
-                    :disabled="(member.role === 'admin' && adminCount <= 1) || removingUserId === member.user_id"
+                    :disabled="(!canManageMembers) || (isProjectAdminRole(member.role) && adminCount <= 1) || removingUserId === member.user_id"
                     @click="pendingDeleteMember = member"
                   >
                     {{
-                      member.role === 'admin' && adminCount <= 1
-                        ? '最后一个 admin'
-                        : removingUserId === member.user_id
-                          ? '移除中...'
-                          : '移除'
+                      !canManageMembers
+                        ? '当前账号不可写'
+                        : isProjectAdminRole(member.role) && adminCount <= 1
+                          ? '最后一个管理员'
+                          : removingUserId === member.user_id
+                            ? '移除中...'
+                            : '移除'
                     }}
                   </BaseButton>
                 </div>

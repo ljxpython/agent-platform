@@ -31,19 +31,13 @@ type CaseListResponse = {
   total: number
 }
 
-export type TestcaseServiceMode = 'legacy' | 'runtime'
-
-type TestcaseServiceOptions = {
-  mode?: TestcaseServiceMode
-}
-
 function buildHeaders(projectId: string) {
   return {
     'x-project-id': projectId
   }
 }
 
-function resolveEndpoint(projectId: string, suffix: string, _options?: TestcaseServiceOptions) {
+function resolveEndpoint(projectId: string, suffix: string) {
   const normalizedSuffix = suffix.startsWith('/') ? suffix : `/${suffix}`
   return {
     client: platformV2HttpClient,
@@ -70,10 +64,9 @@ function parseContentDispositionFilename(header: string | null): string | null {
 async function downloadFrom(
   projectId: string,
   suffix: string,
-  requestOptions?: TestcaseServiceOptions,
   params?: Record<string, string | number | undefined>
 ): Promise<ManagementDownload> {
-  const { client, path } = resolveEndpoint(projectId, suffix, requestOptions)
+  const { client, path } = resolveEndpoint(projectId, suffix)
   const response = await client.get(path, {
     headers: buildHeaders(projectId),
     responseType: 'blob',
@@ -88,10 +81,9 @@ async function downloadFrom(
 }
 
 export async function getTestcaseOverview(
-  projectId: string,
-  requestOptions?: TestcaseServiceOptions
+  projectId: string
 ): Promise<TestcaseOverview> {
-  const { client, path } = resolveEndpoint(projectId, '/overview', requestOptions)
+  const { client, path } = resolveEndpoint(projectId, '/overview')
   const response = await client.get(path, {
     headers: buildHeaders(projectId)
   })
@@ -99,10 +91,9 @@ export async function getTestcaseOverview(
 }
 
 export async function getTestcaseRole(
-  projectId: string,
-  requestOptions?: TestcaseServiceOptions
+  projectId: string
 ): Promise<TestcaseRole> {
-  const { client, path } = resolveEndpoint(projectId, '/role', requestOptions)
+  const { client, path } = resolveEndpoint(projectId, '/role')
   const response = await client.get(path, {
     headers: buildHeaders(projectId)
   })
@@ -111,10 +102,9 @@ export async function getTestcaseRole(
 
 export async function listTestcaseBatches(
   projectId: string,
-  options?: { limit?: number; offset?: number },
-  requestOptions?: TestcaseServiceOptions
+  options?: { limit?: number; offset?: number }
 ): Promise<BatchListResponse> {
-  const { client, path } = resolveEndpoint(projectId, '/batches', requestOptions)
+  const { client, path } = resolveEndpoint(projectId, '/batches')
   const response = await client.get(path, {
     headers: buildHeaders(projectId),
     params: {
@@ -133,10 +123,9 @@ export async function listTestcaseDocuments(
     query?: string
     limit?: number
     offset?: number
-  },
-  requestOptions?: TestcaseServiceOptions
+  }
 ): Promise<DocumentListResponse> {
-  const { client, path } = resolveEndpoint(projectId, '/documents', requestOptions)
+  const { client, path } = resolveEndpoint(projectId, '/documents')
   const response = await client.get(path, {
     headers: buildHeaders(projectId),
     params: {
@@ -152,14 +141,9 @@ export async function listTestcaseDocuments(
 
 export async function getTestcaseDocumentRelations(
   projectId: string,
-  documentId: string,
-  requestOptions?: TestcaseServiceOptions
+  documentId: string
 ): Promise<TestcaseDocumentRelations> {
-  const { client, path } = resolveEndpoint(
-    projectId,
-    `/documents/${documentId}/relations`,
-    requestOptions
-  )
+  const { client, path } = resolveEndpoint(projectId, `/documents/${documentId}/relations`)
   const response = await client.get(path, {
     headers: buildHeaders(projectId)
   })
@@ -172,10 +156,9 @@ export async function exportTestcaseDocuments(
     batch_id?: string
     parse_status?: string
     query?: string
-  },
-  requestOptions?: TestcaseServiceOptions
+  }
 ): Promise<ManagementDownload> {
-  return downloadFrom(projectId, '/documents/export', requestOptions, {
+  return downloadFrom(projectId, '/documents/export', {
     batch_id: options?.batch_id?.trim() || undefined,
     parse_status: options?.parse_status?.trim() || undefined,
     query: options?.query?.trim() || undefined
@@ -217,10 +200,9 @@ export async function exportTestcaseDocumentsByOperation(
 
 export async function getTestcaseDocument(
   projectId: string,
-  documentId: string,
-  requestOptions?: TestcaseServiceOptions
+  documentId: string
 ): Promise<TestcaseDocument> {
-  const { client, path } = resolveEndpoint(projectId, `/documents/${documentId}`, requestOptions)
+  const { client, path } = resolveEndpoint(projectId, `/documents/${documentId}`)
   const response = await client.get(path, {
     headers: buildHeaders(projectId)
   })
@@ -229,18 +211,16 @@ export async function getTestcaseDocument(
 
 export async function previewTestcaseDocument(
   projectId: string,
-  documentId: string,
-  requestOptions?: TestcaseServiceOptions
+  documentId: string
 ): Promise<ManagementDownload> {
-  return downloadFrom(projectId, `/documents/${documentId}/preview`, requestOptions)
+  return downloadFrom(projectId, `/documents/${documentId}/preview`)
 }
 
 export async function downloadTestcaseDocument(
   projectId: string,
-  documentId: string,
-  requestOptions?: TestcaseServiceOptions
+  documentId: string
 ): Promise<ManagementDownload> {
-  return downloadFrom(projectId, `/documents/${documentId}/download`, requestOptions)
+  return downloadFrom(projectId, `/documents/${documentId}/download`)
 }
 
 export async function listTestcaseCases(
@@ -251,10 +231,9 @@ export async function listTestcaseCases(
     query?: string
     limit?: number
     offset?: number
-  },
-  requestOptions?: TestcaseServiceOptions
+  }
 ): Promise<CaseListResponse> {
-  const { client, path } = resolveEndpoint(projectId, '/cases', requestOptions)
+  const { client, path } = resolveEndpoint(projectId, '/cases')
   const response = await client.get(path, {
     headers: buildHeaders(projectId),
     params: {
@@ -275,10 +254,9 @@ export async function exportTestcaseCases(
     status?: string
     query?: string
     columns?: string[]
-  },
-  requestOptions?: TestcaseServiceOptions
+  }
 ): Promise<ManagementDownload> {
-  return downloadFrom(projectId, '/cases/export', requestOptions, {
+  return downloadFrom(projectId, '/cases/export', {
     batch_id: options?.batch_id?.trim() || undefined,
     status: options?.status?.trim() || undefined,
     query: options?.query?.trim() || undefined,
@@ -323,10 +301,9 @@ export async function exportTestcaseCasesByOperation(
 
 export async function getTestcaseCase(
   projectId: string,
-  caseId: string,
-  requestOptions?: TestcaseServiceOptions
+  caseId: string
 ): Promise<TestcaseCase> {
-  const { client, path } = resolveEndpoint(projectId, `/cases/${caseId}`, requestOptions)
+  const { client, path } = resolveEndpoint(projectId, `/cases/${caseId}`)
   const response = await client.get(path, {
     headers: buildHeaders(projectId)
   })
@@ -347,10 +324,9 @@ export type UpsertTestcaseCasePayload = {
 
 export async function createTestcaseCase(
   projectId: string,
-  payload: Required<Pick<UpsertTestcaseCasePayload, 'title'>> & UpsertTestcaseCasePayload,
-  requestOptions?: TestcaseServiceOptions
+  payload: Required<Pick<UpsertTestcaseCasePayload, 'title'>> & UpsertTestcaseCasePayload
 ): Promise<TestcaseCase> {
-  const { client, path } = resolveEndpoint(projectId, '/cases', requestOptions)
+  const { client, path } = resolveEndpoint(projectId, '/cases')
   const response = await client.post(path, payload, {
     headers: buildHeaders(projectId)
   })
@@ -360,10 +336,9 @@ export async function createTestcaseCase(
 export async function updateTestcaseCase(
   projectId: string,
   caseId: string,
-  payload: UpsertTestcaseCasePayload,
-  requestOptions?: TestcaseServiceOptions
+  payload: UpsertTestcaseCasePayload
 ): Promise<TestcaseCase> {
-  const { client, path } = resolveEndpoint(projectId, `/cases/${caseId}`, requestOptions)
+  const { client, path } = resolveEndpoint(projectId, `/cases/${caseId}`)
   const response = await client.patch(path, payload, {
     headers: buildHeaders(projectId)
   })
@@ -372,10 +347,9 @@ export async function updateTestcaseCase(
 
 export async function deleteTestcaseCase(
   projectId: string,
-  caseId: string,
-  requestOptions?: TestcaseServiceOptions
+  caseId: string
 ): Promise<void> {
-  const { client, path } = resolveEndpoint(projectId, `/cases/${caseId}`, requestOptions)
+  const { client, path } = resolveEndpoint(projectId, `/cases/${caseId}`)
   await client.delete(path, {
     headers: buildHeaders(projectId)
   })
@@ -389,10 +363,9 @@ export async function getTestcaseBatchDetail(
     document_offset?: number
     case_limit?: number
     case_offset?: number
-  },
-  requestOptions?: TestcaseServiceOptions
+  }
 ): Promise<TestcaseBatchDetail> {
-  const { client, path } = resolveEndpoint(projectId, `/batches/${batchId}`, requestOptions)
+  const { client, path } = resolveEndpoint(projectId, `/batches/${batchId}`)
   const response = await client.get(path, {
     headers: buildHeaders(projectId),
     params: {

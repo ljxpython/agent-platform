@@ -4,6 +4,35 @@ export type AuthTokenSet = {
   tokenType: string
 }
 
+export type PlatformRole = 'platform_super_admin' | 'platform_operator' | 'platform_viewer'
+export type ProjectRole = 'project_admin' | 'project_editor' | 'project_executor'
+export type LegacyProjectRole = 'admin' | 'editor' | 'executor'
+export type PermissionCode =
+  | 'platform.user.read'
+  | 'platform.user.write'
+  | 'platform.audit.read'
+  | 'platform.catalog.refresh'
+  | 'platform.announcement.write'
+  | 'platform.operation.read'
+  | 'platform.operation.write'
+  | 'platform.config.read'
+  | 'platform.config.write'
+  | 'platform.service_account.read'
+  | 'platform.service_account.write'
+  | 'project.member.read'
+  | 'project.member.write'
+  | 'project.audit.read'
+  | 'project.announcement.read'
+  | 'project.announcement.write'
+  | 'project.assistant.read'
+  | 'project.assistant.write'
+  | 'project.runtime.read'
+  | 'project.runtime.write'
+  | 'project.testcase.read'
+  | 'project.testcase.write'
+  | 'project.operation.read'
+  | 'project.operation.write'
+
 export type PaginatedResponse<T> = {
   items: T[]
   total: number
@@ -14,6 +43,8 @@ export type ManagementUser = {
   username: string
   status: string
   is_super_admin: boolean
+  platform_roles: PlatformRole[]
+  project_roles: Record<string, ProjectRole[]>
   email?: string | null
   created_at?: string | null
   updated_at?: string | null
@@ -24,7 +55,7 @@ export type ManagementUserProject = {
   project_name: string
   project_description: string
   project_status: string
-  role: 'admin' | 'editor' | 'executor'
+  role: ProjectRole
   joined_at: string
 }
 
@@ -38,7 +69,7 @@ export type ManagementProject = {
 export type ManagementProjectMember = {
   user_id: string
   username: string
-  role: 'admin' | 'editor' | 'executor'
+  role: ProjectRole
 }
 
 export type ManagementAssistant = {
@@ -356,7 +387,7 @@ export type ManagementServiceAccount = {
   name: string
   description: string | null
   status: string
-  platform_roles: string[]
+  platform_roles: PlatformRole[]
   created_by: string | null
   updated_by: string | null
   last_used_at: string | null
@@ -551,7 +582,7 @@ export type TestcaseBatchDetail = {
 
 export type TestcaseRole = {
   project_id: string
-  role: 'admin' | 'editor' | 'executor'
+  role: ProjectRole
   can_write_testcase: boolean
 }
 

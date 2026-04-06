@@ -1,12 +1,6 @@
 import { platformV2HttpClient } from '@/services/http/client'
 import type { ManagementAuditListResponse, ManagementAuditRow } from '@/types/management'
 
-type AuditServiceMode = 'legacy' | 'runtime'
-
-type AuditServiceOptions = {
-  mode?: AuditServiceMode
-}
-
 type AuditEventItem = {
   id: string
   request_id: string
@@ -45,8 +39,7 @@ export async function listAudit(
     targetId?: string
     method?: string
     statusCode?: number | null
-  },
-  _requestOptions?: AuditServiceOptions
+  }
 ): Promise<ManagementAuditListResponse> {
   const response = await platformV2HttpClient.get('/api/audit', {
     params: {

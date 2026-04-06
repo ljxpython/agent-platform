@@ -147,7 +147,7 @@ async function loadGraphs() {
       limit: pagination.pageSize.value,
       offset: pagination.offset.value,
       query: query.value
-    }, { mode: 'runtime' })
+    })
 
     items.value = payload.items
     pagination.setTotal(payload.total)
@@ -173,7 +173,7 @@ async function handleRefreshCatalog() {
   notice.value = ''
 
   try {
-    const payload = await refreshGraphsCatalog(projectId, { mode: 'runtime' })
+    const payload = await refreshGraphsCatalog(projectId)
     notice.value = `图谱目录已刷新，当前同步 ${payload.count} 条记录`
     await loadGraphs()
   } catch (refreshError) {

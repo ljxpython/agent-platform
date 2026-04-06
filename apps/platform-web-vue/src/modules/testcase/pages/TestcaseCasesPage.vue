@@ -4,6 +4,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -22,11 +23,9 @@ import TestcaseWorkspaceNav from '@/components/platform/TestcaseWorkspaceNav.vue
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
 import type { FilterSettingItem } from '@/components/platform/filter-settings'
 import { getOperationFailureMessage } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import {
   createTestcaseCase,
   deleteTestcaseCase,
-  exportTestcaseCases,
   exportTestcaseCasesByOperation,
   getTestcaseCase,
   getTestcaseOverview,
@@ -35,11 +34,9 @@ import {
   listTestcaseCases,
   listTestcaseDocuments,
   updateTestcaseCase,
-  type TestcaseServiceMode,
   type UpsertTestcaseCasePayload
 } from '@/services/testcase/testcase.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type {
   TestcaseBatchSummary,
   TestcaseCase,
@@ -256,15 +253,8 @@ function buildContentJsonPayload(
   return next
 }
 
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
-const testcaseUseRuntimeApi = computed(() => resolvePlatformClientScope('testcase') === 'v2')
-const activeProjectId = computed(() =>
-  testcaseUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
-const activeProject = computed(() =>
-  testcaseUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
 
 const overview = ref<TestcaseOverview | null>(null)
 const batches = ref<TestcaseBatchSummary[]>([])
@@ -350,9 +340,6 @@ const columns = computed<DataTableColumn[]>(() => [
 ])
 
 const canWrite = computed(() => Boolean(role.value?.can_write_testcase))
-const requestOptions = computed<{ mode: TestcaseServiceMode } | undefined>(() =>
-  testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-)
 const dialogTitle = computed(() => {
   if (caseDialogMode.value === 'create') {
     return '新增测试用例'
@@ -403,9 +390,9 @@ async function loadMeta(projectId: string) {
   metaLoading.value = true
   try {
     const [overviewPayload, batchPayload, rolePayload] = await Promise.all([
-      getTestcaseOverview(projectId, requestOptions.value),
-      listTestcaseBatches(projectId, { limit: 100, offset: 0 }, requestOptions.value),
-      getTestcaseRole(projectId, requestOptions.value)
+      getTestcaseOverview(projectId),
+      listTestcaseBatches(projectId, { limit: 100, offset: 0 }),
+      getTestcaseRole(projectId)
     ])
     overview.value = overviewPayload
     batches.value = batchPayload.items
@@ -436,8 +423,7 @@ async function loadCaseList() {
         query: query.value || undefined,
         limit: pagination.pageSize.value,
         offset: pagination.offset.value
-      },
-      requestOptions.value
+      }
     )
     items.value = payload.items
     pagination.setTotal(payload.total)
@@ -483,8 +469,7 @@ async function loadSourceDocuments() {
         batch_id: form.value.batch_id || undefined,
         limit: 200,
         offset: 0
-      },
-      requestOptions.value
+      }
     )
     sourceDocuments.value = payload.items
   } catch (loadError) {
@@ -506,7 +491,7 @@ async function loadCaseDetail(caseId: string) {
   detailLoading.value = true
   detailError.value = ''
   try {
-    selectedCase.value = await getTestcaseCase(projectId, caseId, requestOptions.value)
+    selectedCase.value = await getTestcaseCase(projectId, caseId)
   } catch (loadError) {
     selectedCase.value = null
     detailError.value = loadError instanceof Error ? loadError.message : '用例详情加载失败'
@@ -626,14 +611,12 @@ async function handleSave() {
             {
               ...payload,
               title: payload.title || form.value.title.trim()
-            },
-            requestOptions.value
+            }
           )
         : await updateTestcaseCase(
             projectId,
             selectedSummary.value?.id || selectedCase.value?.id || '',
-            payload,
-            requestOptions.value
+            payload
           )
 
     pushToast(
@@ -662,7 +645,7 @@ async function handleDelete() {
 
   deleting.value = true
   try {
-    await deleteTestcaseCase(projectId, targetId, requestOptions.value)
+    await deleteTestcaseCase(projectId, targetId)
     pushToast(
       'success',
       '删除成功',
@@ -695,15 +678,13 @@ async function handleExport() {
       status: statusFilter.value || undefined,
       query: query.value || undefined
     }
-    const download = testcaseUseRuntimeApi.value
-      ? await (async () => {
-          const result = await exportTestcaseCasesByOperation(projectId, exportOptions)
-          if (result.operation.status !== 'succeeded') {
-            throw new Error(getOperationFailureMessage(result.operation))
-          }
-          return result.download
-        })()
-      : await exportTestcaseCases(projectId, exportOptions, requestOptions.value)
+    const download = await (async () => {
+      const result = await exportTestcaseCasesByOperation(projectId, exportOptions)
+      if (result.operation.status !== 'succeeded') {
+        throw new Error(getOperationFailureMessage(result.operation))
+      }
+      return result.download
+    })()
     downloadBlob(
       download.blob,
       download.filename ||

@@ -8,12 +8,6 @@ import type {
 
 type GraphRefreshResponse = RuntimeRefreshResponse
 
-export type GraphServiceMode = 'legacy' | 'runtime'
-
-type GraphServiceOptions = {
-  mode?: GraphServiceMode
-}
-
 function filterAndSliceGraphs(
   rows: ManagementGraphListResponse['items'],
   options?: { limit?: number; offset?: number; query?: string }
@@ -45,8 +39,7 @@ function filterAndSliceGraphs(
 
 export async function listGraphsPage(
   projectId: string,
-  options?: { limit?: number; offset?: number; query?: string },
-  _requestOptions?: GraphServiceOptions
+  options?: { limit?: number; offset?: number; query?: string }
 ): Promise<ManagementGraphListResponse> {
   if (!projectId) {
     return { items: [], total: 0, last_synced_at: null }
@@ -74,8 +67,7 @@ export async function listGraphsPage(
 }
 
 export async function refreshGraphsCatalog(
-  projectId?: string,
-  _requestOptions?: GraphServiceOptions
+  projectId?: string
 ): Promise<GraphRefreshResponse> {
   const response = await platformV2HttpClient.post(
     '/api/runtime/graphs/refresh',
@@ -94,8 +86,7 @@ export async function refreshGraphsCatalog(
 
 export async function getGraphCatalogItem(
   projectId: string,
-  graphId: string,
-  requestOptions?: GraphServiceOptions
+  graphId: string
 ): Promise<ManagementGraph | null> {
   const normalizedGraphId = graphId.trim()
   if (!projectId || !normalizedGraphId) {
@@ -108,8 +99,7 @@ export async function getGraphCatalogItem(
       limit: 200,
       offset: 0,
       query: normalizedGraphId
-    },
-    requestOptions
+    }
   )
 
   return (

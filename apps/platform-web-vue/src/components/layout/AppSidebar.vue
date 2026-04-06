@@ -3,22 +3,27 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import { appMeta } from '@/config/app-meta'
 import BrandMark from '@/components/layout/BrandMark.vue'
 import { useThemeStore } from '@/stores/theme'
 import { useUiStore } from '@/stores/ui'
+import type { PermissionCode } from '@/types/management'
 
 const route = useRoute()
 const { t } = useI18n()
 const uiStore = useUiStore()
 const themeStore = useThemeStore()
 const isDev = import.meta.env.DEV
+const authorization = useAuthorization()
 
 type SidebarItem = {
   to: string
   label: string
   icon: string
   exact?: boolean
+  requiredPermissions?: PermissionCode[]
+  permissionMode?: 'all' | 'any'
 }
 
 type SidebarGroup = {
@@ -33,37 +38,120 @@ const groups = computed(() => {
       items: [
         { to: '/workspace/overview', label: t('nav.overview'), icon: 'overview' },
         { to: '/workspace/projects', label: t('nav.projects'), icon: 'folder' },
-        { to: '/workspace/users', label: t('nav.users'), icon: 'users' },
-        { to: '/workspace/assistants', label: t('nav.assistants'), icon: 'assistant' }
+        {
+          to: '/workspace/users',
+          label: t('nav.users'),
+          icon: 'users',
+          requiredPermissions: ['platform.user.read']
+        },
+        {
+          to: '/workspace/assistants',
+          label: t('nav.assistants'),
+          icon: 'assistant',
+          requiredPermissions: ['project.assistant.read']
+        }
       ]
     },
     {
       label: 'Agent',
       items: [
-        { to: '/workspace/runtime', label: t('nav.runtime'), icon: 'runtime' },
-        { to: '/workspace/runtime/policies', label: t('nav.runtimePolicies'), icon: 'shield' },
-        { to: '/workspace/graphs', label: t('nav.graphs'), icon: 'graph' },
-        { to: '/workspace/sql-agent', label: t('nav.sqlAgent'), icon: 'sql-agent' },
-        { to: '/workspace/threads', label: t('nav.threads'), icon: 'threads' },
-        { to: '/workspace/chat', label: t('nav.chat'), icon: 'chat' }
+        {
+          to: '/workspace/runtime',
+          label: t('nav.runtime'),
+          icon: 'runtime',
+          requiredPermissions: ['project.runtime.read']
+        },
+        {
+          to: '/workspace/runtime/policies',
+          label: t('nav.runtimePolicies'),
+          icon: 'shield',
+          requiredPermissions: ['project.runtime.read']
+        },
+        {
+          to: '/workspace/graphs',
+          label: t('nav.graphs'),
+          icon: 'graph',
+          requiredPermissions: ['project.runtime.read']
+        },
+        {
+          to: '/workspace/sql-agent',
+          label: t('nav.sqlAgent'),
+          icon: 'sql-agent',
+          requiredPermissions: ['project.runtime.read']
+        },
+        {
+          to: '/workspace/threads',
+          label: t('nav.threads'),
+          icon: 'threads',
+          requiredPermissions: ['project.runtime.read']
+        },
+        {
+          to: '/workspace/chat',
+          label: t('nav.chat'),
+          icon: 'chat',
+          requiredPermissions: ['project.runtime.read']
+        }
       ]
     },
     {
       label: 'Governance',
       items: [
-        { to: '/workspace/control-plane', label: t('nav.controlPlane'), icon: 'overview' },
-        { to: '/workspace/operations', label: t('nav.operations'), icon: 'activity' },
-        { to: '/workspace/announcements', label: t('nav.announcements'), icon: 'bell' },
-        { to: '/workspace/platform-config', label: t('nav.platformConfig'), icon: 'lock' },
-        { to: '/workspace/service-accounts', label: t('nav.serviceAccounts'), icon: 'users' },
-        { to: '/workspace/system-governance', label: t('nav.systemGovernance'), icon: 'shield' },
-        { to: '/workspace/audit', label: t('nav.audit'), icon: 'audit' }
+        {
+          to: '/workspace/control-plane',
+          label: t('nav.controlPlane'),
+          icon: 'overview',
+          requiredPermissions: ['platform.config.read']
+        },
+        {
+          to: '/workspace/operations',
+          label: t('nav.operations'),
+          icon: 'activity',
+          requiredPermissions: ['platform.operation.read', 'project.operation.read'],
+          permissionMode: 'any'
+        },
+        {
+          to: '/workspace/announcements',
+          label: t('nav.announcements'),
+          icon: 'bell',
+          requiredPermissions: ['platform.announcement.write', 'project.announcement.write'],
+          permissionMode: 'any'
+        },
+        {
+          to: '/workspace/platform-config',
+          label: t('nav.platformConfig'),
+          icon: 'lock',
+          requiredPermissions: ['platform.config.read']
+        },
+        {
+          to: '/workspace/service-accounts',
+          label: t('nav.serviceAccounts'),
+          icon: 'users',
+          requiredPermissions: ['platform.service_account.read']
+        },
+        {
+          to: '/workspace/system-governance',
+          label: t('nav.systemGovernance'),
+          icon: 'shield',
+          requiredPermissions: ['platform.config.read']
+        },
+        {
+          to: '/workspace/audit',
+          label: t('nav.audit'),
+          icon: 'audit',
+          requiredPermissions: ['platform.audit.read', 'project.audit.read'],
+          permissionMode: 'any'
+        }
       ]
     },
     {
       label: 'Quality',
       items: [
-        { to: '/workspace/testcase', label: t('nav.testcase'), icon: 'testcase' },
+        {
+          to: '/workspace/testcase',
+          label: t('nav.testcase'),
+          icon: 'testcase',
+          requiredPermissions: ['project.testcase.read']
+        },
         { to: '/workspace/me', label: t('nav.me'), icon: 'user' },
         { to: '/workspace/security', label: t('nav.security'), icon: 'lock' }
       ]
@@ -84,6 +172,25 @@ const groups = computed(() => {
   }
 
   return baseGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!item.requiredPermissions?.length) {
+          return true
+        }
+
+        const mode = item.permissionMode === 'any' ? 'any' : 'all'
+        const evaluator = (permission: PermissionCode) =>
+          permission.startsWith('project.')
+            ? authorization.currentProjectCan(permission) || authorization.canAnyProject(permission)
+            : authorization.can(permission)
+
+        return mode === 'any'
+          ? item.requiredPermissions.some((permission) => evaluator(permission))
+          : item.requiredPermissions.every((permission) => evaluator(permission))
+      })
+    }))
+    .filter((group) => group.items.length > 0)
 })
 
 function isActive(path: string, exact = false): boolean {

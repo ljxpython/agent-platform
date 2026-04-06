@@ -18,6 +18,7 @@ class UserProfile(BaseModel):
     email: str | None = None
     status: UserStatus = UserStatus.ACTIVE
     platform_roles: tuple[str, ...] = ()
+    project_roles: dict[str, tuple[str, ...]] = {}
 
 
 class SessionTokens(BaseModel):

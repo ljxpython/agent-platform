@@ -34,6 +34,7 @@ from app.modules.identity.application.contracts import (
 from app.modules.identity.application.ports import IdentityRepository, StoredUser
 from app.modules.identity.domain import AuthenticatedSession, SessionTokens, UserProfile, UserStatus
 from app.modules.identity.infra.sqlalchemy.repository import SqlAlchemyIdentityRepository
+from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
 
 
 def _now() -> datetime:
@@ -70,7 +71,16 @@ class IdentityService:
     def _build_repository(self, session: Session) -> IdentityRepository:
         return SqlAlchemyIdentityRepository(session)
 
-    def _user_profile(self, user: StoredUser) -> UserProfile:
+    def _project_roles(self, session: Session, *, user_id: UUID) -> dict[str, tuple[str, ...]]:
+        repository = SqlAlchemyProjectsRepository(session)
+        return repository.list_user_project_roles(user_id=user_id)
+
+    def _user_profile(
+        self,
+        user: StoredUser,
+        *,
+        project_roles: dict[str, tuple[str, ...]] | None = None,
+    ) -> UserProfile:
         platform_roles = (
             (PlatformRole.SUPER_ADMIN.value,) if user.is_super_admin else ()
         )
@@ -85,6 +95,7 @@ class IdentityService:
             email=user.email,
             status=status,
             platform_roles=platform_roles,
+            project_roles=project_roles or {},
         )
 
     def _issue_session_tokens(
@@ -129,7 +140,13 @@ class IdentityService:
                     message="Invalid username or password",
                 )
             tokens = self._issue_session_tokens(repository=repository, user=user)
-            return AuthenticatedSession(tokens=tokens, user=self._user_profile(user))
+            return AuthenticatedSession(
+                tokens=tokens,
+                user=self._user_profile(
+                    user,
+                    project_roles=self._project_roles(uow.session, user_id=user.id),
+                ),
+            )
 
     async def refresh(self, command: RefreshSessionCommand) -> SessionTokens:
         session_factory = self._require_session_factory()
@@ -232,7 +249,7 @@ class IdentityService:
             user = repository.get_user_by_id(user_id)
             if user is None:
                 raise NotFoundError(message="User not found", code="user_not_found")
-            return self._user_profile(user)
+            return self._user_profile(user, project_roles=dict(actor.project_roles))
 
     async def update_current_user(
         self,
@@ -268,7 +285,7 @@ class IdentityService:
             )
             if updated is None:
                 raise NotFoundError(message="User not found", code="user_not_found")
-            return self._user_profile(updated)
+            return self._user_profile(updated, project_roles=dict(actor.project_roles))
 
     async def ensure_bootstrap_admin(self) -> str | None:
         session_factory = self._require_session_factory()

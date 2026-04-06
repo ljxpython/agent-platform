@@ -3,10 +3,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
+const authorization = useAuthorization()
 const uiStore = useUiStore()
 const router = useRouter()
 const { t } = useI18n()
@@ -14,7 +16,7 @@ const { t } = useI18n()
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const initials = computed(() => (authStore.user?.username || 'PW').slice(0, 2).toUpperCase())
-const roleLabel = computed(() => (authStore.user?.is_super_admin ? t('common.admin') : t('common.member')))
+const roleLabel = computed(() => authorization.roleLabel.value || t('common.member'))
 
 async function navigateTo(path: string) {
   isOpen.value = false

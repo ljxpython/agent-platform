@@ -3,14 +3,16 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { formatPlatformRoleLabel } from '@/services/auth/permissions'
 import { createUser } from '@/services/users/users.service'
 
 const router = useRouter()
+const authorization = useAuthorization()
 
 const username = ref('')
 const password = ref('')
@@ -18,7 +20,6 @@ const isSuperAdmin = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
-const usersUseRuntimeApi = computed(() => resolvePlatformClientScope('users') === 'v2')
 
 const normalizedUsername = computed(() => username.value.trim())
 const requestPreview = computed(() => ({
@@ -44,6 +45,11 @@ const stats = computed(() => [
 ])
 
 async function handleSubmit() {
+  if (!authorization.can('platform.user.write')) {
+    error.value = '当前账号没有创建用户的权限'
+    return
+  }
+
   if (!normalizedUsername.value) {
     error.value = '用户名不能为空'
     return
@@ -63,7 +69,7 @@ async function handleSubmit() {
       username: normalizedUsername.value,
       password: password.value,
       is_super_admin: isSuperAdmin.value
-    }, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
 
     notice.value = `已创建用户：${created.username}`
     void router.replace('/workspace/users')
@@ -135,7 +141,7 @@ async function handleSubmit() {
             v-model="username"
             class="pw-input"
             placeholder="请输入用户名"
-            :disabled="submitting"
+            :disabled="submitting || !authorization.can('platform.user.write')"
             maxlength="64"
           >
         </label>
@@ -147,7 +153,7 @@ async function handleSubmit() {
             type="password"
             class="pw-input"
             placeholder="请输入密码"
-            :disabled="submitting"
+            :disabled="submitting || !authorization.can('platform.user.write')"
           >
         </label>
 
@@ -156,21 +162,23 @@ async function handleSubmit() {
             v-model="isSuperAdmin"
             type="checkbox"
             class="pw-table-checkbox"
-            :disabled="submitting"
+            :disabled="submitting || !authorization.can('platform.user.write')"
           >
-          <span class="font-medium text-gray-900 dark:text-white">Super admin</span>
+          <span class="font-medium text-gray-900 dark:text-white">
+            {{ formatPlatformRoleLabel('platform_super_admin') }}
+          </span>
         </label>
 
         <div class="flex justify-end">
           <BaseButton
-            :disabled="submitting"
+            :disabled="submitting || !authorization.can('platform.user.write')"
             @click="handleSubmit"
           >
             <BaseIcon
               name="users"
               size="sm"
             />
-            {{ submitting ? '创建中...' : '创建用户' }}
+            {{ authorization.can('platform.user.write') ? (submitting ? '创建中...' : '创建用户') : '当前账号只读' }}
           </BaseButton>
         </div>
       </SurfaceCard>

@@ -2,7 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
+import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -17,29 +20,26 @@ import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, BulkActionItem, DataTableColumn } from '@/components/platform/data-table'
-import { listProjectsPage } from '@/services/projects/projects.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { deleteProject, listProjectsPage } from '@/services/projects/projects.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementProject } from '@/types/management'
 import { downloadBlob } from '@/utils/browser-download'
 import { copyText } from '@/utils/clipboard'
 import { shortId } from '@/utils/format'
 
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { workspaceStore, activeProjectId, setActiveProjectId } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 
 const queryInput = ref('')
 const query = ref('')
 const loading = ref(false)
+const deletingProjectId = ref('')
 const error = ref('')
 const items = ref<ManagementProject[]>([])
 const selectedProjectIds = ref<string[]>([])
-const projectsUseRuntimeApi = computed(() => resolvePlatformClientScope('projects') === 'v2')
-const activeProjectId = computed(() =>
-  projectsUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
+const pendingDeleteProject = ref<ManagementProject | null>(null)
 const projectRows = computed(() => items.value as unknown as Record<string, unknown>[])
 const pagination = usePagination({
   initialPageSize: 20,
@@ -129,7 +129,7 @@ async function loadProjects() {
       limit: pagination.pageSize.value,
       offset: pagination.offset.value,
       query: query.value
-    }, projectsUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
 
     items.value = payload.items
     pagination.setTotal(payload.total)
@@ -172,12 +172,45 @@ async function handleCopyProjectId(project: ManagementProject) {
   })
 }
 
-function handleFocusProject(project: ManagementProject) {
-  if (projectsUseRuntimeApi.value) {
-    workspaceStore.setRuntimeProjectId(project.id)
-  } else {
-    workspaceStore.setProjectId(project.id)
+function openDeleteDialog(project: ManagementProject) {
+  pendingDeleteProject.value = project
+}
+
+function closeDeleteDialog() {
+  pendingDeleteProject.value = null
+}
+
+async function confirmDeleteProject() {
+  const project = pendingDeleteProject.value
+  if (!project) {
+    return
   }
+
+  deletingProjectId.value = project.id
+  error.value = ''
+
+  try {
+    await deleteProject(project.id)
+    if (activeProjectId.value === project.id) {
+      setActiveProjectId('')
+    }
+    await workspaceStore.hydrateContext()
+    await loadProjects()
+    uiStore.pushToast({
+      type: 'success',
+      title: '项目已删除',
+      message: project.name
+    })
+    closeDeleteDialog()
+  } catch (deleteError) {
+    error.value = deleteError instanceof Error ? deleteError.message : '项目删除失败'
+  } finally {
+    deletingProjectId.value = ''
+  }
+}
+
+function handleFocusProject(project: ManagementProject) {
+  setActiveProjectId(project.id)
   uiStore.pushToast({
     type: 'success',
     title: '已切换当前项目',
@@ -220,7 +253,7 @@ function handleExportProjectSummary() {
 }
 
 function projectActions(project: ManagementProject): ActionMenuItem[] {
-  return [
+  const actions: ActionMenuItem[] = [
     {
       key: 'focus',
       label:
@@ -242,6 +275,19 @@ function projectActions(project: ManagementProject): ActionMenuItem[] {
       onSelect: () => void router.push(`/workspace/projects/${project.id}`)
     }
   ]
+
+  if (authorization.can('project.member.write', project.id)) {
+    actions.push({
+      key: 'delete',
+      label: deletingProjectId.value === project.id ? '删除中...' : '删除项目',
+      icon: 'trash',
+      disabled: deletingProjectId.value === project.id,
+      danger: true,
+      onSelect: () => openDeleteDialog(project)
+    })
+  }
+
+  return actions
 }
 
 const bulkActions = computed<BulkActionItem[]>(() => [
@@ -267,7 +313,7 @@ const bulkActions = computed<BulkActionItem[]>(() => [
     variant: 'primary',
     onSelect: handleExportProjectSummary
   }
-])
+  ])
 
 watch(items, (nextItems) => {
   const validIds = new Set(nextItems.map((item) => item.id))
@@ -288,7 +334,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="Projects"
       title="项目管理"
-      description="项目页先作为新视觉基座的样板列表页，重点验证筛选栏、统计卡片、表格容器和当前项目高亮。"
+      description="这里是正式项目治理入口，负责项目切换、列表检索、创建与删除闭环。"
     >
       <template #actions>
         <BaseButton @click="void router.push('/workspace/projects/new')">
@@ -454,5 +500,18 @@ onMounted(() => {
         />
       </template>
     </TablePageLayout>
+
+    <ConfirmDialog
+      :show="Boolean(pendingDeleteProject)"
+      title="删除项目"
+      :message="pendingDeleteProject
+        ? `删除后项目 ${pendingDeleteProject.name} 将进入删除态，项目成员与治理入口也会一起失效。确定继续吗？`
+        : '删除后项目将进入删除态。'"
+      confirm-text="确认删除"
+      cancel-text="取消"
+      danger
+      @confirm="confirmDeleteProject"
+      @cancel="closeDeleteDialog"
+    />
   </section>
 </template>

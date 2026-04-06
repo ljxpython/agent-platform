@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -17,7 +18,7 @@ import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, BulkActionItem, DataTableColumn } from '@/components/platform/data-table'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { formatPlatformRoleLabel } from '@/services/auth/permissions'
 import { listUsersPage } from '@/services/users/users.service'
 import { useUiStore } from '@/stores/ui'
 import type { ManagementUser } from '@/types/management'
@@ -27,6 +28,7 @@ import { formatDateTime, shortId } from '@/utils/format'
 
 const router = useRouter()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 
 const queryInput = ref('')
 const statusInput = ref('')
@@ -36,7 +38,6 @@ const loading = ref(false)
 const error = ref('')
 const items = ref<ManagementUser[]>([])
 const selectedUserIds = ref<string[]>([])
-const usersUseRuntimeApi = computed(() => resolvePlatformClientScope('users') === 'v2')
 const userRows = computed(() => items.value as unknown as Record<string, unknown>[])
 const pagination = usePagination({
   initialPageSize: 20,
@@ -140,7 +141,7 @@ async function loadUsers() {
       offset: pagination.offset.value,
       query: query.value,
       status: status.value
-    }, usersUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
 
     items.value = payload.items
     pagination.setTotal(payload.total)
@@ -220,7 +221,7 @@ function handleExportUserSummary() {
       item.id,
       item.username,
       item.email || '',
-      item.is_super_admin ? 'admin' : 'member',
+      item.is_super_admin ? formatPlatformRoleLabel('platform_super_admin') : '普通成员',
       item.status,
       item.created_at || ''
     ].join('\t')
@@ -312,12 +313,15 @@ onMounted(() => {
       description="用户页承担账号盘点和权限可视化。这里先把列表、筛选和状态表达统一到新的页面母版里。"
     >
       <template #actions>
-        <BaseButton @click="void router.push('/workspace/users/new')">
+        <BaseButton
+          :disabled="!authorization.can('platform.user.write')"
+          @click="void router.push('/workspace/users/new')"
+        >
           <BaseIcon
             name="users"
             size="sm"
           />
-          新建用户
+          {{ authorization.can('platform.user.write') ? '新建用户' : '当前账号只读' }}
         </BaseButton>
         <BaseButton
           variant="secondary"
@@ -429,7 +433,7 @@ onMounted(() => {
 
           <template #cell-role="{ row }">
             <StatusPill :tone="userFromRow(row).is_super_admin ? 'info' : 'neutral'">
-              {{ userFromRow(row).is_super_admin ? 'admin' : 'member' }}
+              {{ userFromRow(row).is_super_admin ? formatPlatformRoleLabel('platform_super_admin') : '普通成员' }}
             </StatusPill>
           </template>
 

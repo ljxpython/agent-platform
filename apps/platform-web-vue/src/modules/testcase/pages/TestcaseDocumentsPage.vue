@@ -6,6 +6,7 @@ import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import { usePagination } from '@/composables/usePagination'
 import { useVisibleFilterSettings } from '@/composables/useVisibleFilterSettings'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import ActionMenu from '@/components/platform/ActionMenu.vue'
 import DataTable from '@/components/platform/DataTable.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -20,12 +21,11 @@ import TestcaseWorkspaceNav from '@/components/platform/TestcaseWorkspaceNav.vue
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
 import type { FilterSettingItem } from '@/components/platform/filter-settings'
 import { getOperationFailureMessage } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import {
   downloadTestcaseDocument,
-  exportTestcaseDocuments,
   exportTestcaseDocumentsByOperation,
   getTestcaseBatchDetail,
+  getTestcaseDocument,
   getTestcaseDocumentRelations,
   getTestcaseOverview,
   listTestcaseBatches,
@@ -33,7 +33,6 @@ import {
   previewTestcaseDocument
 } from '@/services/testcase/testcase.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type {
   TestcaseBatchDetail,
   TestcaseBatchSummary,
@@ -244,15 +243,8 @@ function resolveStoragePath(document: TestcaseDocument | null): string {
   return coerceText(asset.storage_path)
 }
 
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
-const testcaseUseRuntimeApi = computed(() => resolvePlatformClientScope('testcase') === 'v2')
-const activeProjectId = computed(() =>
-  testcaseUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
-const activeProject = computed(() =>
-  testcaseUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
 
 const overview = ref<TestcaseOverview | null>(null)
 const batches = ref<TestcaseBatchSummary[]>([])
@@ -352,12 +344,8 @@ const batchPreviewCases = computed(() => batchDetail.value?.test_cases.items ?? 
 
 async function loadMeta(projectId: string) {
   const [overviewPayload, batchPayload] = await Promise.all([
-    getTestcaseOverview(projectId, testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined),
-    listTestcaseBatches(
-      projectId,
-      { limit: 100, offset: 0 },
-      testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
+    getTestcaseOverview(projectId),
+    listTestcaseBatches(projectId, { limit: 100, offset: 0 })
   ])
   overview.value = overviewPayload
   batches.value = batchPayload.items
@@ -387,7 +375,7 @@ async function loadDocuments() {
       query: query.value || undefined,
       limit: pagination.pageSize.value,
       offset: pagination.offset.value
-    }, testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined)
+    })
     items.value = payload.items
     pagination.setTotal(payload.total)
 
@@ -417,13 +405,15 @@ async function loadDetail() {
   detailError.value = ''
   batchDetailError.value = ''
   try {
-    const payload = await getTestcaseDocumentRelations(
-      projectId,
-      selectedId.value,
-      testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
-    relations.value = payload
-    await loadBatchDetail(payload.document.batch_id)
+    const [relationsPayload, documentPayload] = await Promise.all([
+      getTestcaseDocumentRelations(projectId, selectedId.value),
+      getTestcaseDocument(projectId, selectedId.value)
+    ])
+    relations.value = {
+      ...relationsPayload,
+      document: documentPayload
+    }
+    await loadBatchDetail(documentPayload.batch_id)
   } catch (loadError) {
     relations.value = null
     batchDetail.value = null
@@ -458,8 +448,7 @@ async function loadBatchDetail(batchId: string | null | undefined) {
         document_offset: 0,
         case_limit: 50,
         case_offset: 0
-      },
-      testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
+      }
     )
   } catch (loadError) {
     batchDetail.value = null
@@ -486,11 +475,7 @@ async function handlePreview(targetDocument: TestcaseDocument | null = selectedI
   try {
     selectDocument(targetDocument.id)
     previewWindow = openPreviewWindowShell(targetDocument.filename)
-    const download = await previewTestcaseDocument(
-      projectId,
-      targetDocument.id,
-      testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
+    const download = await previewTestcaseDocument(projectId, targetDocument.id)
     await openDocumentPreview(download.blob, {
       filename: targetDocument.filename,
       contentType: download.contentType || targetDocument.content_type,
@@ -513,11 +498,7 @@ async function handleDownload(targetDocument: TestcaseDocument | null = selected
   downloading.value = true
   try {
     selectDocument(targetDocument.id)
-    const download = await downloadTestcaseDocument(
-      projectId,
-      targetDocument.id,
-      testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-    )
+    const download = await downloadTestcaseDocument(projectId, targetDocument.id)
     downloadBlob(download.blob, download.filename || targetDocument.filename)
   } catch (downloadError) {
     detailError.value = downloadError instanceof Error ? downloadError.message : '文档下载失败'
@@ -539,19 +520,13 @@ async function handleExport() {
       parse_status: parseStatusFilter.value || undefined,
       query: query.value || undefined
     }
-    const download = testcaseUseRuntimeApi.value
-      ? await (async () => {
-          const result = await exportTestcaseDocumentsByOperation(projectId, exportOptions)
-          if (result.operation.status !== 'succeeded') {
-            throw new Error(getOperationFailureMessage(result.operation))
-          }
-          return result.download
-        })()
-      : await exportTestcaseDocuments(
-          projectId,
-          exportOptions,
-          testcaseUseRuntimeApi.value ? { mode: 'runtime' } : undefined
-        )
+    const download = await (async () => {
+      const result = await exportTestcaseDocumentsByOperation(projectId, exportOptions)
+      if (result.operation.status !== 'succeeded') {
+        throw new Error(getOperationFailureMessage(result.operation))
+      }
+      return result.download
+    })()
     downloadBlob(
       download.blob,
       download.filename ||
@@ -721,7 +696,7 @@ watch(
     <PageHeader
       eyebrow="Testcase"
       title="文档列表"
-      description="查看已保存到服务端的文档解析结果，并恢复在线预览和下载原始文件能力。未来再扩展其他格式时，也统一走这套按 content-type 分流的预览逻辑。"
+      description="查看已保存到服务端的文档解析结果，并统一承接在线预览、原始文件下载与批次上下文。"
     >
       <template #actions>
         <div class="flex flex-wrap items-center gap-2">

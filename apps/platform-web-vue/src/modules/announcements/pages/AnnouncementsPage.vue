@@ -5,6 +5,8 @@ import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -18,16 +20,13 @@ import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import {
   createAnnouncement,
   deleteAnnouncement,
   listAnnouncements,
   updateAnnouncement
 } from '@/services/announcements/announcements.service'
-import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAnnouncement } from '@/types/management'
 import { formatDateTime } from '@/utils/format'
 
@@ -35,9 +34,9 @@ type AnnouncementStatus = 'draft' | 'published' | 'archived'
 type AnnouncementScopeType = 'global' | 'project'
 type AnnouncementTone = 'info' | 'warning' | 'success'
 
-const authStore = useAuthStore()
 const uiStore = useUiStore()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject, activeProjects } = useWorkspaceProjectContext()
+const authorization = useAuthorization()
 
 const queryInput = ref('')
 const statusInput = ref('')
@@ -72,21 +71,20 @@ const form = reactive({
   expireAt: ''
 })
 
-const isSuperAdmin = computed(() => Boolean(authStore.user?.is_super_admin))
-const announcementsUseRuntimeApi = computed(() => resolvePlatformClientScope('announcements') === 'v2')
-const availableProjects = computed(() =>
-  announcementsUseRuntimeApi.value ? workspaceStore.runtimeProjects : workspaceStore.projects
-)
-const activeProjectId = computed(() =>
-  announcementsUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
-const activeProject = computed(() =>
-  announcementsUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
+const availableProjects = activeProjects
 const announcementsRows = computed(() => items.value as unknown as Record<string, unknown>[])
 const globalCount = computed(() => items.value.filter((item) => item.scope_type === 'global').length)
 const projectCount = computed(() => items.value.filter((item) => item.scope_type === 'project').length)
-const managementModeLabel = computed(() => (isSuperAdmin.value ? '超级管理员视角' : '项目管理员视角'))
+const canManageGlobalAnnouncements = computed(() => authorization.can('platform.announcement.write'))
+const canManageProjectAnnouncements = computed(() =>
+  authorization.can('project.announcement.write', activeProjectId.value)
+)
+const canCreateAnnouncement = computed(() =>
+  canManageGlobalAnnouncements.value || canManageProjectAnnouncements.value
+)
+const managementModeLabel = computed(() =>
+  canManageGlobalAnnouncements.value ? '平台治理视角' : '项目治理视角'
+)
 const stats = computed(() => [
   {
     label: '当前结果',
@@ -112,7 +110,7 @@ const stats = computed(() => [
   {
     label: '当前项目',
     value: activeProject.value?.name || '未选择',
-    hint: isSuperAdmin.value ? '超级管理员可切全局与项目范围' : '项目管理员按当前项目工作',
+    hint: canManageGlobalAnnouncements.value ? '平台治理可切全局与项目范围' : '项目治理按当前项目工作',
     icon: 'project',
     tone: 'danger'
   }
@@ -210,7 +208,7 @@ async function loadAnnouncements() {
   error.value = ''
 
   try {
-    if (!isSuperAdmin.value && !projectFilterId.value) {
+    if (!canManageGlobalAnnouncements.value && !projectFilterId.value) {
       items.value = []
       pagination.setTotal(0)
       return
@@ -223,7 +221,7 @@ async function loadAnnouncements() {
       status: status.value || undefined,
       scopeType: scopeType.value || undefined,
       projectId: projectFilterId.value || undefined
-    }, { mode: 'runtime' })
+    })
 
     items.value = payload.items
     pagination.setTotal(payload.total)
@@ -256,7 +254,7 @@ function resetFilters() {
   query.value = ''
   status.value = ''
   scopeType.value = ''
-  projectFilterId.value = isSuperAdmin.value ? '' : workspaceStore.currentProjectId
+  projectFilterId.value = canManageGlobalAnnouncements.value ? '' : activeProjectId.value
   if (pagination.page.value === 1) {
     void loadAnnouncements()
     return
@@ -271,8 +269,8 @@ function resetForm() {
   form.summary = ''
   form.body = ''
   form.tone = 'info'
-  form.scopeType = isSuperAdmin.value ? 'global' : 'project'
-  form.scopeProjectId = isSuperAdmin.value ? '' : activeProjectId.value
+  form.scopeType = canManageGlobalAnnouncements.value ? 'global' : 'project'
+  form.scopeProjectId = canManageGlobalAnnouncements.value ? '' : activeProjectId.value
   form.status = 'published'
   form.publishAt = ''
   form.expireAt = ''
@@ -305,6 +303,18 @@ function openEditDialog(item: ManagementAnnouncement) {
 }
 
 async function saveAnnouncement() {
+  const targetProjectId = form.scopeProjectId.trim()
+  if (form.scopeType === 'global' && !canManageGlobalAnnouncements.value) {
+    error.value = '当前账号没有管理全局公告的权限'
+    return
+  }
+  if (
+    form.scopeType === 'project' &&
+    !authorization.can('project.announcement.write', targetProjectId || activeProjectId.value)
+  ) {
+    error.value = '当前账号没有管理该项目公告的权限'
+    return
+  }
   if (!form.title.trim()) {
     error.value = '公告标题不能为空'
     return
@@ -335,14 +345,14 @@ async function saveAnnouncement() {
 
   try {
     if (editingAnnouncement.value) {
-      await updateAnnouncement(editingAnnouncement.value.id, payload, { mode: 'runtime' })
+      await updateAnnouncement(editingAnnouncement.value.id, payload)
       uiStore.pushToast({
         type: 'success',
         title: '公告已更新',
         message: form.title.trim()
       })
     } else {
-      await createAnnouncement(payload, { mode: 'runtime' })
+      await createAnnouncement(payload)
       uiStore.pushToast({
         type: 'success',
         title: '公告已创建',
@@ -367,7 +377,7 @@ async function confirmDelete() {
   }
 
   try {
-    await deleteAnnouncement(deletingAnnouncement.value.id, { mode: 'runtime' })
+    await deleteAnnouncement(deletingAnnouncement.value.id)
     uiStore.pushToast({
       type: 'success',
       title: '公告已删除',
@@ -382,11 +392,17 @@ async function confirmDelete() {
 }
 
 function actionsForRow(item: ManagementAnnouncement): ActionMenuItem[] {
+  const canManageRow =
+    item.scope_type === 'global'
+      ? canManageGlobalAnnouncements.value
+      : authorization.can('project.announcement.write', item.scope_project_id)
+
   return [
     {
       key: 'edit',
       label: '编辑公告',
       icon: 'eye',
+      disabled: !canManageRow,
       onSelect: () => openEditDialog(item)
     },
     {
@@ -394,6 +410,7 @@ function actionsForRow(item: ManagementAnnouncement): ActionMenuItem[] {
       label: '删除公告',
       icon: 'x',
       danger: true,
+      disabled: !canManageRow,
       onSelect: () => {
         deletingAnnouncement.value = item
         showDeleteDialog.value = true
@@ -405,7 +422,7 @@ function actionsForRow(item: ManagementAnnouncement): ActionMenuItem[] {
 watch(
   activeProjectId,
   (projectId) => {
-    if (!isSuperAdmin.value) {
+    if (!canManageGlobalAnnouncements.value) {
       projectFilterId.value = projectId
       form.scopeType = 'project'
       form.scopeProjectId = projectId
@@ -435,10 +452,7 @@ watch([() => pagination.page.value, () => pagination.pageSize.value], () => {
 })
 
 onMounted(() => {
-  if (announcementsUseRuntimeApi.value && !workspaceStore.runtimeProjects.length) {
-    void workspaceStore.hydrateRuntimeContext()
-  }
-  if (!isSuperAdmin.value) {
+  if (!canManageGlobalAnnouncements.value) {
     projectFilterId.value = activeProjectId.value
   }
   void loadAnnouncements()
@@ -463,21 +477,24 @@ onMounted(() => {
           />
           刷新
         </BaseButton>
-        <BaseButton @click="openCreateDialog">
+        <BaseButton
+          :disabled="!canCreateAnnouncement"
+          @click="openCreateDialog"
+        >
           <BaseIcon
             name="bell"
             size="sm"
           />
-          新建公告
+          {{ canCreateAnnouncement ? '新建公告' : '当前账号只读' }}
         </BaseButton>
       </template>
     </PageHeader>
 
     <EmptyState
-      v-if="!isSuperAdmin && !activeProjectId"
+      v-if="!canManageGlobalAnnouncements && !activeProjectId"
       icon="project"
       title="请先选择项目"
-      description="项目级管理员需要先选中当前项目，才能管理该项目范围内的公告。超级管理员可直接查看全局公告。"
+      description="项目治理角色需要先选中当前项目，才能管理该项目范围内的公告。平台治理角色可直接查看全局公告。"
     />
 
     <template v-else>
@@ -541,10 +558,10 @@ onMounted(() => {
               </BaseSelect>
               <BaseSelect
                 v-model="projectFilterId"
-                :disabled="!isSuperAdmin"
+                :disabled="!canManageGlobalAnnouncements"
               >
                 <option value="">
-                  {{ isSuperAdmin ? '全部项目/全局' : '当前项目' }}
+                  {{ canManageGlobalAnnouncements ? '全部项目/全局' : '当前项目' }}
                 </option>
                 <option
                   v-for="project in availableProjects"
@@ -707,10 +724,10 @@ onMounted(() => {
               <span class="pw-input-label">范围</span>
               <BaseSelect
                 v-model="form.scopeType"
-                :disabled="!isSuperAdmin"
+                :disabled="!canManageGlobalAnnouncements"
               >
                 <option
-                  v-if="isSuperAdmin"
+                  v-if="canManageGlobalAnnouncements"
                   value="global"
                 >
                   global
@@ -769,10 +786,10 @@ onMounted(() => {
               取消
             </BaseButton>
             <BaseButton
-              :disabled="saving"
+              :disabled="saving || !canCreateAnnouncement"
               @click="saveAnnouncement"
             >
-              {{ saving ? '保存中...' : '保存公告' }}
+              {{ canCreateAnnouncement ? (saving ? '保存中...' : '保存公告') : '当前账号只读' }}
             </BaseButton>
           </div>
         </template>

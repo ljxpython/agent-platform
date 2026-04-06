@@ -17,7 +17,6 @@ import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { listAudit } from '@/services/audit/audit.service'
 import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -93,13 +92,8 @@ function auditRowFromTable(row: Record<string, unknown>) {
   return row as ManagementAuditRow
 }
 
-const auditUseRuntimeApi = computed(() => resolvePlatformClientScope('audit') === 'v2')
-const activeProjectId = computed(() =>
-  auditUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
-const currentProject = computed(() =>
-  auditUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
+const activeProjectId = computed(() => workspaceStore.currentProjectId)
+const currentProject = computed(() => workspaceStore.currentProject)
 const errorCount = computed(() => items.value.filter((item) => item.status_code >= 400).length)
 const stats = computed(() => [
   {
@@ -159,8 +153,7 @@ async function loadAuditRows() {
         targetId: targetId.value,
         method: method.value,
         statusCode: statusCode.value
-      },
-      { mode: 'runtime' }
+      }
     )
 
     items.value = payload.items
@@ -276,8 +269,8 @@ watch(
 )
 
 onMounted(() => {
-  if (auditUseRuntimeApi.value && !workspaceStore.runtimeProjects.length) {
-    void workspaceStore.hydrateRuntimeContext()
+  if (!workspaceStore.projects.length) {
+    void workspaceStore.hydrateContext()
   }
 
   if (!activeProjectId.value) {

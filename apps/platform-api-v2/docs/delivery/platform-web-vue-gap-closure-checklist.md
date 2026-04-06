@@ -28,7 +28,7 @@
 
 ## 3. P0 能力边界冻结
 
-- [ ] 冻结 `platform-api-v2` 的正式 public 能力范围：
+- [x] 冻结 `platform-api-v2` 的正式 public 能力范围：
   - `identity`
   - `users`
   - `projects`
@@ -43,7 +43,7 @@
   - `operations`
   - `_system`
   - `runtime_gateway` 的工作台必需子集
-- [ ] 冻结 `runtime_gateway` 的正式 public 子集：
+- [x] 冻结 `runtime_gateway` 的正式 public 子集：
   - thread 列表
   - thread 详情
   - thread 历史
@@ -53,59 +53,59 @@
   - cancel run
   - update thread state
   - delete thread
-- [ ] 将 `runtime_gateway` 的高级能力统一标记为 internal：
+- [x] 将 `runtime_gateway` 的高级能力统一标记为 internal：
   - `info`
   - `graphs search / count`
   - `threads prune / copy / patch / state@checkpoint`
   - 全局 `runs*`
   - `crons*`
   - 线程级 `run detail / list / delete / join / join-stream`
-- [ ] 明确 `project delete` 的产品命运：
+- [x] 明确 `project delete` 的产品命运：
   - 要么补前端正式入口
   - 要么明确“后端已具备，前端未开放”
-- [ ] 明确 `testcase document detail` 的产品命运：
+- [x] 明确 `testcase document detail` 的产品命运：
   - 要么补正式详情能力
   - 要么清掉未消费的前端死 service
 
 ## 4. P0 前端架构收口
 
-- [ ] 补统一权限消费层：
+- [x] 补统一权限消费层：
   - 权限 store
   - `can()` 或等价能力判断
   - 路由 `meta` 权限配置
   - 侧边栏导航裁剪
   - 页面按钮级 action gate
-- [ ] 前端保留完整 `platform_roles` 与项目级角色能力，不再只靠 `is_super_admin`
-- [ ] 将前端项目角色命名对齐 V2 最终标准，不再长期保留旧口径
-- [ ] 收敛重复 identity 能力：
+- [x] 前端保留完整 `platform_roles` 与项目级角色能力，不再只靠 `is_super_admin`
+- [x] 将前端项目角色命名对齐 V2 最终标准，不再长期保留旧口径
+- [x] 收敛重复 identity 能力：
   - `users.service.ts` 中的 `getMe / updateMe`
   - `identity.service.ts`
   - 最终保留一套正式入口
-- [ ] 清理无实际分流意义的 `legacy | runtime` 过渡参数
+- [x] 清理无实际分流意义的 `legacy | runtime` 过渡参数
 - [ ] 收敛 `runtimeProjectId / runtimeScopedProject / runtimeProjects` 这类伪独立上下文抽象
-- [ ] 保证所有页面只能通过统一 service/client 层访问 `platform-api-v2`
+- [x] 保证所有页面只能通过统一 service/client 层访问 `platform-api-v2`
 
 ## 5. P1 前端产品缺口补齐
 
-- [ ] 补项目删除的正式前端流程：
+- [x] 补项目删除的正式前端流程：
   - 删除入口
   - 二次确认
   - 删除成功后的上下文重置
   - 错误提示
   - 审计联动
-- [ ] 统一“无权限”体验：
+- [x] 统一“无权限”体验：
   - 导航隐藏
   - 按钮禁用
   - 空态提示
   - `403` 文案
-- [ ] 评估并落地 `testcase document detail`，让文档域语义完整
-- [ ] 检查长任务是否统一走 `operations`
-- [ ] 检查 chat / sql-agent / threads 是否继续复用同一套通用 chat 基座
+- [x] 评估并落地 `testcase document detail`，让文档域语义完整
+- [x] 检查长任务是否统一走 `operations`
+- [x] 检查 chat / sql-agent / threads 是否继续复用同一套通用 chat 基座
 
 ## 6. P1 前端范式约束
 
-- [ ] `apps/platform-web-vue` 继续作为唯一正式前端宿主
-- [ ] 页面继续复用既有平台基座：
+- [x] `apps/platform-web-vue` 继续作为唯一正式前端宿主
+- [x] 页面继续复用既有平台基座：
   - `PageHeader`
   - `TablePageLayout`
   - `FilterToolbar`
@@ -114,18 +114,18 @@
   - `BaseDialog`
   - `StateBanner`
   - `EmptyState`
-- [ ] 新功能优先复用现有平台组件，不允许为了单页再手搓一套壳子
-- [ ] 页面视觉继续跟当前正式风格保持一致，不允许重新引入新的模板感样式
-- [ ] 页面不直接判断底层服务地址或自行拼控制面 URL
-- [ ] Agent 工作台相关页面继续复用通用 chat 基座，不再维护第二套聊天页
-- [ ] 示例和资源库只能演示当前正式范式，不再保留过渡期写法
+- [x] 新功能优先复用现有平台组件，不允许为了单页再手搓一套壳子
+- [x] 页面视觉继续跟当前正式风格保持一致，不允许重新引入新的模板感样式
+- [x] 页面不直接判断底层服务地址或自行拼控制面 URL
+- [x] Agent 工作台相关页面继续复用通用 chat 基座，不再维护第二套聊天页
+- [x] 示例和资源库只能演示当前正式范式，不再保留过渡期写法
 
 ## 7. P2 文档与标准同步
 
-- [ ] 将 public / internal 边界同步回正式手册
-- [ ] 在前端开发范式文档中补权限接入规范
-- [ ] 在前端开发范式文档中补 service 层收敛规范
-- [ ] 将这份清单作为后续前端收口工作的唯一执行单
+- [x] 将 public / internal 边界同步回正式手册
+- [x] 在前端开发范式文档中补权限接入规范
+- [x] 在前端开发范式文档中补 service 层收敛规范
+- [x] 将这份清单作为后续前端收口工作的唯一执行单
 
 ## 8. 验收标准
 
