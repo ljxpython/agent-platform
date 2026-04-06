@@ -5,7 +5,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.adapters.langgraph import LangGraphRuntimeClient
 from app.core.context.models import ActorContext
 from app.core.db import SqlAlchemyUnitOfWork
 from app.core.errors import (
@@ -18,6 +17,7 @@ from app.core.errors import (
 from app.modules.assistants.infra.sqlalchemy.repository import SqlAlchemyAssistantsRepository
 from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, PermissionCode
 from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
+from app.modules.runtime_gateway.application.ports import RuntimeGatewayUpstreamProtocol
 
 _THREAD_PROJECT_ID_KEYS = ("project_id", "x-project-id", "projectId")
 _THREAD_GRAPH_ID_KEYS = ("graph_id", "graphId")
@@ -73,7 +73,7 @@ class RuntimeGatewayService:
         self,
         *,
         session_factory: sessionmaker[Session] | None,
-        upstream: LangGraphRuntimeClient,
+        upstream: RuntimeGatewayUpstreamProtocol,
         policy_engine: IamPolicyEngine | None = None,
     ) -> None:
         self._session_factory = session_factory
@@ -190,7 +190,7 @@ class RuntimeGatewayService:
         write: bool,
     ) -> dict[str, Any]:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=write)
-        thread = await self._upstream.require_json("GET", f"/threads/{thread_id}")
+        thread = await self._upstream.get_thread(thread_id)
         self._assert_thread_project_scope(project_id=project_id, thread=thread)
         return thread
 
@@ -240,7 +240,7 @@ class RuntimeGatewayService:
 
     async def get_info(self, *, actor: ActorContext, project_id: str) -> dict[str, Any]:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
-        return await self._upstream.require_json("GET", "/info")
+        return await self._upstream.get_info()
 
     async def search_graphs(
         self,
@@ -250,7 +250,7 @@ class RuntimeGatewayService:
         payload: dict[str, Any] | None,
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
-        return await self._upstream.request_json("POST", "/graphs/search", payload=_normalize_payload(payload))
+        return await self._upstream.search_graphs(_normalize_payload(payload))
 
     async def count_graphs(
         self,
@@ -260,7 +260,7 @@ class RuntimeGatewayService:
         payload: dict[str, Any] | None,
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
-        return await self._upstream.request_json("POST", "/graphs/count", payload=_normalize_payload(payload))
+        return await self._upstream.count_graphs(_normalize_payload(payload))
 
     async def create_thread(
         self,
@@ -271,7 +271,7 @@ class RuntimeGatewayService:
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=True)
         next_payload = self._inject_project_metadata(project_id=project_id, payload=payload)
-        return await self._upstream.request_json("POST", "/threads", payload=next_payload)
+        return await self._upstream.create_thread(next_payload)
 
     async def search_threads(
         self,
@@ -282,7 +282,7 @@ class RuntimeGatewayService:
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
         next_payload = self._inject_project_metadata(project_id=project_id, payload=payload)
-        return await self._upstream.request_json("POST", "/threads/search", payload=next_payload)
+        return await self._upstream.search_threads(next_payload)
 
     async def count_threads(
         self,
@@ -293,7 +293,7 @@ class RuntimeGatewayService:
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
         next_payload = self._inject_project_metadata(project_id=project_id, payload=payload)
-        return await self._upstream.request_json("POST", "/threads/count", payload=next_payload)
+        return await self._upstream.count_threads(next_payload)
 
     async def prune_threads(
         self,
@@ -315,7 +315,7 @@ class RuntimeGatewayService:
                         thread_id=normalized_thread_id,
                         write=True,
                     )
-        return await self._upstream.request_json("POST", "/threads/prune", payload=next_payload)
+        return await self._upstream.prune_threads(next_payload)
 
     async def get_thread(
         self,
@@ -346,11 +346,7 @@ class RuntimeGatewayService:
             write=True,
         )
         next_payload = self._inject_project_metadata(project_id=project_id, payload=payload)
-        return await self._upstream.request_json(
-            "PATCH",
-            f"/threads/{thread_id}",
-            payload=next_payload,
-        )
+        return await self._upstream.update_thread(thread_id, next_payload)
 
     async def delete_thread(
         self,
@@ -365,7 +361,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=True,
         )
-        return await self._upstream.request_json("DELETE", f"/threads/{thread_id}")
+        return await self._upstream.delete_thread(thread_id)
 
     async def copy_thread(
         self,
@@ -380,8 +376,9 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=True,
         )
-        copied = await self._upstream.require_json("POST", f"/threads/{thread_id}/copy")
-        self._assert_thread_project_scope(project_id=project_id, thread=copied)
+        copied = await self._upstream.copy_thread(thread_id)
+        if isinstance(copied, dict):
+            self._assert_thread_project_scope(project_id=project_id, thread=copied)
         return copied
 
     async def get_thread_state(
@@ -398,11 +395,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=False,
         )
-        return await self._upstream.request_json(
-            "GET",
-            f"/threads/{thread_id}/state",
-            params=_normalize_payload(params),
-        )
+        return await self._upstream.get_thread_state(thread_id, _normalize_payload(params))
 
     async def update_thread_state(
         self,
@@ -418,11 +411,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=True,
         )
-        return await self._upstream.request_json(
-            "POST",
-            f"/threads/{thread_id}/state",
-            payload=_normalize_payload(payload),
-        )
+        return await self._upstream.update_thread_state(thread_id, _normalize_payload(payload))
 
     async def get_thread_state_at_checkpoint(
         self,
@@ -453,11 +442,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=False,
         )
-        return await self._upstream.request_json(
-            "POST",
-            f"/threads/{thread_id}/history",
-            payload=_normalize_payload(payload),
-        )
+        return await self._upstream.get_thread_history(thread_id, _normalize_payload(payload))
 
     async def create_global_run(
         self,
@@ -473,7 +458,7 @@ class RuntimeGatewayService:
             project_id=project_id,
             assistant_id=assistant_id or "",
         )
-        return await self._upstream.request_json("POST", "/runs", payload=next_payload)
+        return await self._upstream.create_global_run(next_payload)
 
     async def stream_global_run(
         self,
@@ -489,7 +474,7 @@ class RuntimeGatewayService:
             project_id=project_id,
             assistant_id=assistant_id or "",
         )
-        return await self._upstream.stream("POST", "/runs/stream", payload=next_payload)
+        return await self._upstream.stream_global_run(next_payload)
 
     async def wait_global_run(
         self,
@@ -505,7 +490,7 @@ class RuntimeGatewayService:
             project_id=project_id,
             assistant_id=assistant_id or "",
         )
-        return await self._upstream.request_json("POST", "/runs/wait", payload=next_payload)
+        return await self._upstream.wait_global_run(next_payload)
 
     async def create_batch_runs(
         self,
@@ -524,7 +509,7 @@ class RuntimeGatewayService:
                 assistant_id=assistant_id or "",
             )
             next_payloads.append(next_item)
-        return await self._upstream.request_json("POST", "/runs/batch", payload=next_payloads)
+        return await self._upstream.create_batch_runs(next_payloads)
 
     async def cancel_runs(
         self,
@@ -543,7 +528,7 @@ class RuntimeGatewayService:
                 thread_id=thread_id,
                 write=True,
             )
-        return await self._upstream.request_json("POST", "/runs/cancel", payload=next_payload)
+        return await self._upstream.cancel_runs(next_payload)
 
     async def create_cron(
         self,
@@ -559,7 +544,7 @@ class RuntimeGatewayService:
             project_id=project_id,
             assistant_id=assistant_id or "",
         )
-        return await self._upstream.request_json("POST", "/runs/crons", payload=next_payload)
+        return await self._upstream.create_cron(next_payload)
 
     async def search_crons(
         self,
@@ -569,7 +554,7 @@ class RuntimeGatewayService:
         payload: dict[str, Any] | None,
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
-        return await self._upstream.request_json("POST", "/runs/crons/search", payload=_normalize_payload(payload))
+        return await self._upstream.search_crons(_normalize_payload(payload))
 
     async def count_crons(
         self,
@@ -579,7 +564,7 @@ class RuntimeGatewayService:
         payload: dict[str, Any] | None,
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
-        return await self._upstream.request_json("POST", "/runs/crons/count", payload=_normalize_payload(payload))
+        return await self._upstream.count_crons(_normalize_payload(payload))
 
     async def update_cron(
         self,
@@ -591,11 +576,7 @@ class RuntimeGatewayService:
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=True)
         next_payload = self._inject_project_scope(project_id=project_id, payload=payload)
-        return await self._upstream.request_json(
-            "PATCH",
-            f"/runs/crons/{cron_id}",
-            payload=next_payload,
-        )
+        return await self._upstream.update_cron(cron_id, next_payload)
 
     async def delete_cron(
         self,
@@ -605,7 +586,7 @@ class RuntimeGatewayService:
         cron_id: str,
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=True)
-        return await self._upstream.request_json("DELETE", f"/runs/crons/{cron_id}")
+        return await self._upstream.delete_cron(cron_id)
 
     async def create_thread_run(
         self,
@@ -628,11 +609,7 @@ class RuntimeGatewayService:
             assistant_id=assistant_id or "",
             thread=thread,
         )
-        return await self._upstream.request_json(
-            "POST",
-            f"/threads/{thread_id}/runs",
-            payload=next_payload,
-        )
+        return await self._upstream.create_thread_run(thread_id, next_payload)
 
     async def stream_thread_run(
         self,
@@ -655,11 +632,7 @@ class RuntimeGatewayService:
             assistant_id=assistant_id or "",
             thread=thread,
         )
-        return await self._upstream.stream(
-            "POST",
-            f"/threads/{thread_id}/runs/stream",
-            payload=next_payload,
-        )
+        return await self._upstream.stream_thread_run(thread_id, next_payload)
 
     async def wait_thread_run(
         self,
@@ -682,11 +655,7 @@ class RuntimeGatewayService:
             assistant_id=assistant_id or "",
             thread=thread,
         )
-        return await self._upstream.request_json(
-            "POST",
-            f"/threads/{thread_id}/runs/wait",
-            payload=next_payload,
-        )
+        return await self._upstream.wait_thread_run(thread_id, next_payload)
 
     async def get_thread_run(
         self,
@@ -702,10 +671,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=False,
         )
-        return await self._upstream.request_json(
-            "GET",
-            f"/threads/{thread_id}/runs/{run_id}",
-        )
+        return await self._upstream.get_thread_run(thread_id, run_id)
 
     async def list_thread_runs(
         self,
@@ -721,11 +687,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=False,
         )
-        return await self._upstream.request_json(
-            "GET",
-            f"/threads/{thread_id}/runs",
-            params=_normalize_payload(params),
-        )
+        return await self._upstream.list_thread_runs(thread_id, _normalize_payload(params))
 
     async def delete_thread_run(
         self,
@@ -741,10 +703,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=True,
         )
-        return await self._upstream.request_json(
-            "DELETE",
-            f"/threads/{thread_id}/runs/{run_id}",
-        )
+        return await self._upstream.delete_thread_run(thread_id, run_id)
 
     async def join_thread_run(
         self,
@@ -760,10 +719,7 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=False,
         )
-        return await self._upstream.request_json(
-            "GET",
-            f"/threads/{thread_id}/runs/{run_id}/join",
-        )
+        return await self._upstream.join_thread_run(thread_id, run_id)
 
     async def join_thread_run_stream(
         self,
@@ -780,10 +736,10 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=False,
         )
-        return await self._upstream.stream(
-            "GET",
-            f"/threads/{thread_id}/runs/{run_id}/stream",
-            params=_normalize_payload(params),
+        return await self._upstream.join_thread_run_stream(
+            thread_id,
+            run_id,
+            _normalize_payload(params),
         )
 
     async def create_thread_run_cron(
@@ -807,11 +763,7 @@ class RuntimeGatewayService:
             assistant_id=assistant_id or "",
             thread=thread,
         )
-        return await self._upstream.request_json(
-            "POST",
-            f"/threads/{thread_id}/runs/crons",
-            payload=next_payload,
-        )
+        return await self._upstream.create_thread_run_cron(thread_id, next_payload)
 
     async def cancel_thread_run(
         self,
@@ -828,8 +780,8 @@ class RuntimeGatewayService:
             thread_id=thread_id,
             write=True,
         )
-        return await self._upstream.request_json(
-            "POST",
-            f"/threads/{thread_id}/runs/{run_id}/cancel",
-            payload=_normalize_payload(payload),
+        return await self._upstream.cancel_thread_run(
+            thread_id,
+            run_id,
+            _normalize_payload(payload),
         )

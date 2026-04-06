@@ -10,6 +10,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "pydantic-settings>=2.11.0",
     "httpx>=0.28.1",
+    "langgraph-sdk>=0.3.9",
     "sqlalchemy>=2.0.43",
     "alembic>=1.16.5",
     "psycopg[binary]>=3.3.3",

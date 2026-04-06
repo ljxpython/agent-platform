@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.adapters.langgraph import (
-    LangGraphRuntimeClient,
+    LangGraphRuntimeGatewayUpstream,
     build_forward_headers,
 )
 from app.core.context.models import ActorContext
@@ -40,7 +40,7 @@ def _require_project_id(request: Request) -> str:
 def get_runtime_gateway_service(request: Request) -> RuntimeGatewayService:
     settings = request.app.state.settings
     session_factory = getattr(request.app.state, "db_session_factory", None)
-    upstream = LangGraphRuntimeClient(
+    upstream = LangGraphRuntimeGatewayUpstream(
         base_url=settings.langgraph_upstream_url,
         api_key=settings.langgraph_upstream_api_key,
         timeout_seconds=settings.langgraph_upstream_timeout_seconds,
@@ -212,11 +212,12 @@ async def copy_thread(
     service: RuntimeGatewayService = Depends(get_runtime_gateway_service),
 ) -> Any:
     project_id = _require_project_id(request)
-    return await service.copy_thread(
+    result = await service.copy_thread(
         actor=actor,
         project_id=project_id,
         thread_id=thread_id,
     )
+    return _normalize_ack(result)
 
 
 @router.get("/threads/{thread_id}/state")

@@ -52,6 +52,10 @@
    - phase-3 之后的生产化、交付化与 Harness 收口规划
 24. `postgres-baseline.md`
    - PostgreSQL 开发基线、Alembic 命令和数据库切换规则
+25. `langgraph-sdk-migration-plan.md`
+   - `runtime_gateway + assistants adapter` 是否 SDK 化、endpoint 迁移矩阵和测试补齐清单
+26. `legacy-solution-inheritance-checklist.md`
+   - 旧 `platform-api` 方案里必须继承和明确不继承的点
 
 常用启动入口：
 
