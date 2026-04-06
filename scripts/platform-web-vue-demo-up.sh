@@ -3,8 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_DIR="/tmp/aitestlab-platform-web-vue-demo"
+PID_DIR="$LOG_DIR/pids"
 
 mkdir -p "$LOG_DIR"
+mkdir -p "$PID_DIR"
 mkdir -p "$ROOT_DIR/apps/platform-api-v2/.tmp"
 
 ensure_file() {
@@ -141,10 +143,11 @@ PY
 
 start_http_service() {
   local name="$1"
-  local workdir="$2"
-  local command="$3"
-  local port="$4"
-  local logfile="$5"
+  local service_key="$2"
+  local workdir="$3"
+  local command="$4"
+  local port="$5"
+  local logfile="$6"
   local pid
 
   if port_in_use "$port"; then
@@ -154,15 +157,17 @@ start_http_service() {
 
   echo "[start] $name -> :$port"
   pid="$(spawn_detached "$workdir" "$command" "$logfile")"
+  printf '%s\n' "$pid" > "$PID_DIR/${service_key}.pid"
   echo "        pid=$pid log=$(basename "$logfile")"
 }
 
 start_worker() {
   local name="$1"
-  local workdir="$2"
-  local command="$3"
-  local pattern="$4"
-  local logfile="$5"
+  local service_key="$2"
+  local workdir="$3"
+  local command="$4"
+  local pattern="$5"
+  local logfile="$6"
   local pid
 
   if pgrep -f "$pattern" >/dev/null 2>&1; then
@@ -172,6 +177,7 @@ start_worker() {
 
   echo "[start] $name"
   pid="$(spawn_detached "$workdir" "$command" "$logfile")"
+  printf '%s\n' "$pid" > "$PID_DIR/${service_key}.pid"
   echo "        pid=$pid log=$(basename "$logfile")"
 }
 
@@ -180,12 +186,14 @@ ensure_web_env
 
 start_http_service \
   "runtime-service" \
+  "runtime-service" \
   "$ROOT_DIR/apps/runtime-service" \
   "uv run langgraph dev --config runtime_service/langgraph.json --port 8123 --no-browser" \
   "8123" \
   "$LOG_DIR/runtime-service.log"
 
 start_http_service \
+  "interaction-data-service" \
   "interaction-data-service" \
   "$ROOT_DIR/apps/interaction-data-service" \
   "uv run uvicorn main:app --host 127.0.0.1 --port 8081 --reload" \
@@ -194,12 +202,14 @@ start_http_service \
 
 start_http_service \
   "platform-api" \
+  "platform-api" \
   "$ROOT_DIR/apps/platform-api" \
   "uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload" \
   "2024" \
   "$LOG_DIR/platform-api.log"
 
 start_http_service \
+  "platform-api-v2" \
   "platform-api-v2" \
   "$ROOT_DIR/apps/platform-api-v2" \
   "uv run uvicorn main:app --host 127.0.0.1 --port 2142 --reload" \
@@ -208,12 +218,14 @@ start_http_service \
 
 start_worker \
   "platform-api-v2 worker" \
+  "platform-api-v2-worker" \
   "$ROOT_DIR/apps/platform-api-v2" \
   "uv run python worker.py" \
   "uv run python worker.py" \
   "$LOG_DIR/platform-api-v2-worker.log"
 
 start_http_service \
+  "platform-web-vue" \
   "platform-web-vue" \
   "$ROOT_DIR/apps/platform-web-vue" \
   "pnpm dev -- --host 127.0.0.1 --port 3000" \

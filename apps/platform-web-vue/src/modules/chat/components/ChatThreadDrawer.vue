@@ -116,7 +116,7 @@ const searchModel = computed({
         v-else-if="threadCount === 0"
         class="pw-card-glass p-4 text-sm leading-7 text-gray-500 dark:text-dark-300"
       >
-        还没有会话。第一条消息发出去时会自动创建 thread，你也可以先手动新建一个空白对话。
+        还没有会话。第一条消息发出去时会自动创建 thread；如果你只是想先清空当前画布，直接点上面的新对话就行。
       </div>
 
       <div

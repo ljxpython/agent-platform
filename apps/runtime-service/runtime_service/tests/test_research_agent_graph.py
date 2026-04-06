@@ -37,6 +37,7 @@ def test_async_backend_root_dir_creation_uses_to_thread(monkeypatch: Any) -> Non
 
 def test_make_graph_builds_research_agent(monkeypatch: Any) -> None:
     captured: dict[str, Any] = {}
+    backend_sentinel = object()
 
     class DummyOptions:
         model_spec = object()
@@ -110,6 +111,16 @@ def test_make_graph_builds_research_agent(monkeypatch: Any) -> None:
         "MultimodalMiddleware",
         DummyMultimodalMiddleware,
     )
+    async def fake_build_backend(*, root_dir: str, virtual_mode: bool) -> Any:
+        assert root_dir.endswith("research-demo")
+        assert virtual_mode is False
+        return backend_sentinel
+
+    monkeypatch.setattr(
+        research_agent_graph,
+        "abuild_filesystem_backend",
+        fake_build_backend,
+    )
     monkeypatch.setattr(research_agent_graph, "create_deep_agent", fake_create_deep_agent)
 
     result = asyncio.run(
@@ -129,6 +140,7 @@ def test_make_graph_builds_research_agent(monkeypatch: Any) -> None:
     assert captured["tools"] == ["base_tool", "runtime_tool", "private_tool"]
     assert captured["skills"] == ["/tmp/research-skills"]
     assert captured["subagents"][0]["name"] == "research-subagent"
+    assert captured["backend"] is backend_sentinel
     middleware = captured["middleware"]
     assert len(middleware) == 1
     assert middleware[0].parser_model_id == "iflow_qwen3-vl-plus"

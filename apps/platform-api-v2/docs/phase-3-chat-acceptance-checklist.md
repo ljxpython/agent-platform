@@ -47,6 +47,12 @@ cd "/Users/bytedance/PycharmProjects/my_best/AITestLab/apps/runtime-service"
 uv run langgraph dev --config runtime_service/langgraph.json --port 8123 --no-browser
 ```
 
+补充说明：
+
+- [x] 已回归验证 `research_demo` 在线程 `state/history` 场景下可在这条默认命令上正常工作
+- [x] 本轮已修复 `FilesystemBackend(root_dir=...).resolve()` 在 graph 工厂内触发的同步阻塞问题
+- [x] 现在线程详情、历史恢复不再依赖 `--allow-blocking`
+
 ### 2.2 legacy platform-api
 
 ```bash
@@ -207,3 +213,16 @@ pnpm --dir "/Users/bytedance/PycharmProjects/my_best/AITestLab/apps/platform-web
 - [ ] Chat 页面达到“可演示、可继续开发”标准
 - [ ] Chat 页面达到“可汇报”标准
 - [ ] Chat 页面仍需继续修复问题后再验收
+
+## 13. 本轮已完成回归
+
+- [x] `platform-api-v2 /api/langgraph/threads/:id/state` 返回 `200`
+- [x] `platform-api-v2 /api/langgraph/threads/:id/history` 返回 `200`
+- [x] `research_demo` 的 thread 历史恢复不再触发 `BlockingError: os.readlink`
+- [x] `Chat` 页面可加载历史消息与输入区，之前的“状态和历史刷新失败”告警已消失
+- [x] `新对话` 按钮改为进入空白草稿态，不再点击一下就创建空 thread
+- [x] 空白草稿态发送首条消息时，系统会自动创建新的 thread 并写回路由
+- [x] 用户主动取消运行后，页面展示明确的 info 提示，不再把 `CancelledError()` 当作失败横幅抬出来
+- [x] 取消运行后输入框保持可编辑，当前草稿会保留，能够继续发送下一条消息
+- [x] `Threads -> Open in Chat` 跳转链路已回归验证，能够带着正确的 `threadId / target` 进入 Chat
+- [x] “运行参数”弹窗确认后，后续消息可继续正常发送，不会把会话链路打断

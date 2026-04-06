@@ -220,11 +220,16 @@ function extractErrorText(value: unknown): string {
   return ''
 }
 
+function isCancelledRunMessage(message: string): boolean {
+  return /cancellederror|aborterror|cancelled|canceled|aborted/i.test(message.trim())
+}
+
 function extractThreadFailureMessage(
   state?: Record<string, unknown> | null,
   threadStatus?: string | null
 ): string {
   const tasks = Array.isArray(state?.tasks) ? state.tasks : []
+  let cancelledRunDetected = false
   for (const task of tasks) {
     if (!task || typeof task !== 'object') {
       continue
@@ -232,13 +237,24 @@ function extractThreadFailureMessage(
 
     const taskError = extractErrorText((task as Record<string, unknown>).error)
     if (taskError) {
+      if (isCancelledRunMessage(taskError)) {
+        cancelledRunDetected = true
+        continue
+      }
       return taskError
     }
   }
 
   const stateError = extractErrorText(state?.error)
   if (stateError) {
+    if (isCancelledRunMessage(stateError)) {
+      return ''
+    }
     return stateError
+  }
+
+  if (cancelledRunDetected) {
+    return ''
   }
 
   return threadStatus === 'error' ? '最近一次运行失败，请查看线程状态后继续。' : ''
@@ -259,6 +275,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
   const cancelling = ref(false)
   const error = ref('')
   const detailError = ref('')
+  const detailInfo = ref('')
   const detailWarning = ref('')
   const runtimeError = ref('')
   const threadErrorMeta = ref<RuntimeGatewayErrorMeta | null>(null)
@@ -366,6 +383,27 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     return activeThread.value?.status === 'interrupted'
   })
 
+  function clearDetailFeedback(options: { preserveInfo?: boolean } = {}) {
+    detailError.value = ''
+    detailWarning.value = ''
+    detailErrorMeta.value = null
+
+    if (!options.preserveInfo) {
+      detailInfo.value = ''
+    }
+  }
+
+  function clearActiveThreadState(options: { preserveInfo?: boolean } = {}) {
+    activeThreadId.value = ''
+    activeThread.value = null
+    activeState.value = null
+    activeStateRaw.value = null
+    historyItems.value = []
+    selectedBranch.value = ''
+    branchResetPending.value = false
+    clearDetailFeedback(options)
+  }
+
   function applyStateSnapshot(nextState: Record<string, unknown> | null) {
     if (branchResetPending.value) {
       selectedBranch.value = ''
@@ -419,28 +457,18 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     }
   }
 
-  async function loadThreadDetail(threadId: string) {
+  async function loadThreadDetail(threadId: string, loadOptions: { preserveInfo?: boolean } = {}) {
     const projectId = options.projectId.value.trim()
     const normalizedThreadId = threadId.trim()
 
     if (!projectId || !normalizedThreadId) {
-      activeThread.value = null
-      activeState.value = null
-      activeStateRaw.value = null
-      historyItems.value = []
-      selectedBranch.value = ''
-      branchResetPending.value = false
-      detailError.value = ''
-      detailWarning.value = ''
-      detailErrorMeta.value = null
+      clearActiveThreadState()
       return
     }
 
     const currentToken = ++detailToken
     loadingThreadDetail.value = true
-    detailError.value = ''
-    detailWarning.value = ''
-    detailErrorMeta.value = null
+    clearDetailFeedback({ preserveInfo: loadOptions.preserveInfo })
 
     try {
       const fallbackSummary = threadItems.value.find((item) => item.thread_id === normalizedThreadId) || null
@@ -466,14 +494,8 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
       }
 
       const normalizedError = normalizeRuntimeGatewayError(loadError, '线程详情加载失败')
-      activeThread.value = null
-      activeState.value = null
-      activeStateRaw.value = null
-      historyItems.value = []
-      selectedBranch.value = ''
-      branchResetPending.value = false
+      clearActiveThreadState({ preserveInfo: true })
       detailError.value = normalizedError.message
-      detailWarning.value = ''
       detailErrorMeta.value = normalizedError
     } finally {
       if (currentToken === detailToken) {
@@ -488,13 +510,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
 
     if (!projectId || !target) {
       threadItems.value = []
-      activeThreadId.value = ''
-      activeThread.value = null
-      activeState.value = null
-      activeStateRaw.value = null
-      historyItems.value = []
-      selectedBranch.value = ''
-      branchResetPending.value = false
+      clearActiveThreadState()
       error.value = ''
       threadErrorMeta.value = null
       loadingThreads.value = false
@@ -528,16 +544,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
         ''
 
       if (!nextThreadId) {
-        activeThreadId.value = ''
-        activeThread.value = null
-        activeState.value = null
-        activeStateRaw.value = null
-        historyItems.value = []
-        selectedBranch.value = ''
-        branchResetPending.value = false
-        detailError.value = ''
-        detailWarning.value = ''
-        detailErrorMeta.value = null
+        clearActiveThreadState()
         return
       }
 
@@ -549,14 +556,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
 
       const normalizedError = normalizeRuntimeGatewayError(loadError, '线程列表加载失败')
       threadItems.value = []
-      activeThreadId.value = ''
-      activeThread.value = null
-      activeState.value = null
-      activeStateRaw.value = null
-      historyItems.value = []
-      selectedBranch.value = ''
-      branchResetPending.value = false
-      detailWarning.value = ''
+      clearActiveThreadState()
       error.value = normalizedError.message
       threadErrorMeta.value = normalizedError
     } finally {
@@ -575,9 +575,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     }
 
     creatingThread.value = true
-    detailError.value = ''
-    detailWarning.value = ''
-    detailErrorMeta.value = null
+    clearDetailFeedback()
 
     try {
       const normalizedThread = await createRuntimeThread(projectId, {
@@ -683,10 +681,12 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
       return true
     } catch (runError) {
       if (isAbortLikeError(runError)) {
-        if (!cancelling.value) {
+        if (cancelling.value) {
+          detailInfo.value = '本轮运行已取消。输入框里的草稿已保留，你可以继续修改后重新发送。'
+        } else {
           detailError.value = '当前运行已中断'
         }
-        await loadThreadDetail(params.threadId)
+        await loadThreadDetail(params.threadId, { preserveInfo: true })
         return false
       }
 
@@ -701,14 +701,17 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
   }
 
   async function startNewThread() {
-    try {
-      await createThread()
-      error.value = ''
-      return true
-    } catch (createError) {
-      detailError.value = normalizeRuntimeGatewayError(createError, '新建对话失败').message
+    if (!options.projectId.value.trim() || !options.target.value) {
       return false
     }
+
+    error.value = ''
+    lastRunId.value = ''
+    currentRunId.value = ''
+    lastEventAt.value = ''
+    clearActiveThreadState()
+    detailInfo.value = '已切换到空白对话。发送第一条消息时，系统才会创建新的 thread。'
+    return true
   }
 
   async function selectThread(threadId: string) {
@@ -740,8 +743,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     sending.value = true
     cancelling.value = false
     error.value = ''
-    detailError.value = ''
-    detailWarning.value = ''
+    clearDetailFeedback()
     lastRunId.value = ''
 
     const humanMessageContent =
@@ -793,8 +795,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     sending.value = true
     cancelling.value = false
     error.value = ''
-    detailError.value = ''
-    detailWarning.value = ''
+    clearDetailFeedback()
 
     const pendingTaskToolCall = hasPendingTaskToolCall(messages.value)
 
@@ -861,13 +862,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     if (activeThreadId.value === normalizedThreadId) {
       const nextThreadId = remaining[0]?.thread_id || ''
       if (!nextThreadId) {
-        activeThreadId.value = ''
-        activeThread.value = null
-        activeState.value = null
-        activeStateRaw.value = null
-        historyItems.value = []
-        selectedBranch.value = ''
-        branchResetPending.value = false
+        clearActiveThreadState()
         return true
       }
 
@@ -886,8 +881,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     sending.value = true
     cancelling.value = false
     error.value = ''
-    detailError.value = ''
-    detailWarning.value = ''
+    clearDetailFeedback()
 
     if (selectedBranch.value) {
       branchResetPending.value = true
@@ -919,8 +913,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     sending.value = true
     cancelling.value = false
     error.value = ''
-    detailError.value = ''
-    detailWarning.value = ''
+    clearDetailFeedback()
     lastRunId.value = ''
 
     if (selectedBranch.value) {
@@ -960,8 +953,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     sending.value = true
     cancelling.value = false
     error.value = ''
-    detailError.value = ''
-    detailWarning.value = ''
+    clearDetailFeedback()
     lastRunId.value = ''
 
     if (selectedBranch.value) {
@@ -1037,6 +1029,7 @@ export function useChatWorkspace(options: UseChatWorkspaceOptions) {
     canContinueDebug,
     accessDeniedMessage,
     detailError,
+    detailInfo,
     detailWarning,
     deleteThread,
     editHumanMessage,

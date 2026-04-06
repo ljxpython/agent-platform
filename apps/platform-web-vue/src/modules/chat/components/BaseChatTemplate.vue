@@ -642,6 +642,13 @@ async function handleCancelRun() {
     />
 
     <StateBanner
+      v-if="workspace.detailInfo.value"
+      title="运行状态更新"
+      :description="workspace.detailInfo.value"
+      variant="info"
+    />
+
+    <StateBanner
       v-if="workspace.detailWarning.value"
       title="会话状态部分未同步"
       :description="workspace.detailWarning.value"

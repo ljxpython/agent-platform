@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from deepagents import create_deep_agent
-from deepagents.backends import FilesystemBackend
 from runtime_service.middlewares.multimodal import (
     MultimodalMiddleware,
 )
 from runtime_service.runtime.context import RuntimeContext
+from runtime_service.runtime.filesystem_backend import abuild_filesystem_backend
 from runtime_service.runtime.modeling import apply_model_runtime_params, resolve_model
 from runtime_service.runtime.options import (
     build_runtime_config,
@@ -147,7 +147,10 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
     backend_root = await _aresolve_backend_root_dir(
         private_config, agent_name="test_case_agent"
     )
-    backend = FilesystemBackend(root_dir=backend_root, virtual_mode=True)
+    backend = await abuild_filesystem_backend(
+        root_dir=backend_root,
+        virtual_mode=True,
+    )
 
     # 6. skills 路径："/skills/" 表示加载 backend root 下 skills 目录
     #    create_deep_agent 内部自动构建 SkillsMiddleware(backend=backend, sources=skills)

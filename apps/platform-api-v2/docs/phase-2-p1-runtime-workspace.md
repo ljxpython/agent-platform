@@ -64,10 +64,14 @@
 
 - `detailWarning`
   - 当 thread 基础信息成功，但 `state/history` 局部失败时，不再直接黑盒报错
+- `detailInfo`
+  - 用户主动取消运行、或切换到空白对话时，页面给出明确但低打扰的状态反馈
 - `accessDeniedMessage`
   - 把 `401 / 403` 归一成清晰的无权限提示
 - `create / stream / cancel / updateState / delete`
   - 页面层不再直接碰 LangGraph SDK
+- `new thread` 语义修正
+  - 点击 `新对话` 只切换到空白草稿态，真正的 thread 只在首条消息发送时创建
 - 空态 / 加载态 / 中断态 / 重试态 / 无权限态
   - 统一在同一套 chat 基座内处理
 
@@ -112,6 +116,14 @@ pnpm --dir apps/platform-web-vue build
 - 前端类型检查通过
 - `chat / threads / sql-agent / testcase generate` 的共享运行服务收敛完成
 - 运行工作台不再继续散落 runtime 细节到页面层
+- `research_demo` 的 thread `state/history` 链路已补回：
+  - `runtime-service` graph 工厂不再因为 `FilesystemBackend` 的阻塞构造导致 `500`
+  - `platform-api-v2` 的 runtime gateway 可正常透传 thread state / history
+  - `Chat` 页面可直接恢复历史，不再只显示局部 warning
+- `Chat` 取消运行后的反馈已收口：
+  - 用户主动取消时显示 info banner
+  - 不再把 `CancelledError()` 渲染成失败横幅
+  - 取消后仍可继续编辑草稿并发送后续消息
 
 ## 5. 当前边界
 

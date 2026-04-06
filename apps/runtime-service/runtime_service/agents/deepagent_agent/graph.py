@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from deepagents import create_deep_agent
-from deepagents.backends import FilesystemBackend
 from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 from runtime_service.agents.deepagent_agent.prompts import SYSTEM_PROMPT
 from runtime_service.agents.deepagent_agent.tools import (
@@ -15,6 +14,7 @@ from runtime_service.agents.deepagent_agent.tools import (
 )
 from runtime_service.middlewares.multimodal import MultimodalMiddleware
 from runtime_service.runtime.context import RuntimeContext
+from runtime_service.runtime.filesystem_backend import abuild_filesystem_backend
 from runtime_service.runtime.modeling import apply_model_runtime_params, resolve_model
 from runtime_service.runtime.options import (
     build_runtime_config,
@@ -67,7 +67,7 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
         tools=tools,
         middleware=[MultimodalMiddleware()],
         system_prompt=options.system_prompt or SYSTEM_PROMPT,
-        backend=FilesystemBackend(
+        backend=await abuild_filesystem_backend(
             root_dir=await _aresolve_filesystem_backend_root_dir(
                 private_config, agent_name="deepagent-demo"
             ),
