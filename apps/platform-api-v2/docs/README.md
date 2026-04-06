@@ -31,9 +31,15 @@
 
 - `delivery/change-delivery-checklist.md`
 - `delivery/module-delivery-template.md`
+- `delivery/platform-web-vue-gap-closure-checklist.md`
 - `delivery/runbook.md`
 - `delivery/postgres-baseline.md`
 - `delivery/release-template.md`
+
+其中：
+
+- `platform-web-vue-gap-closure-checklist.md`
+  - 说明 `platform-api-v2` 与 `platform-web-vue` 的正式能力边界、前端收口任务和执行顺序
 
 ## 4. 迁移决策和历史方案放哪
 
@@ -41,6 +47,12 @@
 - `decisions/langgraph-sdk-migration-plan.md`
 - `decisions/legacy-solution-inheritance-checklist.md`
 - `decisions/first-batch-module-map.md`
+- `decisions/platform-capability-reconciliation.md`
+
+其中：
+
+- `platform-capability-reconciliation.md`
+  - 说明当前后端能力哪些已经被前端正式消费，哪些只是弱接入，哪些应该暂时收成 internal
 
 ## 5. 历史阶段记录放哪
 

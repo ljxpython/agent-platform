@@ -4,6 +4,19 @@
 
 如果你是第一次接手这套控制面，或者你已经看过代码但还是没搞清楚“这服务到底怎么用、为什么要这么拆、权限到底怎么判”，先看这份文档，不要一头扎进 `phase-*` 里迷路。
 
+## 0. 建议先看的 6 张图
+
+如果你想先用最短时间把业务骨架看明白，先按这个顺序看图：
+
+1. [系统上下文图](../diagrams/system-context.svg)
+2. [业务域边界图](../diagrams/business-domain-boundaries.svg)
+3. [请求流转图](../diagrams/request-lifecycle.svg)
+4. [Agent / Chat 业务流转图](../diagrams/agent-chat-flow.svg)
+5. [权限模型图](../diagrams/permission-model.svg)
+6. [Operation 生命周期图](../diagrams/operation-lifecycle.svg)
+
+对应的 drawio 源文件也都在 `../diagrams/` 目录下，后续可以继续修改和复用。
+
 ## 1. 这套服务是干什么的
 
 `platform-api-v2` 是平台治理层后端，也就是 control plane。
@@ -29,28 +42,47 @@
 
 ## 2. 整体架构图
 
-```mermaid
-flowchart LR
-    User[用户 / 平台操作员]
-    Web[apps/platform-web-vue<br/>Agent Platform Console]
-    RuntimeWeb[apps/runtime-web<br/>Runtime 调试前端]
-    API[apps/platform-api-v2<br/>Control Plane API]
-    Runtime[apps/runtime-service<br/>Runtime Plane]
-    IDS[apps/interaction-data-service<br/>Result Domain]
-    DB[(SQLite / PostgreSQL)]
-    Queue[(db_polling / Redis Queue)]
+![系统上下文图](../diagrams/system-context.svg)
 
-    User --> Web
-    User --> RuntimeWeb
-    Web --> API
-    API --> DB
-    API --> Runtime
-    API --> IDS
-    API --> Queue
-    RuntimeWeb --> Runtime
-```
+### 2.1 业务域边界图
 
-## 3. 上层业务应该怎么使用这套平台
+![业务域边界图](../diagrams/business-domain-boundaries.svg)
+
+## 3. 一次请求是怎么流转的
+
+很多人看代码容易懵，不是因为代码多，而是因为不知道一条请求应该沿哪条路走。
+
+正常流转应该是这样：
+
+![请求流转图](../diagrams/request-lifecycle.svg)
+
+### 3.1 用人话解释这条链
+
+- 前端或调用方只和 HTTP API 说话
+- handler 只做协议接入，不做复杂业务
+- 真正的业务编排在 application/use case
+- 权限和审计不是“想起来再补”，而是 use case 的组成部分
+- 读数据库走 repository
+- 调 runtime / interaction-data 走 adapter
+
+### 3.2 哪些情况会改走 operation
+
+如果这条链里的动作满足任一条件，就不应该同步死等：
+
+- 超过 3 秒
+- 需要取消
+- 需要重试
+- 需要保留历史
+- 需要产出 artifact
+
+这时候请求会变成：
+
+1. 提交一个 operation
+2. 立刻返回 `operation_id`
+3. worker 或后台执行器继续跑
+4. 前端通过 operation 状态更新 UI
+
+## 4. 上层业务应该怎么使用这套平台
 
 上层业务不要把 `platform-api-v2` 当成一个“万能后端”。
 
@@ -65,7 +97,7 @@ flowchart LR
 | testcase 管理、导出、预览 | `testcase` | 结果数据仍在 `interaction-data-service` |
 | 长耗时刷新、导出、批处理 | `operations` | 通过 operation/job 跟踪状态，不在 HTTP 里硬等 |
 
-### 3.1 前端如何用
+### 4.1 前端如何用
 
 `apps/platform-web-vue` 是正式平台前端宿主。
 
@@ -76,7 +108,15 @@ flowchart LR
 - 通过项目上下文和用户身份访问平台资源
 - 遇到长任务统一走 `operations`
 
-### 3.2 业务方如果要接入新的平台能力
+如果你想确认“当前哪些后端能力已经真正被前端用起来，哪些只是 internal 或弱接入”，继续看：
+
+- `../decisions/platform-capability-reconciliation.md`
+
+如果你想看后续前端收口和能力对齐怎么执行，继续看：
+
+- `../delivery/platform-web-vue-gap-closure-checklist.md`
+
+### 4.2 业务方如果要接入新的平台能力
 
 推荐顺序：
 
@@ -86,7 +126,49 @@ flowchart LR
 4. 如果结果是业务域数据，不要塞进控制面库，放进专门结果域服务
 5. 如果动作超过 3 秒，优先建 operation
 
-## 4. 为什么要这样拆
+### 4.3 典型业务接入场景
+
+#### 场景 A：做一个新的平台治理页面
+
+比如你要做“平台 API Key 治理页”。
+
+正确做法：
+
+1. 在 `platform-api-v2` 定义新模块或收进已有治理模块
+2. 先定接口契约和权限码
+3. 补审计动作
+4. 如果有批量刷新或导出，接进 `operations`
+5. 再由 `platform-web-vue` 接 service 和页面
+
+不正确做法：
+
+- 前端直接绕过控制面打底层服务
+- 先把页面拼出来，再回头补权限
+- 把批量任务塞进一个同步 POST 里硬跑
+
+#### 场景 B：做一个新的 Agent 调用入口
+
+![Agent / Chat 业务流转图](../diagrams/agent-chat-flow.svg)
+
+比如你要让平台用户在工作台里跑一个新的 graph。
+
+正确做法：
+
+1. graph 真实执行逻辑仍在 `runtime-service`
+2. `platform-api-v2` 只负责项目边界、身份上下文、错误映射和受控转发
+3. 前端调用 `platform-api-v2` 的 gateway 接口，而不是直打 runtime
+
+#### 场景 C：要保存 AI 运行结果
+
+比如 testcase 跑完后要保存批次、结果、文档。
+
+正确做法：
+
+1. 结果域放进 `interaction-data-service`
+2. `platform-api-v2` 负责项目权限、聚合视图、导出、下载、预览整形
+3. 前端只认 `platform-api-v2` 暴露的治理接口
+
+## 5. 为什么要这样拆
 
 如果不拆，平台侧最后一定会烂成一锅：
 
@@ -104,7 +186,7 @@ flowchart LR
 - 结果域继续专注业务结果
 - 后面接队列、中间件、对象存储时不需要重做目录结构
 
-## 5. 代码结构分别负责什么
+## 6. 代码结构分别负责什么
 
 ```text
 apps/platform-api-v2/
@@ -120,7 +202,7 @@ apps/platform-api-v2/
 └── scripts/
 ```
 
-### 5.1 `app/core`
+### 6.1 `app/core`
 
 放全局共享能力：
 
@@ -132,7 +214,7 @@ apps/platform-api-v2/
 - observability
 - security primitives
 
-### 5.2 `app/modules`
+### 6.2 `app/modules`
 
 放业务模块，每个模块都按下面四层收：
 
@@ -151,7 +233,7 @@ module/
 - `infra`：repository、SQLAlchemy、外部依赖落地
 - `presentation`：HTTP DTO 与 router
 
-### 5.3 `app/adapters`
+### 6.3 `app/adapters`
 
 放外部系统接入：
 
@@ -159,7 +241,7 @@ module/
 - `interaction_data`
 - 后续可扩展 `redis`、`object_storage`、`notification`
 
-### 5.4 `app/entrypoints`
+### 6.4 `app/entrypoints`
 
 放协议入口：
 
@@ -168,15 +250,15 @@ module/
 
 这里只做接入，不做复杂业务编排。
 
-### 5.5 `tests`
+### 6.5 `tests`
 
 用于放权限、审计、模块行为、operation、adapter 回归测试。
 
-### 5.6 `docs`
+### 6.6 `docs`
 
 放长期有效的手册、标准、交付文档和阶段归档。
 
-## 6. 目前主要模块怎么理解
+## 7. 目前主要模块怎么理解
 
 | 模块 | 作用 | 不该干什么 |
 | --- | --- | --- |
@@ -192,12 +274,15 @@ module/
 | `operations` | 长任务、重试、取消、artifact | 不在 HTTP 中直接把任务跑完 |
 | `platform_config` | 平台级配置治理 | 不让页面绕开配置直接写死行为 |
 | `service_accounts` | 服务账号与 token 管理 | 不混入普通用户登录链路 |
+| `tenants` | 未来组织/租户边界预留 | 不在当前阶段强行半成品上线 |
 
-## 7. 权限规则到底是什么
+## 8. 权限规则到底是什么
+
+![权限模型图](../diagrams/permission-model.svg)
 
 这块是最容易被写烂的，所以单独说透。
 
-### 7.1 权限分两层
+### 8.1 权限分两层
 
 平台级角色：
 
@@ -211,14 +296,14 @@ module/
 - `project_editor`
 - `project_executor`
 
-### 7.2 最核心的铁律
+### 8.2 最核心的铁律
 
 - 项目级角色永远不能自动变成平台级角色
 - 平台级角色也不能绕过项目归属校验直接乱操作项目资源
 - handler 不允许手写一堆 `if role == "admin"` 散装判断
 - 所有权限判定统一基于 `ActorContext`
 
-### 7.3 你可以这样理解
+### 8.3 你可以这样理解
 
 平台级权限管的是：
 
@@ -236,7 +321,7 @@ module/
 - testcase project scope
 - runtime gateway 的项目边界
 
-### 7.4 典型例子
+### 8.4 典型例子
 
 - 某人是 `project_admin`
   - 可以管理自己项目里的成员和资源
@@ -252,7 +337,38 @@ module/
 
 - `../standards/permission-standard.md`
 
-## 8. 审计规则是什么
+### 8.5 常见角色场景表
+
+| 场景 | `platform_super_admin` | `platform_operator` | `platform_viewer` | `project_admin` | `project_editor` | `project_executor` |
+| --- | --- | --- | --- | --- | --- | --- |
+| 查看平台配置 | 可以 | 可以 | 可以 | 不可以 | 不可以 | 不可以 |
+| 修改平台配置 | 可以 | 视策略开放 | 不可以 | 不可以 | 不可以 | 不可以 |
+| 查看全局审计 | 可以 | 可以 | 可以 | 不可以 | 不可以 | 不可以 |
+| 管理服务账号 | 可以 | 视策略开放 | 不可以 | 不可以 | 不可以 | 不可以 |
+| 查看项目成员 | 需要项目归属或额外授权 | 需要项目归属或额外授权 | 不可以 | 可以 | 可以 | 只读或受限 |
+| 修改项目成员 | 不自动拥有，仍需项目归属/授权 | 不自动拥有，仍需项目归属/授权 | 不可以 | 可以 | 一般不可以 | 不可以 |
+| 运行项目内 assistant / runtime 能力 | 不自动拥有，仍需项目归属/授权 | 不自动拥有，仍需项目归属/授权 | 不可以 | 可以 | 可以 | 受限执行 |
+
+这里有个非常关键的原则：
+
+> 平台角色解决“有没有资格管理平台”，项目角色解决“能不能碰这个项目”。
+
+两者不是互相替代关系。
+
+### 8.6 服务账号和普通账号的区别
+
+服务账号是给系统集成、脚本或平台内部自动化调用准备的，不是给人登录页面用的。
+
+它的特点：
+
+- 不走普通用户名密码登录 UI
+- 通过 token 调平台 API
+- 权限仍然受平台角色约束
+- token 要支持创建、展示、撤销和审计
+
+所以不要把它理解成“另一个用户体系”，它更像“受控的机器身份”。
+
+## 9. 审计规则是什么
 
 审计不是 access log 美化版，它要回答：
 
@@ -289,7 +405,9 @@ module/
 
 - `../standards/audit-standard.md`
 
-## 9. Operation 是怎么用的
+## 10. Operation 是怎么用的
+
+![Operation 生命周期图](../diagrams/operation-lifecycle.svg)
 
 不是所有动作都该同步执行。
 
@@ -318,7 +436,26 @@ module/
 
 - `../standards/operations-standard.md`
 
-## 10. 新功能应该怎么开发
+### 10.1 一条典型 operation 链路
+
+比如“导出 testcase 文档包”：
+
+1. 前端点击导出
+2. 控制面创建一个 `testcase.export` operation
+3. 返回 `operation_id`
+4. worker 异步执行导出
+5. 导出完成后写 `artifact`
+6. 前端轮询 operation，拿到下载入口
+
+这比同步导出好太多，因为它至少具备：
+
+- 可重试
+- 可取消
+- 可审计
+- 可追踪失败原因
+- 后续可平滑切队列
+
+## 11. 新功能应该怎么开发
 
 标准顺序不要乱：
 
@@ -332,7 +469,7 @@ module/
 8. 补测试
 9. 补文档和验收说明
 
-### 10.1 不该怎么做
+### 11.1 不该怎么做
 
 - 不要直接在 handler 里写业务
 - 不要直接跨模块乱读 repository
@@ -340,7 +477,20 @@ module/
 - 不要把结果域数据直接塞进控制面
 - 不要让前端绕过控制面直打底层服务
 
-## 11. 给新同事和协作者的推荐阅读顺序
+### 11.2 新模块最小交付清单
+
+如果你要做一个新模块，最低应该交出这些东西：
+
+- 模块边界说明
+- request / response DTO
+- 权限码与角色映射
+- 审计动作命名
+- repository 或 adapter 落点
+- 最小测试
+- 前端 service 或明确的落点
+- 文档与验收说明
+
+## 12. 给新同事和协作者的推荐阅读顺序
 
 1. `README.md`
 2. `project-handbook.md`
@@ -353,7 +503,7 @@ module/
 9. `../delivery/module-delivery-template.md`
 10. `../archive/phases/`
 
-## 12. 这份手册的定位
+## 13. 这份手册的定位
 
 这份文档不是阶段纪要，也不是 release note。
 
