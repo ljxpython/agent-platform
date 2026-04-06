@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.schemas import OffsetPage
+
 
 class OperationStatus(StrEnum):
     SUBMITTED = "submitted"
@@ -13,6 +15,12 @@ class OperationStatus(StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class OperationArchiveScope(StrEnum):
+    EXCLUDE = "exclude"
+    INCLUDE = "include"
+    ONLY = "only"
 
 
 class OperationView(BaseModel):
@@ -32,12 +40,31 @@ class OperationView(BaseModel):
     cancel_requested_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
 
-class OperationPage(BaseModel):
+class OperationPage(OffsetPage[OperationView]):
+    pass
+
+
+class OperationBulkMutationResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    items: list[OperationView]
-    total: int
+    requested_count: int
+    updated_count: int
+    skipped_count: int
+    updated: list[OperationView] = Field(default_factory=list)
+    skipped_ids: list[str] = Field(default_factory=list)
+
+
+class OperationArtifactCleanupResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    storage_backend: str
+    retention_hours: int
+    scanned_count: int
+    removed_count: int
+    missing_count: int
+    bytes_reclaimed: int

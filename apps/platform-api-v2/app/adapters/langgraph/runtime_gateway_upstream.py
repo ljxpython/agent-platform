@@ -3,12 +3,11 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
-from fastapi import HTTPException
-
 from app.adapters.langgraph.graphs_sdk_adapter import LangGraphGraphsSdkAdapter
 from app.adapters.langgraph.runs_sdk_adapter import LangGraphRunsSdkAdapter
 from app.adapters.langgraph.runtime_client import LangGraphRuntimeClient
 from app.adapters.langgraph.threads_sdk_adapter import LangGraphThreadsSdkAdapter
+from app.core.errors import PlatformApiError
 
 
 class LangGraphRuntimeGatewayUpstream:
@@ -70,9 +69,10 @@ class LangGraphRuntimeGatewayUpstream:
         value = await self._threads.get(thread_id)
         if isinstance(value, dict):
             return value
-        raise HTTPException(
+        raise PlatformApiError(
+            code="langgraph_upstream_invalid_response",
             status_code=502,
-            detail="langgraph_upstream_invalid_response",
+            message="LangGraph upstream returned an invalid thread payload",
         )
 
     async def update_thread(self, thread_id: str, payload: dict[str, Any] | None = None) -> Any:
@@ -85,7 +85,11 @@ class LangGraphRuntimeGatewayUpstream:
         value = await self._threads.copy(thread_id)
         if value is None or isinstance(value, dict):
             return value
-        raise HTTPException(status_code=502, detail="langgraph_upstream_invalid_response")
+        raise PlatformApiError(
+            code="langgraph_upstream_invalid_response",
+            status_code=502,
+            message="LangGraph upstream returned an invalid thread copy payload",
+        )
 
     async def get_thread_state(
         self,

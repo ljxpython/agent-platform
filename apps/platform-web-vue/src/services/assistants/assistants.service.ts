@@ -1,9 +1,8 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
+import { platformV2HttpClient } from '@/services/http/client'
 import {
   submitOperation,
   waitForOperationTerminalState
 } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import type {
   ManagementAssistant,
   ManagementAssistantListResponse,
@@ -14,10 +13,6 @@ export type AssistantServiceMode = 'legacy' | 'runtime'
 
 type AssistantServiceOptions = {
   mode?: AssistantServiceMode
-}
-
-function useRuntimeAssistantsApi(options?: AssistantServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('assistants') === 'v2'
 }
 
 function getProjectHeaders(projectId?: string) {
@@ -36,26 +31,19 @@ export async function listAssistantsPage(
     query?: string
     graphId?: string
   },
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<ManagementAssistantListResponse> {
   if (!projectId) {
     return { items: [], total: 0 }
   }
 
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/projects/${projectId}/assistants`
-    : `/_management/projects/${projectId}/assistants`
-
-  const response = await client.get(endpoint, {
+  const response = await platformV2HttpClient.get(`/api/projects/${projectId}/assistants`, {
     params: {
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
       query: options?.query?.trim() || undefined,
       graph_id: options?.graphId?.trim() || undefined
-    },
-    headers: useRuntimeApi ? undefined : getProjectHeaders(projectId)
+    }
   })
 
   return response.data as ManagementAssistantListResponse
@@ -72,32 +60,19 @@ export async function createAssistant(
     context?: Record<string, unknown>
     metadata?: Record<string, unknown>
   },
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<ManagementAssistant> {
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/projects/${projectId}/assistants`
-    : `/_management/projects/${projectId}/assistants`
-  const response = await client.post(endpoint, payload, {
-    headers: useRuntimeApi ? undefined : getProjectHeaders(projectId)
-  })
-
+  const response = await platformV2HttpClient.post(`/api/projects/${projectId}/assistants`, payload)
   return response.data as ManagementAssistant
 }
 
 export async function getAssistant(
   assistantId: string,
   projectId?: string,
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<ManagementAssistant> {
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/assistants/${assistantId}`
-    : `/_management/assistants/${assistantId}`
-  const response = await client.get(endpoint, {
-    headers: useRuntimeApi ? undefined : getProjectHeaders(projectId)
+  const response = await platformV2HttpClient.get(`/api/assistants/${assistantId}`, {
+    headers: getProjectHeaders(projectId)
   })
 
   return response.data as ManagementAssistant
@@ -115,15 +90,10 @@ export async function updateAssistant(
     metadata?: Record<string, unknown>
   },
   projectId?: string,
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<ManagementAssistant> {
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/assistants/${assistantId}`
-    : `/_management/assistants/${assistantId}`
-  const response = await client.patch(endpoint, payload, {
-    headers: useRuntimeApi ? undefined : getProjectHeaders(projectId)
+  const response = await platformV2HttpClient.patch(`/api/assistants/${assistantId}`, payload, {
+    headers: getProjectHeaders(projectId)
   })
 
   return response.data as ManagementAssistant
@@ -132,18 +102,13 @@ export async function updateAssistant(
 export async function resyncAssistant(
   assistantId: string,
   projectId?: string,
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<ManagementAssistant> {
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/assistants/${assistantId}/resync`
-    : `/_management/assistants/${assistantId}/resync`
-  const response = await client.post(
-    endpoint,
+  const response = await platformV2HttpClient.post(
+    `/api/assistants/${assistantId}/resync`,
     {},
     {
-      headers: useRuntimeApi ? undefined : getProjectHeaders(projectId)
+      headers: getProjectHeaders(projectId)
     }
   )
 
@@ -178,19 +143,14 @@ export async function deleteAssistant(
     deleteThreads?: boolean
   },
   projectId?: string,
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<{ ok: boolean }> {
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/assistants/${assistantId}`
-    : `/_management/assistants/${assistantId}`
-  const response = await client.delete(endpoint, {
+  const response = await platformV2HttpClient.delete(`/api/assistants/${assistantId}`, {
     params: {
       delete_runtime: options?.deleteRuntime || undefined,
       delete_threads: options?.deleteThreads || undefined
     },
-    headers: useRuntimeApi ? undefined : getProjectHeaders(projectId)
+    headers: getProjectHeaders(projectId)
   })
 
   return response.data as { ok: boolean }
@@ -199,15 +159,10 @@ export async function deleteAssistant(
 export async function getAssistantParameterSchema(
   graphId: string,
   projectId?: string,
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<Record<string, unknown>> {
-  const useRuntimeApi = useRuntimeAssistantsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? `/api/graphs/${encodeURIComponent(graphId)}/assistant-parameter-schema`
-    : `/_management/graphs/${encodeURIComponent(graphId)}/assistant-parameter-schema`
-  const response = await client.get(
-    endpoint,
+  const response = await platformV2HttpClient.get(
+    `/api/graphs/${encodeURIComponent(graphId)}/assistant-parameter-schema`,
     {
       headers: getProjectHeaders(projectId)
     }
@@ -219,7 +174,7 @@ export async function getAssistantParameterSchema(
 export async function findAssistantByTargetId(
   projectId: string,
   targetAssistantId: string,
-  requestOptions?: AssistantServiceOptions
+  _requestOptions?: AssistantServiceOptions
 ): Promise<ManagementAssistant | null> {
   const normalizedTargetId = targetAssistantId.trim()
   if (!projectId || !normalizedTargetId) {
@@ -232,8 +187,7 @@ export async function findAssistantByTargetId(
       limit: 50,
       offset: 0,
       query: normalizedTargetId
-    },
-    requestOptions
+    }
   )
 
   return (

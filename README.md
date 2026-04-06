@@ -19,7 +19,7 @@
 基于 `LangGraph / LangChain` 的企业级 AI 平台架构，可在此基础上进行二次开发。  
 它把**平台治理层**和**Agent Runtime 执行层**拆开，既支持平台侧的认证、项目管理、审计、catalog 管理，也支持 Agent 侧的图编排、模型装配、Tools / MCP / Skills 接入与快速调试，适合作为企业内部 AI 平台和智能体应用的基础骨架。
 
-当前仓库默认提供一套五服务本地联调方案，适合：
+当前仓库默认提供一套正式四服务演示链路，并保留可选 `runtime-web` 调试入口，适合：
 
 - 想基于主流 Agent 技术栈做二次开发的团队
 - 想同时建设平台能力和 Agent 执行能力的项目
@@ -52,6 +52,12 @@
 - `apps/platform-web`：历史平台前端与兼容入口，保留用于迁移对照和必要兼容
 - `apps/runtime-web`：直连 Runtime 的调试前端，适合做 Agent 调试与交互验证
 
+当前正式标准与模板入口：
+
+- `apps/platform-api-v2/docs/README.md`
+- `apps/platform-api-v2/docs/change-delivery-checklist.md`
+- `apps/platform-web-vue/docs/control-plane-page-standard.md`
+
 如果你是第一次跑这个仓库，建议先区分清楚两件事：
 
 - 想快速跑通仓库默认联调：按根目录脚本启动，打开的是 `apps/platform-web-vue`
@@ -68,9 +74,9 @@
 - `范式`：`runtime-service`、`platform-web-vue`、`Resources / Playbook`、迁移手册和样例页面已经沉淀出可复用范式
 - `闭环`：根级脚本、健康检查、烟测清单、验收文档、CHANGELOG 和 release runbook 已形成可执行交付链路
 
-平台控制面后端这部分，当前专用的落地蓝图已经单独写入：
+平台控制面后端这部分，当前专用的落地蓝图与正式标准已经统一写入：
 
-- `apps/platform-api/docs/refactor-blueprint.md`
+- `apps/platform-api-v2/docs/README.md`
 
 一句话说，这个仓库已经不是“让 AI 随便写代码”，而是“让 AI 在明确边界、稳定契约和现成范式中持续完成开发”。
 
@@ -99,17 +105,20 @@
 
 ## 系统总览
 
-当前根目录默认联调脚本会启动 5 个核心应用：
+当前根目录默认联调脚本会启动 4 个正式应用：
 
 - `apps/interaction-data-service`：结果域数据服务 / 工作流结果落库与查询
-- `apps/platform-api`：平台后端 / 控制面 API
+- `apps/platform-api-v2`：正式平台后端 / 控制面 API
 - `apps/platform-web-vue`：正式平台前端宿主 / 管理台入口
 - `apps/runtime-service`：LangGraph 执行层 / Agent Runtime
+
+可选调试入口：
+
 - `apps/runtime-web`：直连 Runtime 的调试前端
 
 ### 两条主链路
 
-- 平台链路：`platform-web-vue -> platform-api -> runtime-service`
+- 平台链路：`platform-web-vue -> platform-api-v2 -> runtime-service`
 - 调试链路：`runtime-web -> runtime-service`
 
 ### 几个前端分别干什么
@@ -130,9 +139,9 @@
 
 1. `runtime-service`
 2. `interaction-data-service`
-3. `platform-api`
+3. `platform-api-v2`
 4. `platform-web-vue`
-5. `runtime-web`
+5. 如需 runtime 调试，再启动 `runtime-web`
 
 ### 根目录脚本
 
@@ -147,6 +156,12 @@ scripts/dev-down.sh
 - 启动：`scripts/dev-up.sh`
 - 健康检查：`scripts/check-health.sh`
 - 停止：`scripts/dev-down.sh`
+
+它们现在统一代理到正式演示脚本：
+
+- `scripts/platform-web-vue-demo-up.sh`
+- `scripts/platform-web-vue-demo-health.sh`
+- `scripts/platform-web-vue-demo-down.sh`
 
 ### 如果你想单独启动 `platform-web-vue`
 
@@ -166,11 +181,11 @@ VITE_DEV_PORT=3002 pnpm --dir "apps/platform-web-vue" dev
 
 ### 默认本地端口
 
-- `interaction-data-service`：`8090`
+- `interaction-data-service`：`8081`
 - `runtime-service`：`8123`
-- `platform-api`：`2024`
+- `platform-api-v2`：`2142`
 - `platform-web-vue`：`3000`
-- `runtime-web`：`3001`
+- `runtime-web`：`3001`（可选）
 
 ### 成功启动后访问地址
 
@@ -180,13 +195,13 @@ VITE_DEV_PORT=3002 pnpm --dir "apps/platform-web-vue" dev
 ### 最小健康检查
 
 ```bash
-curl http://127.0.0.1:8090/_service/health
+curl http://127.0.0.1:8081/_service/health
 curl http://127.0.0.1:8123/info
-curl http://127.0.0.1:2024/_proxy/health
-curl http://127.0.0.1:2024/api/langgraph/info
+curl http://127.0.0.1:2142/_system/health
+curl http://127.0.0.1:2142/api/langgraph/info
 ```
 
-如果 `platform-api` 的 `/api/langgraph/info` 返回 `200`，且 `interaction-data-service` 的 `/_service/health` 返回 `200`，说明平台链路和结果落库链路都已基本打通。
+如果 `platform-api-v2` 的 `/api/langgraph/info` 返回 `200`，且 `interaction-data-service` 的 `/_service/health` 返回 `200`，说明平台链路和结果落库链路都已基本打通。
 
 ![本地联调启动流程图](docs/assets/local-dev-startup-flow.zh.svg)
 
@@ -197,6 +212,7 @@ AITestLab/
 ├── apps/
 │   ├── interaction-data-service/
 │   ├── platform-api/
+│   ├── platform-api-v2/
 │   ├── platform-web/
 │   ├── platform-web-vue/
 │   ├── runtime-service/
@@ -328,12 +344,12 @@ default:
 
 当前仓库已经完成：
 
-- 默认五服务启动集已迁入 `apps/*`
+- 正式四服务演示链路已收口到 `apps/*`
 - `apps/platform-web-vue` 已作为新的迁移前端宿主持续推进
 - `runtime-service` 可启动
 - `interaction-data-service` 可启动
-- `platform-api` 可启动
-- `platform-api -> runtime-service` 联调已通过
+- `platform-api-v2` 可启动
+- `platform-api-v2 -> runtime-service` 联调已通过
 - `runtime-service -> interaction-data-service` 已接入本地联调脚本
 - `platform-web-vue` / `runtime-web` 已形成当前主线前端入口
 

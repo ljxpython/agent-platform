@@ -51,9 +51,12 @@ const groups = computed(() => {
     {
       label: 'Governance',
       items: [
+        { to: '/workspace/control-plane', label: t('nav.controlPlane'), icon: 'overview' },
         { to: '/workspace/operations', label: t('nav.operations'), icon: 'activity' },
         { to: '/workspace/announcements', label: t('nav.announcements'), icon: 'bell' },
         { to: '/workspace/platform-config', label: t('nav.platformConfig'), icon: 'lock' },
+        { to: '/workspace/service-accounts', label: t('nav.serviceAccounts'), icon: 'users' },
+        { to: '/workspace/system-governance', label: t('nav.systemGovernance'), icon: 'shield' },
         { to: '/workspace/audit', label: t('nav.audit'), icon: 'audit' }
       ]
     },

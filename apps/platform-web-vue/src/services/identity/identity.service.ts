@@ -1,5 +1,4 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { platformV2HttpClient } from '@/services/http/client'
 import type { ManagementUser } from '@/types/management'
 
 export type IdentityServiceMode = 'legacy' | 'runtime'
@@ -14,10 +13,6 @@ type RuntimeUserProfile = {
   email?: string | null
   status: string
   platform_roles?: string[]
-}
-
-function useRuntimeIdentityApi(options?: IdentityServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('identity') === 'v2'
 }
 
 function normalizeIdentityUserProfile(
@@ -39,12 +34,9 @@ function normalizeIdentityUserProfile(
 }
 
 export async function getCurrentProfile(
-  requestOptions?: IdentityServiceOptions
+  _requestOptions?: IdentityServiceOptions
 ): Promise<ManagementUser> {
-  const useRuntimeApi = useRuntimeIdentityApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/identity/me' : '/_management/users/me'
-  const response = await client.get(endpoint)
+  const response = await platformV2HttpClient.get('/api/identity/me')
   return normalizeIdentityUserProfile(response.data as RuntimeUserProfile | ManagementUser)
 }
 
@@ -53,18 +45,12 @@ export async function updateCurrentProfile(
     username?: string
     email?: string
   },
-  requestOptions?: IdentityServiceOptions
+  _requestOptions?: IdentityServiceOptions
 ): Promise<ManagementUser> {
-  const useRuntimeApi = useRuntimeIdentityApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/identity/me' : '/_management/users/me'
-  const requestBody = useRuntimeApi
-    ? {
-        username: payload.username?.trim() || undefined,
-        email: payload.email?.trim() || ''
-      }
-    : payload
-  const response = await client.patch(endpoint, requestBody)
+  const response = await platformV2HttpClient.patch('/api/identity/me', {
+    username: payload.username?.trim() || undefined,
+    email: payload.email?.trim() || ''
+  })
   return normalizeIdentityUserProfile(response.data as RuntimeUserProfile | ManagementUser)
 }
 
@@ -73,17 +59,11 @@ export async function changeCurrentPassword(
     oldPassword: string
     newPassword: string
   },
-  requestOptions?: IdentityServiceOptions
+  _requestOptions?: IdentityServiceOptions
 ): Promise<{ ok: boolean }> {
-  const useRuntimeApi = useRuntimeIdentityApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi
-    ? '/api/identity/password/change'
-    : '/_management/auth/change-password'
-  const requestBody = {
+  const response = await platformV2HttpClient.post('/api/identity/password/change', {
     old_password: payload.oldPassword,
     new_password: payload.newPassword
-  }
-  const response = await client.post(endpoint, requestBody)
+  })
   return response.data as { ok: boolean }
 }

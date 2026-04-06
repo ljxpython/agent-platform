@@ -2,6 +2,12 @@
 
 当前 `apps/platform-api-v2` 以“先定规则，再写业务”为原则推进。
 
+当前阶段状态：
+
+- `Phase B: Control Plane Freeze` 已完成
+- `Phase C: Data & Delivery Freeze` 已完成
+- `Phase D: Final Standard Freeze` 已完成
+
 优先阅读顺序：
 
 1. `architecture-v2.md`
@@ -50,12 +56,40 @@
    - chat 页面前端手动验收清单
 23. `phase-4-checklist.md`
    - phase-3 之后的生产化、交付化与 Harness 收口规划
-24. `postgres-baseline.md`
+24. `phase-4-p1-artifact-lifecycle.md`
+   - operation artifact 的 retention、cleanup、对象存储扩展边界
+25. `phase-4-p1-redis-queue.md`
+   - `db_polling + redis_list` 双后端、配置项和后续升级边界
+26. `phase-4-p2-observability-and-security.md`
+   - 可观测性、service account、安全边界与环境治理收口
+27. `phase-4-p4-delivery-and-release.md`
+   - CI、Docker、数据库脚本、发布模板与最小交付口径
+28. `phase-4-p5-harness-and-templates.md`
+   - Harness、开发者入口、模板和验收门槛
+29. `runbook.md`
+   - 当前故障排查和值班入口
+30. `release-template.md`
+   - release note / tag / rollback 模板
+31. `postgres-baseline.md`
    - PostgreSQL 开发基线、Alembic 命令和数据库切换规则
-25. `langgraph-sdk-migration-plan.md`
+32. `phase-4-frontend-acceptance.md`
+   - phase-4 新治理页的前端手动验收清单
+33. `langgraph-sdk-migration-plan.md`
    - `runtime_gateway + assistants adapter` 是否 SDK 化、endpoint 迁移矩阵和测试补齐清单
-26. `legacy-solution-inheritance-checklist.md`
+34. `legacy-solution-inheritance-checklist.md`
    - 旧 `platform-api` 方案里必须继承和明确不继承的点
+35. `phase-5-legacy-sunset-and-final-standard-freeze.md`
+   - 旧控制面下线、最终架构冻结、Harness 最终范式和正式执行顺序
+36. `phase-6-control-plane-freeze.md`
+   - Phase B 的模块边界、权限/审计、DTO 与错误码冻结清单
+37. `phase-7-data-delivery-freeze.md`
+   - Phase C 的数据库、队列、交付、备份恢复和环境分层冻结清单
+38. `phase-8-final-standard-freeze.md`
+   - Phase D 的正式宿主、正式文档入口、模板与 Harness 冻结清单
+39. `change-delivery-checklist.md`
+   - AI / 人协作统一交付清单
+40. `module-delivery-template.md`
+   - 新模块与新治理能力的标准交付模板
 
 常用启动入口：
 

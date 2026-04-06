@@ -56,34 +56,39 @@ preflight:
 
 profiles:
   default-local:
-    description: Default local demo and integration profile
+    description: Official local demo and integration profile
     services:
       - runtime-service
       - interaction-data-service
-      - platform-api
+      - platform-api-v2
       - platform-web-vue
-      - runtime-web
     startup_order:
       - runtime-service
       - interaction-data-service
-      - platform-api
+      - platform-api-v2
       - platform-web-vue
+    chains:
+      - platform-web-vue -> platform-api-v2 -> runtime-service
+      - platform-api-v2 -> interaction-data-service
+      - runtime-service -> interaction-data-service
+  runtime-debug:
+    description: Optional runtime debug profile
+    services:
       - runtime-web
     chains:
-      - platform-web-vue -> platform-api -> runtime-service
-      - platform-api -> interaction-data-service
-      - runtime-service -> interaction-data-service
       - runtime-web -> runtime-service
   optional-repo-services:
     description: Services or historical apps present in the repo but outside the default local startup set
     services:
       - platform-web
+      - platform-api
+      - runtime-web
 
 global:
   ports:
-    interaction-data-service: 8090
+    interaction-data-service: 8081
     runtime-service: 8123
-    platform-api: 2024
+    platform-api-v2: 2142
     platform-web-vue: 3000
     runtime-web: 3001
   dependencies:
@@ -92,7 +97,7 @@ global:
     node: "22.x"
     pnpm: "10.5.1"
     postgresql:
-      required: true
+      required: false
       host: 127.0.0.1
       port: 5432
       database: agent_platform
@@ -101,6 +106,7 @@ global:
     - Do not assume a repo-root .env
     - Use app-local config files only
     - platform-web-vue is the official platform frontend host for default local deployment
+    - platform-api-v2 is the official control-plane host for default local deployment
     - runtime-web default local upstream is http://localhost:8123
   helper_scripts:
     - scripts/dev-up.sh
@@ -113,7 +119,7 @@ services:
     role: Result-domain service
     in_default_local: true
     repo_path: apps/interaction-data-service
-    port: 8090
+    port: 8081
     config_files:
       required:
         - apps/interaction-data-service/.env
@@ -122,9 +128,9 @@ services:
       - INTERACTION_DB_ENABLED=false or a valid DATABASE_URL when true
     start:
       workdir: apps/interaction-data-service
-      command: uv run uvicorn main:app --host 0.0.0.0 --port 8090 --reload
+      command: uv run uvicorn main:app --host 127.0.0.1 --port 8081 --reload
     health_checks:
-      - curl http://127.0.0.1:8090/_service/health
+      - curl http://127.0.0.1:8081/_service/health
 
   runtime-service:
     role: LangGraph runtime service
@@ -181,35 +187,49 @@ services:
       - curl http://127.0.0.1:8123/internal/capabilities/models
       - curl http://127.0.0.1:8123/internal/capabilities/tools
 
-  platform-api:
-    role: Platform control-plane backend
+  platform-api-v2:
+    role: Official platform control-plane backend
     in_default_local: true
-    repo_path: apps/platform-api
-    port: 2024
+    repo_path: apps/platform-api-v2
+    port: 2142
     upstreams:
       - runtime-service
+      - interaction-data-service
     config_files:
       required:
-        - apps/platform-api/.env
+        - apps/platform-api-v2/.env
     minimum_required_env:
-      - LANGGRAPH_UPSTREAM_URL=http://127.0.0.1:8123
-      - DATABASE_URL=postgresql+psycopg://agent:<pg-password>@127.0.0.1:5432/agent_platform
-      - PLATFORM_DB_ENABLED=true
-      - PLATFORM_DB_AUTO_CREATE=true
-      - JWT_ACCESS_SECRET
-      - JWT_REFRESH_SECRET
-      - BOOTSTRAP_ADMIN_USERNAME=admin
-      - BOOTSTRAP_ADMIN_PASSWORD=admin123456
+      - PLATFORM_API_V2_LANGGRAPH_UPSTREAM_URL=http://127.0.0.1:8123
+      - PLATFORM_API_V2_INTERACTION_DATA_SERVICE_URL=http://127.0.0.1:8081
+      - PLATFORM_API_V2_PLATFORM_DB_ENABLED=true
+      - PLATFORM_API_V2_PLATFORM_DB_AUTO_CREATE=true
+      - PLATFORM_API_V2_DATABASE_URL=sqlite+pysqlite:///./.data/platform-api-v2.db
+      - PLATFORM_API_V2_JWT_ACCESS_SECRET
+      - PLATFORM_API_V2_JWT_REFRESH_SECRET
+      - PLATFORM_API_V2_BOOTSTRAP_ADMIN_ENABLED=true
+      - PLATFORM_API_V2_BOOTSTRAP_ADMIN_USERNAME=admin
+      - PLATFORM_API_V2_BOOTSTRAP_ADMIN_PASSWORD=admin123456
     bootstrap_account:
       username: admin
       password: admin123456
       scope: local-only temporary use
     start:
-      workdir: apps/platform-api
-      command: uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload
+      workdir: apps/platform-api-v2
+      command: uv run uvicorn main:app --host 127.0.0.1 --port 2142 --reload
     health_checks:
-      - curl http://127.0.0.1:2024/_proxy/health
-      - curl http://127.0.0.1:2024/api/langgraph/info
+      - curl http://127.0.0.1:2142/_system/health
+      - curl http://127.0.0.1:2142/api/langgraph/info
+
+  platform-api:
+    role: Legacy platform control-plane backend
+    in_default_local: false
+    classification: optional-repo-service
+    repo_path: apps/platform-api
+    default_profile_behavior: Do not start unless the user explicitly asks for the legacy control plane
+    notes:
+      - Historical control plane
+      - No longer the official control-plane host
+      - Default local deployment uses apps/platform-api-v2 instead
 
   platform-web-vue:
     role: Official platform frontend workspace
@@ -217,15 +237,16 @@ services:
     repo_path: apps/platform-web-vue
     port: 3000
     upstreams:
-      - platform-api
+      - platform-api-v2
     config_files:
       optional:
         - apps/platform-web-vue/.env
         - apps/platform-web-vue/.env.local
         - apps/platform-web-vue/.env.example
     minimum_required_env:
-      - VITE_PLATFORM_API_URL=http://localhost:2024
-      - VITE_DEV_PROXY_TARGET=http://localhost:2024
+      - VITE_PLATFORM_API_URL=http://localhost:2142
+      - VITE_PLATFORM_API_V2_URL=http://localhost:2142
+      - VITE_DEV_PROXY_TARGET=http://localhost:2142
     start:
       workdir: apps/platform-web-vue
       command: VITE_DEV_PORT=3000 pnpm dev
@@ -245,7 +266,8 @@ services:
 
   runtime-web:
     role: Runtime debug frontend
-    in_default_local: true
+    in_default_local: false
+    classification: optional-repo-service
     repo_path: apps/runtime-web
     port: 3001
     upstreams:
@@ -288,16 +310,16 @@ final_report:
     - bootstrap_account_if_used
     - recommended_restart_method
   required_urls:
-    interaction-data-service: http://127.0.0.1:8090
+    interaction-data-service: http://127.0.0.1:8081
     runtime-service: http://127.0.0.1:8123
-    platform-api: http://127.0.0.1:2024
+    platform-api-v2: http://127.0.0.1:2142
     platform-web-vue: http://127.0.0.1:3000
-    runtime-web: http://127.0.0.1:3001
 
 forbidden_assumptions:
   - assume_repo_root_env
   - read_source_code_for_normal_local_deploy
   - require_app_readme_for_normal_local_deploy
+  - treat_platform_api_2024_as_official_control_plane
   - treat_runtime_web_template_target_2024_as_current_default
   - invent_model_credentials
   - claim_frontend_source_missing_without_verifying_target_file_and_alias

@@ -1,5 +1,4 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { platformV2HttpClient } from '@/services/http/client'
 import type {
   ManagementGraph,
   ManagementGraphListResponse,
@@ -13,10 +12,6 @@ export type GraphServiceMode = 'legacy' | 'runtime'
 
 type GraphServiceOptions = {
   mode?: GraphServiceMode
-}
-
-function useRuntimeGraphsApi(options?: GraphServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('runtime_gateway') === 'v2'
 }
 
 function filterAndSliceGraphs(
@@ -48,101 +43,42 @@ function filterAndSliceGraphs(
   }
 }
 
-async function listLegacyCatalogGraphsFallback(
-  projectId: string,
-  options?: { limit?: number; offset?: number; query?: string }
-): Promise<ManagementGraphListResponse> {
-  const response = await httpClient.get('/_management/catalog/graphs', {
-    headers: {
-      'x-project-id': projectId
-    }
-  })
-  const payload = response.data as ManagementGraphListResponse
-  const rows = Array.isArray(payload.items) ? payload.items : []
-  const filtered = filterAndSliceGraphs(rows, options)
-
-  return {
-    items: filtered.items,
-    total: filtered.total,
-    last_synced_at: payload.last_synced_at ?? null
-  }
-}
-
 export async function listGraphsPage(
   projectId: string,
   options?: { limit?: number; offset?: number; query?: string },
-  requestOptions?: GraphServiceOptions
+  _requestOptions?: GraphServiceOptions
 ): Promise<ManagementGraphListResponse> {
   if (!projectId) {
     return { items: [], total: 0, last_synced_at: null }
   }
 
-  if (useRuntimeGraphsApi(requestOptions)) {
-    try {
-      const payload = await platformV2HttpClient
-        .get('/api/runtime/graphs', {
-          headers: {
-            'x-project-id': projectId
-          }
-        })
-        .then((response) => response.data as RuntimeGraphsResponse)
-
-      const normalizedRows = Array.isArray(payload.graphs)
-        ? payload.graphs.filter((item) => typeof item.graph_id === 'string' && item.graph_id.trim().length > 0)
-        : []
-
-      const filtered = filterAndSliceGraphs(normalizedRows, options)
-
-      return {
-        items: filtered.items,
-        total: filtered.normalizedQuery.length > 0 ? filtered.total : payload.count ?? filtered.total,
-        last_synced_at: payload.last_synced_at ?? null
+  const payload = await platformV2HttpClient
+    .get('/api/runtime/graphs', {
+      headers: {
+        'x-project-id': projectId
       }
-    } catch {
-      return await listLegacyCatalogGraphsFallback(projectId, options)
-    }
-  }
+    })
+    .then((response) => response.data as RuntimeGraphsResponse)
 
-  const response = await httpClient.get('/_management/catalog/graphs', {
-    headers: {
-      'x-project-id': projectId
-    }
-  })
+  const normalizedRows = Array.isArray(payload.graphs)
+    ? payload.graphs.filter((item) => typeof item.graph_id === 'string' && item.graph_id.trim().length > 0)
+    : []
 
-  const payload = response.data as ManagementGraphListResponse
-  const rows = Array.isArray(payload.items) ? payload.items : []
-  const filtered = filterAndSliceGraphs(rows, options)
+  const filtered = filterAndSliceGraphs(normalizedRows, options)
 
   return {
     items: filtered.items,
-    total: filtered.total,
+    total: filtered.normalizedQuery.length > 0 ? filtered.total : payload.count ?? filtered.total,
     last_synced_at: payload.last_synced_at ?? null
   }
 }
 
 export async function refreshGraphsCatalog(
   projectId?: string,
-  requestOptions?: GraphServiceOptions
+  _requestOptions?: GraphServiceOptions
 ): Promise<GraphRefreshResponse> {
-  if (projectId && useRuntimeGraphsApi(requestOptions)) {
-    try {
-      const response = await platformV2HttpClient.post(
-        '/api/runtime/graphs/refresh',
-        {},
-        {
-          headers: {
-            'x-project-id': projectId
-          }
-        }
-      )
-      return response.data as GraphRefreshResponse
-    } catch {
-      return await refreshGraphsCatalog(projectId)
-    }
-  }
-
-  const response = await httpClient.post(
-    '/_management/catalog/graphs/refresh',
+  const response = await platformV2HttpClient.post(
+    '/api/runtime/graphs/refresh',
     {},
     {
       headers: projectId

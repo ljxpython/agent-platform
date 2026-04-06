@@ -12,6 +12,7 @@ def _normalize_roles(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
 @dataclass(frozen=True, slots=True)
 class RequestContext:
     request_id: str
+    trace_id: str
     method: str
     path: str
     started_at: float
@@ -36,6 +37,9 @@ class ActorContext:
     user_id: str | None = None
     subject: str | None = None
     email: str | None = None
+    principal_type: str = "user"
+    authentication_type: str = "bearer"
+    credential_id: str | None = None
     platform_roles: tuple[str, ...] = field(default_factory=tuple)
     project_roles: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 

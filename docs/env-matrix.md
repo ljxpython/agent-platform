@@ -4,26 +4,30 @@
 
 默认本地部署的服务成员、启动顺序、端口和链路，以 `docs/local-deployment-contract.yaml` 为准。
 
-本文当前覆盖默认五服务启动集，并额外保留 `platform-web` 的兼容参考说明。
+本文当前覆盖正式本地演示链路，并额外保留 `runtime-web`、`platform-web`、`platform-api` 的历史或调试说明。
 
-## 1. `platform-api`
+## 1. `platform-api-v2`
 
 主要配置来源：
 
-- `apps/platform-api/.env`
-- `apps/platform-api/.env.example`
+- `apps/platform-api-v2/.env`
+- `apps/platform-api-v2/.env.example`
+- `apps/platform-api-v2/deploy/env/local.example.env`
+- `apps/platform-api-v2/deploy/env/dev.example.env`
+- `apps/platform-api-v2/deploy/env/staging.example.env`
+- `apps/platform-api-v2/deploy/env/prod.example.env`
 
 关键变量：
 
-- `LANGGRAPH_UPSTREAM_URL`
-- `DATABASE_URL`
-- `PLATFORM_DB_ENABLED`
-- `PLATFORM_DB_AUTO_CREATE`
-- `AUTH_REQUIRED`
-- `LANGGRAPH_AUTH_REQUIRED`
-- `LANGGRAPH_SCOPE_GUARD_ENABLED`
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
+- `PLATFORM_API_V2_LANGGRAPH_UPSTREAM_URL`
+- `PLATFORM_API_V2_INTERACTION_DATA_SERVICE_URL`
+- `PLATFORM_API_V2_DATABASE_URL`
+- `PLATFORM_API_V2_PLATFORM_DB_ENABLED`
+- `PLATFORM_API_V2_PLATFORM_DB_AUTO_CREATE`
+- `PLATFORM_API_V2_AUTH_REQUIRED`
+- `PLATFORM_API_V2_JWT_ACCESS_SECRET`
+- `PLATFORM_API_V2_JWT_REFRESH_SECRET`
+- `PLATFORM_API_V2_BOOTSTRAP_ADMIN_ENABLED`
 
 ## 2. `interaction-data-service`
 
@@ -51,6 +55,7 @@
 关键变量：
 
 - `VITE_PLATFORM_API_URL`
+- `VITE_PLATFORM_API_V2_URL`
 - `VITE_DEV_PROXY_TARGET`
 - `VITE_DEV_PORT`
 - `VITE_LANGGRAPH_DEBUG_URL`
@@ -81,7 +86,7 @@
 - `apps/runtime-service/runtime_service/conf/settings.yaml` 中对应的 `default.models.<model_id>` 配置块
 - 不建议只给零散的 AK/SK、API Key、`base_url` 或模型名
 
-## 5. `runtime-web`
+## 5. `runtime-web`（可选调试入口）
 
 主要配置来源：
 
@@ -105,10 +110,24 @@
 - 当前只用于历史兼容和迁移对照
 - 不属于默认本地部署主线
 
-## 7. 当前原则
+## 7. `platform-api`（历史控制面）
 
-- 默认五服务启动集的环境变量彼此独立维护
+主要配置来源：
+
+- `apps/platform-api/.env`
+- `apps/platform-api/.env.example`
+
+说明：
+
+- 当前只保留历史参考与兼容价值
+- 不属于正式本地演示主链
+
+## 8. 当前原则
+
+- 默认正式演示链路的环境变量彼此独立维护
 - 根目录暂不新增统一 `.env`
 - `apps/platform-web-vue` 是当前正式平台前端宿主
+- `apps/platform-api-v2` 是当前正式控制面宿主
+- 默认本地正式端口为 `8081 / 8123 / 2142 / 3000`
 - 后续如果确实需要统一入口，再额外设计根级环境编排
 - 默认本地部署的事实源不是本文，而是 `docs/local-deployment-contract.yaml`

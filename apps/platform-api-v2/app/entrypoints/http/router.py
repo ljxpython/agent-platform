@@ -12,6 +12,7 @@ from app.modules.projects.presentation import router as projects_router
 from app.modules.runtime_catalog.presentation import router as runtime_catalog_router
 from app.modules.runtime_gateway.presentation import router as runtime_gateway_router
 from app.modules.runtime_policies.presentation import router as runtime_policies_router
+from app.modules.service_accounts.presentation import router as service_accounts_router
 from app.modules.testcase.presentation import router as testcase_router
 from app.modules.users.presentation import router as users_router
 
@@ -21,6 +22,7 @@ api_router.include_router(identity_router)
 api_router.include_router(operations_router)
 api_router.include_router(projects_router)
 api_router.include_router(users_router)
+api_router.include_router(service_accounts_router)
 api_router.include_router(announcements_router)
 api_router.include_router(assistants_router)
 api_router.include_router(audit_router)

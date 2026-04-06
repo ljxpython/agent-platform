@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.schemas import OffsetPage
 from app.modules.audit.domain import AuditEvent, AuditPlane, AuditResult
 
 
@@ -25,8 +26,5 @@ class ListAuditEventsQuery(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
-class AuditEventPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[AuditEvent]
-    total: int
+class AuditEventPage(OffsetPage[AuditEvent]):
+    pass

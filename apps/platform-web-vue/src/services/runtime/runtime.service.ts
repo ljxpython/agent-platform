@@ -1,7 +1,4 @@
-import {
-  getPlatformHttpClient,
-  resolvePlatformClientScope
-} from '@/services/platform/control-plane'
+import { getPlatformHttpClient } from '@/services/platform/control-plane'
 import {
   submitOperation,
   waitForOperationTerminalState
@@ -22,53 +19,35 @@ function buildRuntimeHeaders(projectId?: string) {
     : undefined
 }
 
-function runtimePath(v2Path: string, legacyPath: string) {
-  return resolvePlatformClientScope('runtime_catalog') === 'v2' ? v2Path : legacyPath
-}
-
 function runtimeOperationKind(resource: 'models' | 'tools' | 'graphs') {
   return `runtime.${resource}.refresh`
 }
 
 export async function listRuntimeModels(projectId?: string): Promise<RuntimeModelsResponse> {
-  const response = await getPlatformHttpClient('runtime_catalog').get(
-    runtimePath('/api/runtime/models', '/_management/runtime/models'),
-    {
-      headers: buildRuntimeHeaders(projectId)
-    }
-  )
+  const response = await getPlatformHttpClient('runtime_catalog').get('/api/runtime/models', {
+    headers: buildRuntimeHeaders(projectId)
+  })
   return response.data as RuntimeModelsResponse
 }
 
 export async function refreshRuntimeModels(projectId?: string): Promise<RuntimeRefreshResponse> {
-  const response = await getPlatformHttpClient('runtime_catalog').post(
-    runtimePath('/api/runtime/models/refresh', '/_management/catalog/models/refresh'),
-    {},
-    {
-      headers: buildRuntimeHeaders(projectId)
-    }
-  )
+  const response = await getPlatformHttpClient('runtime_catalog').post('/api/runtime/models/refresh', {}, {
+    headers: buildRuntimeHeaders(projectId)
+  })
   return response.data as RuntimeRefreshResponse
 }
 
 export async function listRuntimeTools(projectId?: string): Promise<RuntimeToolsResponse> {
-  const response = await getPlatformHttpClient('runtime_catalog').get(
-    runtimePath('/api/runtime/tools', '/_management/runtime/tools'),
-    {
-      headers: buildRuntimeHeaders(projectId)
-    }
-  )
+  const response = await getPlatformHttpClient('runtime_catalog').get('/api/runtime/tools', {
+    headers: buildRuntimeHeaders(projectId)
+  })
   return response.data as RuntimeToolsResponse
 }
 
 export async function refreshRuntimeTools(projectId?: string): Promise<RuntimeRefreshResponse> {
-  const response = await getPlatformHttpClient('runtime_catalog').post(
-    runtimePath('/api/runtime/tools/refresh', '/_management/catalog/tools/refresh'),
-    {},
-    {
-      headers: buildRuntimeHeaders(projectId)
-    }
-  )
+  const response = await getPlatformHttpClient('runtime_catalog').post('/api/runtime/tools/refresh', {}, {
+    headers: buildRuntimeHeaders(projectId)
+  })
   return response.data as RuntimeRefreshResponse
 }
 

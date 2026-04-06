@@ -34,7 +34,12 @@
 3. `permission-standard.md`
 4. `audit-standard.md`
 5. `operations-standard.md`
-6. `phase-1-checklist.md`
+6. `phase-5-legacy-sunset-and-final-standard-freeze.md`
+7. `phase-6-control-plane-freeze.md`
+8. `phase-7-data-delivery-freeze.md`
+9. `phase-8-final-standard-freeze.md`
+10. `change-delivery-checklist.md`
+11. `module-delivery-template.md`
 
 ## 4. AI 代理禁止事项
 
@@ -52,6 +57,7 @@
 - 对应文档
 - checklist
 - 最小验证命令
+- 如涉及新模块或正式页面，补模板落点
 
 ## 6. 验收清单
 
@@ -66,3 +72,12 @@
 ## 7. 为什么这对持续编程有用
 
 因为平台代码一旦没有统一轨道，AI 每一轮都可能换一种写法。Harness 的作用，就是把“可写的空间”收敛成“可维护的空间”。
+
+## 8. 正式冻结后的默认入口
+
+后续继续开发，默认从这些入口开始：
+
+1. `apps/platform-api-v2/docs/README.md`
+2. `apps/platform-api-v2/docs/change-delivery-checklist.md`
+3. `apps/platform-api-v2/docs/module-delivery-template.md`
+4. `apps/platform-web-vue/docs/control-plane-page-standard.md`

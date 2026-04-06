@@ -77,14 +77,12 @@ kill_pattern() {
 
 kill_pid_file "runtime-service" "$PID_DIR/runtime-service.pid"
 kill_pid_file "interaction-data-service" "$PID_DIR/interaction-data-service.pid"
-kill_pid_file "platform-api" "$PID_DIR/platform-api.pid"
 kill_pid_file "platform-api-v2" "$PID_DIR/platform-api-v2.pid"
 kill_pid_file "platform-api-v2 worker" "$PID_DIR/platform-api-v2-worker.pid"
 kill_pid_file "platform-web-vue" "$PID_DIR/platform-web-vue.pid"
 
 kill_port "runtime-service" "8123"
 kill_port "interaction-data-service" "8081"
-kill_port "platform-api" "2024"
 kill_port "platform-api-v2" "2142"
 kill_port "platform-web-vue" "3000"
 
@@ -92,4 +90,3 @@ kill_pattern "platform-api-v2 worker" "uv run python worker.py"
 kill_pattern "platform-api-v2 worker" "apps/platform-api-v2.*python worker.py"
 
 echo "stopped platform-web-vue demo processes (if running)"
-

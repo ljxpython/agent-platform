@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  platform-api-v2:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/platform-api-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: uv sync
+      - run: uv run python -m compileall app
+      - run: uv run python -m unittest discover -s tests -p 'test*.py' -v
+
+  platform-web-vue:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/platform-web-vue
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: apps/platform-web-vue/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build

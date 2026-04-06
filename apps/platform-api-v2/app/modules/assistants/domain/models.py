@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.schemas import OffsetPage
+
 
 class AssistantStatus(StrEnum):
     ACTIVE = "active"
@@ -41,8 +43,5 @@ class AssistantItem(BaseModel):
     updated_at: datetime | None = None
 
 
-class AssistantPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[AssistantItem]
-    total: int
+class AssistantPage(OffsetPage[AssistantItem]):
+    pass

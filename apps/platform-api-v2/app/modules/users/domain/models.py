@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.core.schemas import OffsetPage
+
 
 class UserItem(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -28,15 +30,9 @@ class UserProjectItem(BaseModel):
     joined_at: datetime | None = None
 
 
-class UserPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[UserItem]
-    total: int
+class UserPage(OffsetPage[UserItem]):
+    pass
 
 
-class UserProjectPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[UserProjectItem]
-    total: int
+class UserProjectPage(OffsetPage[UserProjectItem]):
+    pass

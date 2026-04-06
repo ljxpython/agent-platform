@@ -12,11 +12,12 @@ from app.core.db import SqlAlchemyUnitOfWork
 from app.core.errors import (
     BadRequestError,
     ConflictError,
-    NotAuthenticatedError,
     NotFoundError,
     PlatformApiError,
     ServiceUnavailableError,
 )
+from app.core.identifiers import parse_actor_user_id, parse_uuid
+from app.core.normalization import ensure_dict
 from app.modules.assistants.application.contracts import (
     CreateAssistantCommand,
     ListAssistantsQuery,
@@ -42,25 +43,8 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _parse_uuid(value: str, *, code: str) -> UUID:
-    try:
-        return UUID(value)
-    except ValueError as exc:
-        raise PlatformApiError(
-            code=code,
-            status_code=400,
-            message=code.replace("_", " "),
-        ) from exc
-
-
-def _parse_actor_user_id(actor: ActorContext) -> UUID:
-    if not actor.user_id:
-        raise NotAuthenticatedError()
-    return _parse_uuid(actor.user_id, code="invalid_actor_user_id")
-
-
 def _normalize_object(value: dict[str, Any] | None) -> dict[str, Any]:
-    return dict(value) if isinstance(value, dict) else {}
+    return ensure_dict(value)
 
 
 def _extract_upstream_assistant_id(item: Any) -> str | None:
@@ -141,7 +125,7 @@ class AssistantsService:
         uow: SqlAlchemyUnitOfWork,
         project_id: str,
     ) -> None:
-        project_uuid = _parse_uuid(project_id, code="invalid_project_id")
+        project_uuid = parse_uuid(project_id, code="invalid_project_id")
         projects_repository = SqlAlchemyProjectsRepository(uow.session)
         project = projects_repository.get_project_by_id(project_uuid)
         if project is None or project.status == "deleted":
@@ -166,7 +150,7 @@ class AssistantsService:
             self._require_project_exists(uow=uow, project_id=project_id)
             repository = SqlAlchemyAssistantsRepository(uow.session)
             items, total = repository.list_project_assistants(
-                project_id=_parse_uuid(project_id, code="invalid_project_id"),
+                project_id=parse_uuid(project_id, code="invalid_project_id"),
                 limit=query.limit,
                 offset=query.offset,
                 query=query.query,
@@ -185,7 +169,7 @@ class AssistantsService:
         command: CreateAssistantCommand,
     ) -> AssistantItem:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
+        actor_user_id = parse_actor_user_id(actor)
         self._policy_engine.require(
             actor=actor,
             authorization=AuthorizationRequest(
@@ -229,7 +213,7 @@ class AssistantsService:
                 self._require_project_exists(uow=uow, project_id=project_id)
                 repository = SqlAlchemyAssistantsRepository(uow.session)
                 created = repository.create_assistant(
-                    project_id=_parse_uuid(project_id, code="invalid_project_id"),
+                    project_id=parse_uuid(project_id, code="invalid_project_id"),
                     name=command.name.strip(),
                     description=command.description.strip(),
                     graph_id=command.graph_id.strip(),
@@ -262,7 +246,7 @@ class AssistantsService:
         assistant_id: str,
     ) -> AssistantItem:
         session_factory = self._require_session_factory()
-        assistant_uuid = _parse_uuid(assistant_id, code="invalid_assistant_id")
+        assistant_uuid = parse_uuid(assistant_id, code="invalid_assistant_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAssistantsRepository(uow.session)
             item = repository.get_assistant_by_id(assistant_uuid)
@@ -288,8 +272,8 @@ class AssistantsService:
         command: UpdateAssistantCommand,
     ) -> AssistantItem:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
-        assistant_uuid = _parse_uuid(assistant_id, code="invalid_assistant_id")
+        actor_user_id = parse_actor_user_id(actor)
+        assistant_uuid = parse_uuid(assistant_id, code="invalid_assistant_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAssistantsRepository(uow.session)
             current = repository.get_assistant_by_id(assistant_uuid)
@@ -409,7 +393,7 @@ class AssistantsService:
         delete_threads: bool,
     ) -> str:
         session_factory = self._require_session_factory()
-        assistant_uuid = _parse_uuid(assistant_id, code="invalid_assistant_id")
+        assistant_uuid = parse_uuid(assistant_id, code="invalid_assistant_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAssistantsRepository(uow.session)
             current = repository.get_assistant_by_id(assistant_uuid)
@@ -457,8 +441,8 @@ class AssistantsService:
         assistant_id: str,
     ) -> AssistantItem:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
-        assistant_uuid = _parse_uuid(assistant_id, code="invalid_assistant_id")
+        actor_user_id = parse_actor_user_id(actor)
+        assistant_uuid = parse_uuid(assistant_id, code="invalid_assistant_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAssistantsRepository(uow.session)
             current = repository.get_assistant_by_id(assistant_uuid)

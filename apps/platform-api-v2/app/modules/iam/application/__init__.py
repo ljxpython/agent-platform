@@ -3,6 +3,7 @@ from app.modules.iam.application.policies import (
     IamPolicyEngine,
     PermissionCode,
     PolicyDecision,
+    PolicyReason,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "IamPolicyEngine",
     "PermissionCode",
     "PolicyDecision",
+    "PolicyReason",
 ]

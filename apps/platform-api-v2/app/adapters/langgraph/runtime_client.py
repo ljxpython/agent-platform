@@ -4,8 +4,8 @@ from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import httpx
-from fastapi import HTTPException
 
+from app.adapters.langgraph.sdk_client import create_runtime_upstream_error
 from app.core.errors import PlatformApiError, UpstreamServiceError
 
 
@@ -48,7 +48,12 @@ class LangGraphRuntimeClient:
             except ValueError:
                 detail = response.text or "langgraph_upstream_request_failed"
 
-        raise HTTPException(status_code=response.status_code, detail=detail)
+        raise create_runtime_upstream_error(
+            status_code=response.status_code,
+            detail=detail,
+            fallback_code="langgraph_upstream_request_failed",
+            upstream_path=response.request.url.path,
+        )
 
     async def request_json(
         self,
@@ -124,7 +129,7 @@ class LangGraphRuntimeClient:
                         async for chunk in response.aiter_bytes():
                             if chunk:
                                 yield chunk
-            except HTTPException:
+            except PlatformApiError:
                 raise
             except httpx.TimeoutException as exc:
                 raise UpstreamServiceError(

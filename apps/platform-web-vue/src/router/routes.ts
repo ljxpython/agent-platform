@@ -104,6 +104,12 @@ const workspaceChildren: RouteRecordRaw[] = [
     ]
   },
   {
+    path: 'control-plane',
+    name: 'workspace-control-plane',
+    component: () => import('@/modules/control-plane/pages/ControlPlanePage.vue'),
+    meta: { title: 'Control Plane', eyebrow: 'Governance' }
+  },
+  {
     path: 'operations',
     name: 'workspace-operations',
     component: () => import('@/modules/operations/pages/OperationsPage.vue'),
@@ -239,6 +245,18 @@ const workspaceChildren: RouteRecordRaw[] = [
     name: 'workspace-platform-config',
     component: () => import('@/modules/platform-config/pages/PlatformConfigPage.vue'),
     meta: { title: '平台配置', eyebrow: 'Governance' }
+  },
+  {
+    path: 'service-accounts',
+    name: 'workspace-service-accounts',
+    component: () => import('@/modules/service-accounts/pages/ServiceAccountsPage.vue'),
+    meta: { title: 'Service Accounts', eyebrow: 'Governance' }
+  },
+  {
+    path: 'system-governance',
+    name: 'workspace-system-governance',
+    component: () => import('@/modules/system-governance/pages/SystemGovernancePage.vue'),
+    meta: { title: 'System Probes', eyebrow: 'Governance' }
   }
 ]
 

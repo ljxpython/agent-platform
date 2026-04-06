@@ -7,7 +7,13 @@
 - 只负责平台治理、权限、审计、资源目录、操作中心和受控网关
 - 不承接 `runtime-service` 的 agent 执行业务逻辑
 - 不以兼容旧目录结构为目标
-- 以后平台前端 `apps/platform-web-vue` 将逐步切到这一套控制面
+- 当前平台前端 `apps/platform-web-vue` 已正式切到这一套控制面
+
+当前阶段状态：
+
+- `Phase B: Control Plane Freeze` 已完成
+- `Phase C: Data & Delivery Freeze` 已完成
+- `Phase D: Final Standard Freeze` 已完成
 
 ## 当前目标
 
@@ -102,6 +108,17 @@ apps/platform-api-v2/
 20. `docs/phase-3-completion.md`
 21. `docs/phase-3-chat-acceptance-checklist.md`
 22. `docs/phase-4-checklist.md`
+23. `docs/phase-4-p2-observability-and-security.md`
+24. `docs/phase-4-p4-delivery-and-release.md`
+25. `docs/phase-4-p5-harness-and-templates.md`
+26. `docs/phase-5-legacy-sunset-and-final-standard-freeze.md`
+27. `docs/phase-6-control-plane-freeze.md`
+28. `docs/phase-7-data-delivery-freeze.md`
+29. `docs/phase-8-final-standard-freeze.md`
+30. `docs/change-delivery-checklist.md`
+31. `docs/module-delivery-template.md`
+32. `docs/runbook.md`
+33. `docs/release-template.md`
 
 ## 和旧平台后端的关系
 

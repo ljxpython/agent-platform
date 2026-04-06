@@ -3,20 +3,19 @@ import type { AuthTokenSet } from '@/types/management'
 const TOKEN_STORAGE_KEY = 'pw:auth:token-set'
 export type AuthTokenScope = 'legacy' | 'v2'
 
-function getStorageKey(scope: AuthTokenScope) {
-  return scope === 'legacy' ? TOKEN_STORAGE_KEY : `${TOKEN_STORAGE_KEY}:${scope}`
+function getLegacyStorageKeys(scope?: AuthTokenScope) {
+  if (scope === 'v2') {
+    return [`${TOKEN_STORAGE_KEY}:v2`]
+  }
+
+  if (scope === 'legacy') {
+    return [TOKEN_STORAGE_KEY]
+  }
+
+  return [TOKEN_STORAGE_KEY, `${TOKEN_STORAGE_KEY}:v2`]
 }
 
-export function getTokenSet(scope: AuthTokenScope = 'legacy'): AuthTokenSet | null {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  const raw = window.localStorage.getItem(getStorageKey(scope))
-  if (!raw) {
-    return null
-  }
-
+function parseTokenSet(raw: string): AuthTokenSet | null {
   try {
     return JSON.parse(raw) as AuthTokenSet
   } catch {
@@ -24,12 +23,42 @@ export function getTokenSet(scope: AuthTokenScope = 'legacy'): AuthTokenSet | nu
   }
 }
 
-export function setTokenSet(tokenSet: AuthTokenSet, scope: AuthTokenScope = 'legacy'): void {
+function clearLegacyKeys() {
   if (typeof window === 'undefined') {
     return
   }
 
-  window.localStorage.setItem(getStorageKey(scope), JSON.stringify(tokenSet))
+  for (const key of [TOKEN_STORAGE_KEY, `${TOKEN_STORAGE_KEY}:v2`]) {
+    window.localStorage.removeItem(key)
+  }
+}
+
+export function getTokenSet(scope: AuthTokenScope = 'legacy'): AuthTokenSet | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  for (const key of getLegacyStorageKeys(scope)) {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) {
+      continue
+    }
+    const tokenSet = parseTokenSet(raw)
+    if (tokenSet) {
+      return tokenSet
+    }
+  }
+
+  return null
+}
+
+export function setTokenSet(tokenSet: AuthTokenSet, _scope: AuthTokenScope = 'legacy'): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  clearLegacyKeys()
+  window.localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenSet))
 }
 
 export function clearTokenSet(scope: AuthTokenScope = 'legacy'): void {
@@ -37,12 +66,13 @@ export function clearTokenSet(scope: AuthTokenScope = 'legacy'): void {
     return
   }
 
-  window.localStorage.removeItem(getStorageKey(scope))
+  for (const key of getLegacyStorageKeys(scope)) {
+    window.localStorage.removeItem(key)
+  }
 }
 
 export function clearAllTokenSets(): void {
-  clearTokenSet('legacy')
-  clearTokenSet('v2')
+  clearLegacyKeys()
 }
 
 export function getAccessToken(scope: AuthTokenScope = 'legacy'): string {

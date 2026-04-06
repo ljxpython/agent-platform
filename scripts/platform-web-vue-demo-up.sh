@@ -26,12 +26,12 @@ ensure_web_env() {
   fi
   cat > "$target" <<'EOF'
 VITE_APP_NAME=Agent Platform Console
-VITE_PLATFORM_API_URL=http://localhost:2024
+VITE_PLATFORM_API_URL=http://localhost:2142
 VITE_PLATFORM_API_V2_URL=http://localhost:2142
 VITE_PLATFORM_API_V2_RUNTIME_ENABLED=true
 VITE_REQUEST_TIMEOUT_MS=30000
 VITE_DEV_PORT=3000
-VITE_DEV_PROXY_TARGET=http://localhost:2024
+VITE_DEV_PROXY_TARGET=http://localhost:2142
 VITE_LANGGRAPH_DEBUG_URL=
 EOF
   echo "[init] created apps/platform-web-vue/.env.local"
@@ -201,14 +201,6 @@ start_http_service \
   "$LOG_DIR/interaction-data-service.log"
 
 start_http_service \
-  "platform-api" \
-  "platform-api" \
-  "$ROOT_DIR/apps/platform-api" \
-  "uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload" \
-  "2024" \
-  "$LOG_DIR/platform-api.log"
-
-start_http_service \
   "platform-api-v2" \
   "platform-api-v2" \
   "$ROOT_DIR/apps/platform-api-v2" \
@@ -239,7 +231,6 @@ echo "[done] platform-web-vue demo stack is starting"
 echo "logs:"
 echo "  $LOG_DIR/runtime-service.log"
 echo "  $LOG_DIR/interaction-data-service.log"
-echo "  $LOG_DIR/platform-api.log"
 echo "  $LOG_DIR/platform-api-v2.log"
 echo "  $LOG_DIR/platform-api-v2-worker.log"
 echo "  $LOG_DIR/platform-web-vue.log"

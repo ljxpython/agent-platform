@@ -15,7 +15,9 @@
 补充口径：
 
 - 当前正式平台前端宿主已经切换到 `apps/platform-web-vue`
+- 当前正式平台控制面已经切换到 `apps/platform-api-v2`
 - 文中提到的 `platform-web`，如果没有特别声明，多数指历史实现、兼容入口或功能对齐参考源
+- 文中后半段若出现 `platform-api` 的历史案例表述，应理解为“当时的旧控制面链路”；当前正式口径以 `platform-api-v2` 为准
 
 ## 1. 这个项目真正解决什么问题
 
@@ -33,7 +35,7 @@
 
 当前默认链路可以概括成两条：
 
-- 平台链路：`platform-web-vue -> platform-api -> runtime-service`
+- 平台链路：`platform-web-vue -> platform-api-v2 -> runtime-service`
 - 调试链路：`runtime-web -> runtime-service`
 
 再加上一个结果域服务：
@@ -42,7 +44,7 @@
 
 这说明当前仓库不是单体 Agent Demo，而是一个明确分层的企业级 AI 平台骨架：
 
-- `platform-web-vue` / `platform-api` 负责平台控制面
+- `platform-web-vue` / `platform-api-v2` 负责平台控制面
 - `runtime-service` 负责智能体运行时
 - `runtime-web` 负责运行时调试
 - `interaction-data-service` 负责结果域数据
@@ -55,14 +57,14 @@
 
 当前项目里，平台侧的定位很明确：
 
-- `platform-api` 负责认证、项目边界、成员与权限、审计、catalog、runtime policy/capability 管理
+- `platform-api-v2` 负责认证、项目边界、成员与权限、审计、catalog、runtime policy/capability 管理
 - `platform-web-vue` 负责平台工作台界面、管理页面、聊天入口和工作区导航
 
 而智能体真正的执行、模型装配、工具装配、MCP 接入、graph 编排，都放在 `runtime-service`。
 
 这就叫“浅封装”。
 
-这里的浅，不是说平台什么都不做，而是说平台只做上层治理和入口整合，不去改写智能体内部的运行模式。当前 `platform-api` 也不是历史上那种透明透传 proxy，而是保留明确的 `/api/langgraph/*` 网关，在这里做：
+这里的浅，不是说平台什么都不做，而是说平台只做上层治理和入口整合，不去改写智能体内部的运行模式。当前 `platform-api-v2` 也不是历史上那种透明透传 proxy，而是保留明确的 `/api/langgraph/*` 网关，在这里做：
 
 - 显式路由
 - 必要白名单处理
@@ -82,7 +84,8 @@
 
 - `platform-web-vue`：正式平台工作台、管理页面、平台聊天入口
 - `platform-web`：历史兼容前端与功能对齐参考源
-- `platform-api`：鉴权、项目治理、审计、catalog、运行时网关
+- `platform-api-v2`：鉴权、项目治理、审计、catalog、运行时网关
+- `platform-api`：历史控制面参考源
 - `runtime-service`：graph 注册、模型参数解析、工具装配、MCP、智能体执行
 - `runtime-web`：直连 Runtime 的调试前端
 - `interaction-data-service`：结果域落库与查询
@@ -108,7 +111,7 @@
 - 先验证运行时接口是不是稳定
 - 在不引入平台治理复杂度的前提下快速迭代
 
-等你把智能体在 `runtime-web` 上调通之后，再接到 `platform-web-vue` / `platform-api` 里，成本就会非常低。
+等你把智能体在 `runtime-web` 上调通之后，再接到 `platform-web-vue` / `platform-api-v2` 里，成本就会非常低。
 
 这里所谓“零成本、无适配”，本质上指的是：
 
@@ -127,7 +130,7 @@
 - 平台主数据和结果域数据不互相污染
 - Runtime 需要持久化时，可以通过明确的 HTTP 契约写入结果域服务
 
-这样平台侧依然可以通过 `platform-api` 聚合查询、做权限与项目隔离，但不需要亲自维护每一个智能体业务表。
+这样平台侧依然可以通过 `platform-api-v2` 聚合查询、做权限与项目隔离，但不需要亲自维护每一个智能体业务表。
 
 ### 3.5 以后改成 Docker 部署会更自然
 
@@ -136,7 +139,7 @@
 因为当前已经把责任边界拆清楚了，所以后面如果做容器化部署：
 
 - `platform-web-vue`
-- `platform-api`
+- `platform-api-v2`
 - `runtime-service`
 - `runtime-web`
 - `interaction-data-service`
@@ -215,7 +218,7 @@ graph = make_graph
 
 你以后每接一个需求，先别急着写代码，先做一个最基础的判断：
 
-- 如果是权限、项目、成员、审计、catalog、平台配置，改 `platform-api` / `platform-web-vue`
+- 如果是权限、项目、成员、审计、catalog、平台配置，改 `platform-api-v2` / `platform-web-vue`
 - 如果是 prompt、tool、MCP、graph、模型装配、Agent 行为，改 `runtime-service`
 - 如果是运行时联调和交互验证，先用 `runtime-web`
 - 如果是业务结果持久化与查询，改 `interaction-data-service`
@@ -279,7 +282,7 @@ graph = make_graph
 2. 平台侧优先专注权限、管理、审计、catalog、治理能力。
 3. 智能体和 AI 相关开发，主战场永远在 `runtime-service`。
 4. `runtime-web` 是调试入口，先把智能体在这里调通，再接平台。
-5. 调试完成后，只要遵守现有契约，就可以无缝接入 `platform-api` / `platform-web-vue`，不需要为平台重写一套 Agent。
+5. 调试完成后，只要遵守现有契约，就可以无缝接入 `platform-api-v2` / `platform-web-vue`，不需要为平台重写一套 Agent。
 6. `interaction-data-service` 负责结果域，避免平台主数据和业务结果表混成一锅粥。
 7. 后面用 Docker 独立部署，是当前解耦设计的自然延伸，不是另一套新思路。
 8. `runtime-service` 已经提供脚手架、范式和样例，后续开发优先仿照现有模式，不要重复造轮子。
@@ -291,7 +294,7 @@ graph = make_graph
 - `README.md`
 - `docs/development-guidelines.md`
 - `docs/project-story.md`
-- `apps/platform-api/docs/current-architecture.md`
+- `apps/platform-api-v2/docs/README.md`
 - `apps/platform-web/README.md`
 - `apps/runtime-web/README.md`
 - `apps/runtime-service/runtime_service/docs/README.md`

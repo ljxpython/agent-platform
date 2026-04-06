@@ -25,6 +25,7 @@ class StoredOperation:
     cancel_requested_at: datetime | None
     started_at: datetime | None
     finished_at: datetime | None
+    archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -63,8 +64,11 @@ class OperationRepositoryProtocol(Protocol):
         *,
         project_id: str | None,
         kind: str | None,
+        kinds: tuple[str, ...],
         status: str | None,
+        statuses: tuple[str, ...],
         requested_by: str | None,
+        archive_scope: str,
         limit: int,
         offset: int,
     ) -> tuple[list[StoredOperation], int]: ...
@@ -76,6 +80,7 @@ class OperationRepositoryProtocol(Protocol):
         status: OperationStatus,
         result_payload: dict[str, Any] | None = None,
         error_payload: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
         cancel_requested_at: datetime | None = None,
         started_at: datetime | None = None,
         finished_at: datetime | None = None,
@@ -88,9 +93,50 @@ class OperationRepositoryProtocol(Protocol):
         started_at: datetime,
     ) -> StoredOperation | None: ...
 
+    def claim_submitted_by_id(
+        self,
+        *,
+        operation_id: str,
+        started_at: datetime,
+    ) -> StoredOperation | None: ...
+
+    def requeue_operation(
+        self,
+        *,
+        operation_id: str,
+        error_payload: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> StoredOperation | None: ...
+
+    def bulk_cancel_operations(
+        self,
+        *,
+        operation_ids: tuple[str, ...],
+        cancel_requested_at: datetime,
+        terminal_statuses: tuple[str, ...],
+    ) -> tuple[list[StoredOperation], list[str]]: ...
+
+    def bulk_archive_operations(
+        self,
+        *,
+        operation_ids: tuple[str, ...],
+        archived_at: datetime,
+        terminal_statuses: tuple[str, ...],
+    ) -> tuple[list[StoredOperation], list[str]]: ...
+
+    def bulk_restore_operations(
+        self,
+        *,
+        operation_ids: tuple[str, ...],
+    ) -> tuple[list[StoredOperation], list[str]]: ...
+
 
 class OperationDispatcherProtocol(Protocol):
     async def dispatch(self, *, operation: StoredOperation) -> None: ...
+
+
+class OperationQueueConsumerProtocol(Protocol):
+    async def dequeue(self, *, timeout_seconds: float) -> str | None: ...
 
 
 class OperationExecutorProtocol(Protocol):

@@ -5,11 +5,14 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.context.models import ActorContext, PlatformRequestContext, ProjectContext, RequestContext, TenantContext
+from app.core.errors import PlatformApiError
 from app.adapters.langgraph.runs_sdk_adapter import LangGraphRunsSdkAdapter
+from app.adapters.langgraph.runtime_client import LangGraphRuntimeClient
 from app.adapters.langgraph.threads_sdk_adapter import LangGraphThreadsSdkAdapter
 from app.entrypoints.http.dependencies import get_actor_context
 from app.modules.runtime_gateway.presentation.http import get_runtime_gateway_service, router
@@ -142,6 +145,7 @@ class RuntimeGatewayRouterSmokeTest(unittest.TestCase):
             request.state.platform_context = PlatformRequestContext(
                 request=RequestContext(
                     request_id="test-request",
+                    trace_id="test-trace",
                     method=request.method,
                     path=request.url.path,
                     started_at=time.time(),
@@ -161,6 +165,28 @@ class RuntimeGatewayRouterSmokeTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
+
+
+class RuntimeGatewayErrorMappingTest(unittest.IsolatedAsyncioTestCase):
+    async def test_runtime_client_raises_platform_api_error_for_upstream_status(self) -> None:
+        client = LangGraphRuntimeClient(
+            base_url="http://example.com",
+            timeout_seconds=1.0,
+        )
+        response = httpx.Response(
+            404,
+            json={"detail": "thread missing"},
+            request=httpx.Request("GET", "http://example.com/threads/thread-1"),
+        )
+
+        with self.assertRaises(PlatformApiError) as ctx:
+            await client._raise_for_status(response)
+
+        self.assertEqual(ctx.exception.code, "langgraph_upstream_request_failed")
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertEqual(ctx.exception.message, "thread missing")
+        self.assertEqual(ctx.exception.extra["upstream_status_code"], 404)
+        self.assertEqual(ctx.exception.extra["upstream_path"], "/threads/thread-1")
 
 
 if __name__ == "__main__":

@@ -10,25 +10,35 @@ import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
 import ActionMenu from '@/components/platform/ActionMenu.vue'
+import BulkActionsBar from '@/components/platform/BulkActionsBar.vue'
 import DataTable from '@/components/platform/DataTable.vue'
 import FilterToolbar from '@/components/platform/FilterToolbar.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import PaginationBar from '@/components/platform/PaginationBar.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
-import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
+import type { ActionMenuItem, BulkActionItem, DataTableColumn } from '@/components/platform/data-table'
 import {
+  bulkArchiveOperations,
+  bulkCancelOperations,
+  bulkRestoreOperations,
   cancelOperation,
+  cleanupExpiredOperationArtifacts,
+  createOperationPageStream,
   downloadOperationArtifact,
   getOperationDetail,
   listOperations
 } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
-import type { ManagementOperation, OperationStatus } from '@/types/management'
+import type {
+  ManagementOperation,
+  OperationArchiveScope,
+  OperationStatus
+} from '@/types/management'
 import { downloadBlob } from '@/utils/browser-download'
 import { formatDateTime, shortId } from '@/utils/format'
+import { resolvePlatformHttpErrorMessage } from '@/utils/http-error'
 
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
@@ -42,34 +52,48 @@ const scope = ref<'project' | 'global'>('project')
 const kindInput = ref('')
 const statusInput = ref<'' | OperationStatus>('')
 const requestedByInput = ref('')
+const archiveScope = ref<OperationArchiveScope>('exclude')
 
 const kind = ref('')
 const status = ref<OperationStatus | undefined>(undefined)
 const requestedBy = ref('')
 
 const loading = ref(false)
+const bulkPending = ref(false)
+const cleanupPending = ref(false)
 const cancellingId = ref('')
 const error = ref('')
 const notice = ref('')
 const items = ref<ManagementOperation[]>([])
+const selectedOperationIds = ref<string[]>([])
+const liveMode = ref<'connecting' | 'stream' | 'polling'>('connecting')
+const liveHeartbeatAt = ref('')
 
 const detailDialogOpen = ref(false)
 const detailLoading = ref(false)
 const selectedOperation = ref<ManagementOperation | null>(null)
 
-const operationsUseRuntimeApi = computed(() => resolvePlatformClientScope('operations') === 'v2')
-const activeProjectId = computed(() =>
-  operationsUseRuntimeApi.value ? workspaceStore.runtimeProjectId : workspaceStore.currentProjectId
-)
-const currentProject = computed(() =>
-  operationsUseRuntimeApi.value ? workspaceStore.runtimeProject : workspaceStore.currentProject
-)
+const activeProjectId = computed(() => workspaceStore.runtimeProjectId)
+const currentProject = computed(() => workspaceStore.runtimeProject)
 
 const runningCount = computed(() =>
   items.value.filter((item) => item.status === 'submitted' || item.status === 'running').length
 )
 const failedCount = computed(() => items.value.filter((item) => item.status === 'failed').length)
 const succeededCount = computed(() => items.value.filter((item) => item.status === 'succeeded').length)
+const archivedCount = computed(() => items.value.filter((item) => Boolean(item.archived_at)).length)
+const selectedOperations = computed(() =>
+  items.value.filter((item) => selectedOperationIds.value.includes(item.id))
+)
+const selectedTerminalOperationIds = computed(() =>
+  selectedOperations.value.filter((item) => isTerminal(item.status)).map((item) => item.id)
+)
+const selectedRunningOperationIds = computed(() =>
+  selectedOperations.value.filter((item) => !isTerminal(item.status)).map((item) => item.id)
+)
+const selectedArchivedOperationIds = computed(() =>
+  selectedOperations.value.filter((item) => Boolean(item.archived_at)).map((item) => item.id)
+)
 
 const stats = computed(() => [
   {
@@ -99,6 +123,13 @@ const stats = computed(() => [
     hint: `当前结果集总数 ${pagination.total.value}`,
     icon: 'check',
     tone: 'success'
+  },
+  {
+    label: '已归档',
+    value: archivedCount.value,
+    hint: archiveScope.value === 'exclude' ? '默认视图已隐藏已归档记录' : '当前结果集中的已归档操作',
+    icon: 'archive',
+    tone: archivedCount.value > 0 ? 'neutral' : 'success'
   }
 ])
 
@@ -195,7 +226,75 @@ function hasArtifact(operation: ManagementOperation | null) {
     return false
   }
   const artifact = operation.result_payload?._artifact
-  return Boolean(artifact && typeof artifact === 'object')
+  return Boolean(artifact && typeof artifact === 'object' && !isArtifactExpired(operation))
+}
+
+function artifactExpiresAt(operation: ManagementOperation | null) {
+  if (!operation) {
+    return ''
+  }
+  const topLevel = operation.result_payload?.artifact_expires_at
+  if (typeof topLevel === 'string' && topLevel.trim()) {
+    return topLevel.trim()
+  }
+  const artifact = operation.result_payload?._artifact
+  if (artifact && typeof artifact === 'object') {
+    const expiresAt = (artifact as Record<string, unknown>).expires_at
+    if (typeof expiresAt === 'string' && expiresAt.trim()) {
+      return expiresAt.trim()
+    }
+  }
+  return ''
+}
+
+function artifactStorageBackend(operation: ManagementOperation | null) {
+  if (!operation) {
+    return ''
+  }
+  const topLevel = operation.result_payload?.artifact_storage_backend
+  if (typeof topLevel === 'string' && topLevel.trim()) {
+    return topLevel.trim()
+  }
+  const artifact = operation.result_payload?._artifact
+  if (artifact && typeof artifact === 'object') {
+    const backend = (artifact as Record<string, unknown>).storage_backend
+    if (typeof backend === 'string' && backend.trim()) {
+      return backend.trim()
+    }
+  }
+  return ''
+}
+
+function isArtifactExpired(operation: ManagementOperation | null) {
+  const expiresAt = artifactExpiresAt(operation)
+  if (!expiresAt) {
+    return false
+  }
+  const parsed = Date.parse(expiresAt)
+  return !Number.isNaN(parsed) && parsed <= Date.now()
+}
+
+function clearSelection() {
+  selectedOperationIds.value = []
+}
+
+function updateSelectedOperationIds(keys: Array<string | number>) {
+  selectedOperationIds.value = keys.map(String)
+}
+
+function applyOperationPage(payload: { items: ManagementOperation[]; total: number }) {
+  items.value = payload.items
+  pagination.setTotal(payload.total)
+  selectedOperationIds.value = selectedOperationIds.value.filter((id) =>
+    payload.items.some((item) => item.id === id)
+  )
+
+  if (selectedOperation.value) {
+    const current = payload.items.find((item) => item.id === selectedOperation.value?.id)
+    if (current) {
+      selectedOperation.value = current
+    }
+  }
 }
 
 async function loadOperations(options?: { silent?: boolean }) {
@@ -210,22 +309,15 @@ async function loadOperations(options?: { silent?: boolean }) {
       kind: kind.value || undefined,
       status: status.value,
       requestedBy: requestedBy.value || undefined,
+      archiveScope: archiveScope.value,
       limit: pagination.pageSize.value,
       offset: pagination.offset.value
     })
-    items.value = payload.items
-    pagination.setTotal(payload.total)
-
-    if (selectedOperation.value) {
-      const current = payload.items.find((item) => item.id === selectedOperation.value?.id)
-      if (current) {
-        selectedOperation.value = current
-      }
-    }
+    applyOperationPage(payload)
   } catch (loadError) {
     items.value = []
     pagination.setTotal(0)
-    error.value = loadError instanceof Error ? loadError.message : '操作中心加载失败'
+    error.value = resolvePlatformHttpErrorMessage(loadError, '操作中心加载失败', '操作中心')
   } finally {
     if (!options?.silent) {
       loading.value = false
@@ -238,7 +330,7 @@ function applyFilters() {
   status.value = statusInput.value || undefined
   requestedBy.value = requestedByInput.value.trim()
   if (pagination.page.value === 1) {
-    void loadOperations()
+    restartLiveUpdates()
     return
   }
   pagination.resetPage()
@@ -251,8 +343,9 @@ function resetFilters() {
   kind.value = ''
   status.value = undefined
   requestedBy.value = ''
+  archiveScope.value = 'exclude'
   if (pagination.page.value === 1) {
-    void loadOperations()
+    restartLiveUpdates()
     return
   }
   pagination.resetPage()
@@ -265,7 +358,7 @@ async function openOperationDetail(operationId: string) {
     selectedOperation.value = await getOperationDetail(operationId)
   } catch (detailError) {
     selectedOperation.value = null
-    error.value = detailError instanceof Error ? detailError.message : '操作详情加载失败'
+    error.value = resolvePlatformHttpErrorMessage(detailError, '操作详情加载失败', '操作中心')
   } finally {
     detailLoading.value = false
   }
@@ -294,13 +387,71 @@ async function handleCancel(operation: ManagementOperation) {
     }
     await loadOperations()
   } catch (cancelError) {
-    error.value = cancelError instanceof Error ? cancelError.message : '取消操作失败'
+    error.value = resolvePlatformHttpErrorMessage(cancelError, '取消操作失败', '操作中心')
   } finally {
     cancellingId.value = ''
   }
 }
 
+async function handleBulkCancel() {
+  if (!selectedRunningOperationIds.value.length) {
+    return
+  }
+  bulkPending.value = true
+  error.value = ''
+  try {
+    const result = await bulkCancelOperations(selectedRunningOperationIds.value)
+    notice.value = `已取消 ${result.updated_count} 个操作`
+    clearSelection()
+    await loadOperations()
+  } catch (bulkError) {
+    error.value = resolvePlatformHttpErrorMessage(bulkError, '批量取消操作失败', '操作中心')
+  } finally {
+    bulkPending.value = false
+  }
+}
+
+async function handleBulkArchive() {
+  if (!selectedTerminalOperationIds.value.length) {
+    return
+  }
+  bulkPending.value = true
+  error.value = ''
+  try {
+    const result = await bulkArchiveOperations(selectedTerminalOperationIds.value)
+    notice.value = `已归档 ${result.updated_count} 个操作`
+    clearSelection()
+    await loadOperations()
+  } catch (bulkError) {
+    error.value = resolvePlatformHttpErrorMessage(bulkError, '批量归档失败', '操作中心')
+  } finally {
+    bulkPending.value = false
+  }
+}
+
+async function handleBulkRestore() {
+  if (!selectedArchivedOperationIds.value.length) {
+    return
+  }
+  bulkPending.value = true
+  error.value = ''
+  try {
+    const result = await bulkRestoreOperations(selectedArchivedOperationIds.value)
+    notice.value = `已恢复 ${result.updated_count} 个操作`
+    clearSelection()
+    await loadOperations()
+  } catch (bulkError) {
+    error.value = resolvePlatformHttpErrorMessage(bulkError, '批量恢复归档失败', '操作中心')
+  } finally {
+    bulkPending.value = false
+  }
+}
+
 async function handleDownloadArtifact(operation: ManagementOperation) {
+  if (isArtifactExpired(operation)) {
+    error.value = '该操作产物已过期，请重新触发导出。'
+    return
+  }
   try {
     const download = await downloadOperationArtifact(operation.id)
     downloadBlob(
@@ -314,7 +465,64 @@ async function handleDownloadArtifact(operation: ManagementOperation) {
       message: download.filename || shortId(operation.id)
     })
   } catch (downloadError) {
-    error.value = downloadError instanceof Error ? downloadError.message : '下载操作产物失败'
+    error.value = resolvePlatformHttpErrorMessage(downloadError, '下载操作产物失败', '操作结果下载')
+  }
+}
+
+async function handleCleanupExpiredArtifacts() {
+  cleanupPending.value = true
+  error.value = ''
+  notice.value = ''
+  try {
+    const result = await cleanupExpiredOperationArtifacts()
+    notice.value = `已清理 ${result.removed_count} 个过期产物，回收 ${result.bytes_reclaimed} bytes。`
+    uiStore.pushToast({
+      type: 'success',
+      title: '过期产物已清理',
+      message: `removed ${result.removed_count} / scanned ${result.scanned_count}`
+    })
+    await loadOperations({ silent: true })
+    if (selectedOperation.value) {
+      selectedOperation.value = await getOperationDetail(selectedOperation.value.id)
+    }
+  } catch (cleanupError) {
+    error.value = resolvePlatformHttpErrorMessage(cleanupError, '清理过期产物失败', '操作产物')
+  } finally {
+    cleanupPending.value = false
+  }
+}
+
+async function handleSingleArchive(operation: ManagementOperation) {
+  bulkPending.value = true
+  error.value = ''
+  try {
+    const result = await bulkArchiveOperations([operation.id])
+    notice.value = `已归档 ${result.updated_count} 个操作`
+    await loadOperations()
+    if (selectedOperation.value?.id === operation.id) {
+      selectedOperation.value = await getOperationDetail(operation.id)
+    }
+  } catch (archiveError) {
+    error.value = resolvePlatformHttpErrorMessage(archiveError, '归档操作失败', '操作中心')
+  } finally {
+    bulkPending.value = false
+  }
+}
+
+async function handleSingleRestore(operation: ManagementOperation) {
+  bulkPending.value = true
+  error.value = ''
+  try {
+    const result = await bulkRestoreOperations([operation.id])
+    notice.value = `已恢复 ${result.updated_count} 个操作`
+    await loadOperations()
+    if (selectedOperation.value?.id === operation.id) {
+      selectedOperation.value = await getOperationDetail(operation.id)
+    }
+  } catch (restoreError) {
+    error.value = resolvePlatformHttpErrorMessage(restoreError, '恢复归档失败', '操作中心')
+  } finally {
+    bulkPending.value = false
   }
 }
 
@@ -344,6 +552,24 @@ function operationActions(operation: ManagementOperation): ActionMenuItem[] {
     }
   ]
 
+  if (operation.archived_at) {
+    actions.splice(1, 0, {
+      key: 'restore',
+      label: '恢复归档',
+      icon: 'refresh',
+      disabled: bulkPending.value,
+      onSelect: () => void handleSingleRestore(operation)
+    })
+  } else if (isTerminal(operation.status)) {
+    actions.splice(1, 0, {
+      key: 'archive',
+      label: '归档',
+      icon: 'archive',
+      disabled: bulkPending.value,
+      onSelect: () => void handleSingleArchive(operation)
+    })
+  }
+
   if (hasArtifact(operation)) {
     actions.splice(1, 0, {
       key: 'download-artifact',
@@ -366,7 +592,46 @@ function operationActions(operation: ManagementOperation): ActionMenuItem[] {
   return actions
 }
 
+const bulkActionSummary = computed(() => {
+  if (!selectedOperations.value.length) {
+    return ''
+  }
+  const terminal = selectedTerminalOperationIds.value.length
+  const running = selectedRunningOperationIds.value.length
+  const archived = selectedArchivedOperationIds.value.length
+  return `可取消 ${running} 项，已结束 ${terminal} 项，已归档 ${archived} 项。`
+})
+
+const bulkActions = computed<BulkActionItem[]>(() => [
+  {
+    key: 'cancel',
+    label: '批量取消',
+    icon: 'x',
+    variant: 'danger',
+    disabled: bulkPending.value || selectedRunningOperationIds.value.length === 0,
+    onSelect: handleBulkCancel
+  },
+  {
+    key: 'archive',
+    label: '批量归档',
+    icon: 'archive',
+    variant: 'secondary',
+    disabled: bulkPending.value || selectedTerminalOperationIds.value.length === 0,
+    onSelect: handleBulkArchive
+  },
+  {
+    key: 'restore',
+    label: '恢复归档',
+    icon: 'refresh',
+    variant: 'secondary',
+    disabled: bulkPending.value || selectedArchivedOperationIds.value.length === 0,
+    onSelect: handleBulkRestore
+  }
+])
+
 let refreshTimer: number | null = null
+let streamReconnectTimer: number | null = null
+let currentStreamAbortController: AbortController | null = null
 
 function startRefreshTimer() {
   if (typeof window === 'undefined' || refreshTimer !== null) {
@@ -374,6 +639,9 @@ function startRefreshTimer() {
   }
 
   refreshTimer = window.setInterval(() => {
+    if (liveMode.value === 'stream' || liveMode.value === 'connecting') {
+      return
+    }
     const shouldRefreshList = items.value.some((item) => !isTerminal(item.status))
     const shouldRefreshDetail =
       detailDialogOpen.value && selectedOperation.value && !isTerminal(selectedOperation.value.status)
@@ -393,8 +661,92 @@ function stopRefreshTimer() {
   }
 }
 
-watch([() => pagination.page.value, () => pagination.pageSize.value], () => {
+function stopStreamReconnectTimer() {
+  if (streamReconnectTimer !== null && typeof window !== 'undefined') {
+    window.clearTimeout(streamReconnectTimer)
+    streamReconnectTimer = null
+  }
+}
+
+function stopOperationStream() {
+  stopStreamReconnectTimer()
+  currentStreamAbortController?.abort()
+  currentStreamAbortController = null
+}
+
+function scheduleOperationStreamReconnect() {
+  if (typeof window === 'undefined' || streamReconnectTimer !== null) {
+    return
+  }
+
+  streamReconnectTimer = window.setTimeout(() => {
+    streamReconnectTimer = null
+    void startOperationStream()
+  }, 5000)
+}
+
+async function startOperationStream() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  stopOperationStream()
+  const abortController = new AbortController()
+  currentStreamAbortController = abortController
+  liveMode.value = 'connecting'
+
+  try {
+    const stream = createOperationPageStream({
+      projectId: scope.value === 'project' ? activeProjectId.value || undefined : undefined,
+      kind: kind.value || undefined,
+      status: status.value,
+      requestedBy: requestedBy.value || undefined,
+      archiveScope: archiveScope.value,
+      limit: pagination.pageSize.value,
+      offset: pagination.offset.value,
+      signal: abortController.signal
+    })
+
+    for await (const event of stream) {
+      if (event.event === 'heartbeat') {
+        liveMode.value = 'stream'
+        liveHeartbeatAt.value = event.data.at || new Date().toISOString()
+        continue
+      }
+
+      applyOperationPage(event.data)
+      liveMode.value = 'stream'
+      liveHeartbeatAt.value = new Date().toISOString()
+    }
+
+    if (!abortController.signal.aborted && currentStreamAbortController === abortController) {
+      liveMode.value = 'polling'
+      currentStreamAbortController = null
+      scheduleOperationStreamReconnect()
+    }
+  } catch (streamError) {
+    if (!abortController.signal.aborted && currentStreamAbortController === abortController) {
+      liveMode.value = 'polling'
+      if (!error.value) {
+        error.value = resolvePlatformHttpErrorMessage(
+          streamError,
+          '操作中心实时同步失败，当前已切回轮询兜底。',
+          '操作中心实时同步'
+        )
+      }
+      currentStreamAbortController = null
+      scheduleOperationStreamReconnect()
+    }
+  }
+}
+
+function restartLiveUpdates() {
   void loadOperations()
+  void startOperationStream()
+}
+
+watch([() => pagination.page.value, () => pagination.pageSize.value], () => {
+  restartLiveUpdates()
 })
 
 watch(activeProjectId, (projectId) => {
@@ -404,7 +756,7 @@ watch(activeProjectId, (projectId) => {
   }
 
   if (scope.value === 'project') {
-    void loadOperations()
+    restartLiveUpdates()
   }
 })
 
@@ -414,7 +766,7 @@ watch(scope, (nextScope, previousScope) => {
   }
 
   if (pagination.page.value === 1) {
-    void loadOperations()
+    restartLiveUpdates()
     return
   }
   pagination.resetPage()
@@ -424,12 +776,13 @@ onMounted(() => {
   if (!activeProjectId.value) {
     scope.value = 'global'
   }
-  void loadOperations()
+  restartLiveUpdates()
   startRefreshTimer()
 })
 
 onBeforeUnmount(() => {
   stopRefreshTimer()
+  stopOperationStream()
 })
 </script>
 
@@ -443,8 +796,38 @@ onBeforeUnmount(() => {
       <template #actions>
         <BaseButton
           variant="secondary"
+          :disabled="cleanupPending"
+          @click="handleCleanupExpiredArtifacts"
+        >
+          <BaseIcon
+            name="archive"
+            size="sm"
+          />
+          {{ cleanupPending ? '清理中...' : '清理过期产物' }}
+        </BaseButton>
+        <div
+          class="mr-2 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold"
+          :title="liveHeartbeatAt ? `最近同步 ${formatDateTime(liveHeartbeatAt)}` : ''"
+          :class="liveMode === 'stream'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200'
+            : liveMode === 'connecting'
+              ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-200'
+              : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200'"
+        >
+          <span
+            class="h-2 w-2 rounded-full"
+            :class="liveMode === 'stream'
+              ? 'bg-emerald-500'
+              : liveMode === 'connecting'
+                ? 'bg-sky-500'
+                : 'bg-amber-500'"
+          />
+          {{ liveMode === 'stream' ? '实时同步' : liveMode === 'connecting' ? '连接中' : '轮询兜底' }}
+        </div>
+        <BaseButton
+          variant="secondary"
           :disabled="loading"
-          @click="loadOperations"
+          @click="restartLiveUpdates"
         >
           <BaseIcon
             name="refresh"
@@ -523,6 +906,17 @@ onBeforeUnmount(() => {
               v-model="requestedByInput"
               placeholder="按提交人筛选"
             />
+            <BaseSelect v-model="archiveScope">
+              <option value="exclude">
+                仅未归档
+              </option>
+              <option value="include">
+                包含已归档
+              </option>
+              <option value="only">
+                仅已归档
+              </option>
+            </BaseSelect>
             <BaseButton
               variant="secondary"
               @click="resetFilters"
@@ -536,17 +930,29 @@ onBeforeUnmount(() => {
         </FilterToolbar>
       </template>
 
+      <template #actions>
+        <BulkActionsBar
+          :selected-count="selectedOperations.length"
+          :summary="bulkActionSummary"
+          :actions="bulkActions"
+          @clear="clearSelection"
+        />
+      </template>
+
       <template #table>
         <DataTable
           :columns="columns"
           :rows="rows"
           :loading="loading"
+          selectable
+          :selected-row-keys="selectedOperationIds"
           row-key="id"
           sort-storage-key="pw:operations:sort"
           column-storage-key="pw:operations:columns"
           empty-title="没有操作记录"
           empty-description="当前筛选范围下还没有操作记录。可以先去 Runtime、Assistants 或 Testcase 触发一次真实异步动作。"
           empty-icon="activity"
+          @update:selected-row-keys="updateSelectedOperationIds"
         >
           <template #cell-created_at="{ row }">
             <span class="text-sm text-gray-500 dark:text-dark-300">
@@ -561,6 +967,12 @@ onBeforeUnmount(() => {
               </div>
               <div class="mt-1 text-xs text-gray-500 dark:text-dark-300">
                 {{ shortId(operationFromRow(row).id) }}
+              </div>
+              <div
+                v-if="operationFromRow(row).archived_at"
+                class="mt-1 text-[11px] uppercase tracking-[0.16em] text-gray-400 dark:text-dark-500"
+              >
+                archived
               </div>
             </div>
           </template>
@@ -640,6 +1052,9 @@ onBeforeUnmount(() => {
               <div><span class="font-semibold text-gray-900 dark:text-white">Updated:</span> {{ formatDateTime(selectedOperation.updated_at) }}</div>
               <div><span class="font-semibold text-gray-900 dark:text-white">Started:</span> {{ formatDateTime(selectedOperation.started_at) }}</div>
               <div><span class="font-semibold text-gray-900 dark:text-white">Finished:</span> {{ formatDateTime(selectedOperation.finished_at) }}</div>
+              <div><span class="font-semibold text-gray-900 dark:text-white">Archived:</span> {{ formatDateTime(selectedOperation.archived_at) }}</div>
+              <div><span class="font-semibold text-gray-900 dark:text-white">Artifact Expires:</span> {{ formatDateTime(artifactExpiresAt(selectedOperation)) }}</div>
+              <div><span class="font-semibold text-gray-900 dark:text-white">Artifact Backend:</span> {{ artifactStorageBackend(selectedOperation) || '--' }}</div>
             </div>
           </div>
 
@@ -669,6 +1084,12 @@ onBeforeUnmount(() => {
                 />
                 下载结果
               </BaseButton>
+              <span
+                v-else-if="artifactExpiresAt(selectedOperation)"
+                class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+              >
+                产物已过期
+              </span>
               <router-link
                 v-if="inferResourceRoute(selectedOperation)"
                 class="pw-btn pw-btn-ghost"

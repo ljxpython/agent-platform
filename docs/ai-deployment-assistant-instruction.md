@@ -25,12 +25,14 @@
 
 ## 1. 作用范围
 
-- 默认本地启动集：`runtime-service`、`interaction-data-service`、`platform-api`、`platform-web-vue`、`runtime-web`
-- 历史兼容入口：`platform-web`
+- 默认本地正式启动集：`runtime-service`、`interaction-data-service`、`platform-api-v2`、`platform-web-vue`
+- 可选调试入口：`runtime-web`
+- 历史兼容入口：`platform-web`、`platform-api`
 
 这里必须明确：
 
 - `platform-web-vue` 已经是当前正式平台前端宿主
+- `platform-api-v2` 已经是当前正式平台控制面宿主
 - `platform-web` 仅保留为历史兼容入口和迁移参考，不属于默认本地部署主线
 
 ## 2. 使用方式
@@ -54,6 +56,7 @@
 - 不假设存在根目录统一 `.env`
 - 不把 `runtime-web` 指到 `http://localhost:2024` 作为当前默认本地调试入口
 - 不把 `apps/platform-web` 当作当前正式平台前端宿主
+- 不把 `apps/platform-api` 当作当前正式平台控制面宿主
 - 不编造模型配置、JWT 密钥、数据库密码或任何真实私密信息
 - 不把 app README 或源码阅读当作默认部署流程的一部分
 
@@ -61,7 +64,13 @@
 
 ### 4.1 依赖缺失
 
-如果 `Python`、`uv`、`Node`、`pnpm` 或 PostgreSQL 缺失，优先补齐；如果继续读取根级文档并检查本地环境后仍无法补齐，再一次性说明缺什么以及卡在哪一步。
+如果 `Python`、`uv`、`Node` 或 `pnpm` 缺失，优先补齐；如果继续读取根级文档并检查本地环境后仍无法补齐，再一次性说明缺什么以及卡在哪一步。
+
+补充口径：
+
+- 默认本地正式演示链路不要求 PostgreSQL
+- `local` 默认使用 `SQLite + db_polling`
+- 只有在用户明确要验 `dev / staging / prod` 口径时，才把 PostgreSQL / Redis 视为必需项
 
 ### 4.2 模型配置缺失
 

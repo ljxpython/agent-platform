@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.context.models import ActorContext
 from app.core.db import SqlAlchemyUnitOfWork
-from app.core.errors import ForbiddenError, NotFoundError, PlatformApiError, ServiceUnavailableError
+from app.core.errors import ForbiddenError, NotFoundError, ServiceUnavailableError
+from app.core.identifiers import parse_uuid
 from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, PermissionCode
 from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
 from app.modules.runtime_catalog.domain import (
@@ -28,19 +29,6 @@ def _clean(value: Any) -> str | None:
         return None
     normalized = str(value).strip()
     return normalized or None
-
-
-def _parse_uuid(value: str, *, code: str) -> UUID:
-    try:
-        return UUID(value)
-    except ValueError as exc:
-        raise PlatformApiError(
-            code=code,
-            status_code=400,
-            message=code.replace("_", " "),
-        ) from exc
-
-
 def _runtime_id(value: str) -> str:
     return value.rstrip("/")
 
@@ -73,7 +61,7 @@ class RuntimeCatalogService:
         uow: SqlAlchemyUnitOfWork,
         project_id: str,
     ) -> UUID:
-        project_uuid = _parse_uuid(project_id, code="invalid_project_id")
+        project_uuid = parse_uuid(project_id, code="invalid_project_id")
         repository = SqlAlchemyProjectsRepository(uow.session)
         project = repository.get_project_by_id(project_uuid)
         if project is None or project.status == "deleted":

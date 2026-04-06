@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
+from app.core.schemas import OffsetPage
+
 from app.modules.iam.domain import ProjectRole
 
 
@@ -44,14 +46,9 @@ class ProjectMemberView(BaseModel):
     role: ProjectRole
 
 
-class ProjectPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[ProjectSummary]
-    total: int
+class ProjectPage(OffsetPage[ProjectSummary]):
+    pass
 
 
-class ProjectMemberPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[ProjectMemberView]
+class ProjectMemberPage(OffsetPage[ProjectMemberView]):
+    pass

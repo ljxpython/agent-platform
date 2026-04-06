@@ -1,10 +1,9 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
+import { platformV2HttpClient } from '@/services/http/client'
 import {
   downloadOperationArtifact,
   submitOperation,
   waitForOperationTerminalState
 } from '@/services/operations/operations.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import type {
   TestcaseBatchDetail,
   ManagementDownload,
@@ -38,26 +37,17 @@ type TestcaseServiceOptions = {
   mode?: TestcaseServiceMode
 }
 
-function useRuntimeTestcaseApi(options?: TestcaseServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('testcase') === 'v2'
-}
-
 function buildHeaders(projectId: string) {
   return {
     'x-project-id': projectId
   }
 }
 
-function resolveEndpoint(projectId: string, suffix: string, options?: TestcaseServiceOptions) {
-  const useRuntimeApi = useRuntimeTestcaseApi(options)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const basePath = useRuntimeApi
-    ? `/api/projects/${projectId}/testcase`
-    : `/_management/projects/${projectId}/testcase`
+function resolveEndpoint(projectId: string, suffix: string, _options?: TestcaseServiceOptions) {
   const normalizedSuffix = suffix.startsWith('/') ? suffix : `/${suffix}`
   return {
-    client,
-    path: `${basePath}${normalizedSuffix}`
+    client: platformV2HttpClient,
+    path: `/api/projects/${projectId}/testcase${normalizedSuffix}`
   }
 }
 

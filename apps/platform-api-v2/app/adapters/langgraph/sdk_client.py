@@ -4,7 +4,6 @@ from typing import Any, Mapping
 
 import httpx
 import langgraph_sdk
-from fastapi import HTTPException
 
 from app.core.errors import PlatformApiError, UpstreamServiceError
 
@@ -24,12 +23,50 @@ def get_langgraph_client(
     )
 
 
+def _runtime_upstream_message(detail: Any, *, fallback_code: str) -> str:
+    if isinstance(detail, str) and detail.strip():
+        return detail.strip()
+    if isinstance(detail, Mapping):
+        message = detail.get("message") or detail.get("detail")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+    return fallback_code.replace("_", " ")
+
+
+def create_runtime_upstream_error(
+    *,
+    status_code: int,
+    detail: Any,
+    fallback_code: str,
+    upstream_path: str | None = None,
+) -> PlatformApiError:
+    extra: dict[str, Any] = {
+        "upstream": "langgraph",
+        "upstream_status_code": status_code,
+    }
+    if upstream_path:
+        extra["upstream_path"] = upstream_path
+    if detail not in (None, ""):
+        extra["upstream_detail"] = detail
+    return PlatformApiError(
+        code=fallback_code,
+        status_code=status_code,
+        message=_runtime_upstream_message(detail, fallback_code=fallback_code),
+        extra=extra,
+    )
+
+
 def raise_runtime_upstream_error(exc: Exception, *, fallback_detail: str) -> None:
-    if isinstance(exc, HTTPException):
+    if isinstance(exc, (PlatformApiError, UpstreamServiceError)):
         raise exc
 
     if isinstance(exc, httpx.TimeoutException):
-        raise HTTPException(status_code=504, detail="langgraph_upstream_timeout") from exc
+        raise UpstreamServiceError(
+            upstream="langgraph",
+            status_code=504,
+            code="langgraph_upstream_timeout",
+            message="LangGraph upstream timed out",
+        ) from exc
 
     response = getattr(exc, "response", None)
     status_code = getattr(response, "status_code", None)
@@ -38,14 +75,39 @@ def raise_runtime_upstream_error(exc: Exception, *, fallback_detail: str) -> Non
             detail: Any = response.json()
         except Exception:
             detail = getattr(response, "text", None) or fallback_detail
-        raise HTTPException(status_code=status_code, detail=detail) from exc
+        request = getattr(response, "request", None)
+        url = getattr(request, "url", None)
+        upstream_path = getattr(url, "path", None)
+        raise create_runtime_upstream_error(
+            status_code=status_code,
+            detail=detail,
+            fallback_code=fallback_detail,
+            upstream_path=upstream_path,
+        ) from exc
 
     message = str(exc).strip()
     if message.startswith("ValueError:"):
         detail = message.split(":", 1)[1].strip() or fallback_detail
-        raise HTTPException(status_code=400, detail=detail) from exc
+        raise create_runtime_upstream_error(
+            status_code=400,
+            detail=detail,
+            fallback_code=fallback_detail,
+        ) from exc
 
-    raise HTTPException(status_code=502, detail=fallback_detail) from exc
+    if isinstance(exc, httpx.HTTPError):
+        raise UpstreamServiceError(
+            upstream="langgraph",
+            status_code=502,
+            code="langgraph_upstream_unavailable",
+            message="LangGraph upstream is unavailable",
+        ) from exc
+
+    raise UpstreamServiceError(
+        upstream="langgraph",
+        status_code=502,
+        code="langgraph_upstream_unavailable",
+        message="LangGraph upstream is unavailable",
+    ) from exc
 
 
 def raise_assistants_upstream_error(exc: Exception, *, upstream_path: str) -> None:

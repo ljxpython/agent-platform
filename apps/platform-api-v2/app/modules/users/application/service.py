@@ -6,19 +6,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.context.models import ActorContext
 from app.core.db import SqlAlchemyUnitOfWork
-from app.core.errors import BadRequestError, ConflictError, NotFoundError, ServiceUnavailableError
+from app.core.errors import ConflictError, NotFoundError, ServiceUnavailableError
+from app.core.identifiers import parse_uuid
 from app.core.security import hash_password
 from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, PermissionCode
 from app.modules.users.application.contracts import CreateUserCommand, ListUsersQuery, UpdateUserCommand
 from app.modules.users.domain import UserItem, UserPage, UserProjectItem, UserProjectPage
 from app.modules.users.infra import SqlAlchemyUsersRepository
-
-
-def _parse_uuid(raw_value: str, *, code: str) -> UUID:
-    try:
-        return UUID(raw_value)
-    except ValueError as exc:
-        raise BadRequestError(code=code, message="Invalid UUID") from exc
 
 
 class UsersService:
@@ -72,7 +66,7 @@ class UsersService:
             if not raw_value:
                 continue
             excluded_user_ids.append(
-                _parse_uuid(raw_value, code="invalid_exclude_user_id"),
+                parse_uuid(raw_value, code="invalid_exclude_user_id"),
             )
         return tuple(excluded_user_ids)
 
@@ -127,7 +121,7 @@ class UsersService:
     ) -> UserItem:
         session_factory = self._require_session_factory()
         self._require_permission(actor=actor, permission=PermissionCode.PLATFORM_USER_READ)
-        user_uuid = _parse_uuid(user_id, code="invalid_user_id")
+        user_uuid = parse_uuid(user_id, code="invalid_user_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyUsersRepository(uow.session)
             item = repository.get_user_by_id(user_uuid)
@@ -143,7 +137,7 @@ class UsersService:
     ) -> UserProjectPage:
         session_factory = self._require_session_factory()
         self._require_permission(actor=actor, permission=PermissionCode.PLATFORM_USER_READ)
-        user_uuid = _parse_uuid(user_id, code="invalid_user_id")
+        user_uuid = parse_uuid(user_id, code="invalid_user_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyUsersRepository(uow.session)
             item = repository.get_user_by_id(user_uuid)
@@ -164,7 +158,7 @@ class UsersService:
     ) -> UserItem:
         session_factory = self._require_session_factory()
         self._require_permission(actor=actor, permission=PermissionCode.PLATFORM_USER_WRITE)
-        user_uuid = _parse_uuid(user_id, code="invalid_user_id")
+        user_uuid = parse_uuid(user_id, code="invalid_user_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyUsersRepository(uow.session)
             current = repository.get_user_by_id(user_uuid)

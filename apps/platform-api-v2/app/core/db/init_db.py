@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 from app.core.db.base import Base
@@ -16,9 +17,31 @@ def import_core_models() -> None:
     import app.modules.runtime_catalog.infra.sqlalchemy.models  # noqa: F401
     import app.modules.runtime_policies.infra.sqlalchemy.models  # noqa: F401
     import app.modules.platform_config.infra.sqlalchemy.models  # noqa: F401
+    import app.modules.service_accounts.infra.sqlalchemy.models  # noqa: F401
 
 
 def create_core_tables(engine: Engine) -> None:
     import_core_models()
 
     Base.metadata.create_all(engine)
+    _ensure_runtime_columns(engine)
+
+
+def _ensure_runtime_columns(engine: Engine) -> None:
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "operations" not in tables:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("operations")}
+    statements: list[str] = []
+
+    if "archived_at" not in columns:
+        statements.append("ALTER TABLE operations ADD COLUMN archived_at DATETIME")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))

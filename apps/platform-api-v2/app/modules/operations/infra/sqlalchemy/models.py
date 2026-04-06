@@ -30,6 +30,7 @@ class OperationRecord(Base):
     cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -42,4 +43,27 @@ class OperationRecord(Base):
         server_default=func.now(),
         onupdate=func.now(),
         index=True,
+    )
+
+
+class OperationWorkerHeartbeatRecord(Base):
+    __tablename__ = "operation_worker_heartbeats"
+
+    worker_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    queue_backend: Mapped[str] = mapped_column(String(64), nullable=False)
+    hostname: Mapped[str] = mapped_column(String(255), nullable=False)
+    pid: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="idle", index=True)
+    current_operation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    last_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )

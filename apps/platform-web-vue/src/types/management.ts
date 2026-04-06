@@ -82,6 +82,8 @@ export type OperationStatus =
   | 'failed'
   | 'cancelled'
 
+export type OperationArchiveScope = 'exclude' | 'include' | 'only'
+
 export type ManagementOperation = {
   id: string
   kind: string
@@ -97,11 +99,29 @@ export type ManagementOperation = {
   cancel_requested_at?: string | null
   started_at?: string | null
   finished_at?: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }
 
 export type ManagementOperationPage = PaginatedResponse<ManagementOperation>
+
+export type OperationBulkMutationResult = {
+  requested_count: number
+  updated_count: number
+  skipped_count: number
+  updated: ManagementOperation[]
+  skipped_ids: string[]
+}
+
+export type OperationArtifactCleanupResult = {
+  storage_backend: string
+  retention_hours: number
+  scanned_count: number
+  removed_count: number
+  missing_count: number
+  bytes_reclaimed: number
+}
 
 export type RuntimeGraphPolicyValue = {
   is_enabled: boolean
@@ -177,6 +197,19 @@ export type PlatformConfigSnapshot = {
     queue_backend: string
     worker_poll_interval_seconds: number
     worker_idle_sleep_seconds: number
+    worker_heartbeat_interval_seconds: number
+    worker_stale_after_seconds: number
+    artifact_storage_backend: string
+    artifact_retention_hours: number
+    artifact_cleanup_batch_size: number
+    queue_depth: number
+    running_count: number
+    succeeded_count: number
+    failed_count: number
+    cancelled_count: number
+    archived_count: number
+    avg_duration_ms: number
+    max_duration_ms: number
   }
   auth: {
     required: boolean
@@ -185,6 +218,108 @@ export type PlatformConfigSnapshot = {
   runtime: {
     langgraph_upstream_url: string
     interaction_data_service_configured: boolean
+  }
+  observability: {
+    requests: {
+      total: number
+      failed: number
+      failure_rate: number
+      avg_duration_ms: number
+      max_duration_ms: number
+      by_method: Record<string, number>
+      by_status_family: Record<string, number>
+      top_paths: Array<{
+        path: string
+        count: number
+        failed: number
+        failure_rate: number
+        avg_duration_ms: number
+        max_duration_ms: number
+      }>
+    }
+    operations: {
+      queue_backend: string
+      worker_poll_interval_seconds: number
+      worker_idle_sleep_seconds: number
+      worker_heartbeat_interval_seconds: number
+      worker_stale_after_seconds: number
+      artifact_storage_backend: string
+      artifact_retention_hours: number
+      artifact_cleanup_batch_size: number
+      queue_depth: number
+      running_count: number
+      succeeded_count: number
+      failed_count: number
+      cancelled_count: number
+      archived_count: number
+      avg_duration_ms: number
+      max_duration_ms: number
+    }
+    workers: {
+      heartbeat_interval_seconds: number
+      stale_after_seconds: number
+      healthy_count: number
+      stale_count: number
+      items: Array<{
+        worker_id: string
+        queue_backend: string
+        hostname: string
+        pid: string
+        status: string
+        current_operation_id: string | null
+        last_error: string | null
+        last_started_at: string | null
+        last_completed_at: string | null
+        last_heartbeat_at: string | null
+        age_seconds: number
+        healthy: boolean
+        metadata: Record<string, unknown>
+      }>
+    }
+    trace: {
+      request_id_header: string
+      trace_id_header: string
+      operation_chain_source: string
+    }
+  }
+  security: {
+    oidc: {
+      enabled: boolean
+      issuer_url: string | null
+      client_id: string | null
+      mode: string
+    }
+    service_accounts: {
+      enabled: boolean
+      api_key_header: string
+      default_token_ttl_days: number
+      total_accounts: number
+      active_accounts: number
+      active_tokens: number
+      revoked_tokens: number
+    }
+    sensitive_config: Record<
+      string,
+      {
+        configured: boolean
+        masked_value: string | null
+      }
+    >
+  }
+  environment: {
+    current: string
+    supported: string[]
+    production_like: boolean
+    auth_required: boolean
+    docs_enabled: boolean
+    bootstrap_admin_enabled: boolean
+  }
+  data_governance: {
+    artifact_retention_hours: number
+    artifact_cleanup_batch_size: number
+    audit_storage: string
+    export_mode: string
+    delete_mode: string
   }
   feature_flags: Record<string, boolean>
 }
@@ -203,6 +338,38 @@ export type ManagementAnnouncement = {
   created_at: string | null
   updated_at: string | null
   is_read: boolean
+}
+
+export type ManagementServiceAccountToken = {
+  id: string
+  name: string
+  token_prefix: string
+  status: string
+  expires_at: string | null
+  last_used_at: string | null
+  revoked_at: string | null
+  created_at: string | null
+}
+
+export type ManagementServiceAccount = {
+  id: string
+  name: string
+  description: string | null
+  status: string
+  platform_roles: string[]
+  created_by: string | null
+  updated_by: string | null
+  last_used_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  tokens: ManagementServiceAccountToken[]
+}
+
+export type ManagementServiceAccountPage = PaginatedResponse<ManagementServiceAccount>
+
+export type CreatedServiceAccountToken = {
+  token: ManagementServiceAccountToken
+  plain_text_token: string
 }
 
 export type RuntimeModelItem = {

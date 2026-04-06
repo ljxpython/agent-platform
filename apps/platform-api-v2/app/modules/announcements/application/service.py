@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.context.models import ActorContext
 from app.core.db import SqlAlchemyUnitOfWork
-from app.core.errors import BadRequestError, NotAuthenticatedError, NotFoundError, PlatformApiError, ServiceUnavailableError
+from app.core.errors import BadRequestError, NotFoundError, ServiceUnavailableError
+from app.core.identifiers import parse_actor_user_id, parse_uuid
 from app.modules.announcements.application.contracts import (
     AnnouncementFeedQuery,
     CreateAnnouncementCommand,
@@ -28,23 +29,6 @@ from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, P
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _parse_uuid(raw: str, *, code: str) -> UUID:
-    try:
-        return UUID(raw)
-    except ValueError as exc:
-        raise PlatformApiError(
-            code=code,
-            status_code=400,
-            message=code.replace("_", " "),
-        ) from exc
-
-
-def _parse_actor_user_id(actor: ActorContext) -> UUID:
-    if not actor.user_id:
-        raise NotAuthenticatedError()
-    return _parse_uuid(actor.user_id, code="invalid_actor_user_id")
 
 
 class AnnouncementsService:
@@ -91,7 +75,7 @@ class AnnouncementsService:
         normalized = project_id.strip() if project_id and project_id.strip() else None
         if normalized is None:
             return None
-        return _parse_uuid(normalized, code="invalid_project_id")
+        return parse_uuid(normalized, code="invalid_project_id")
 
     def _require_manage_access(
         self,
@@ -180,7 +164,7 @@ class AnnouncementsService:
         command: CreateAnnouncementCommand,
     ) -> AnnouncementItem:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
+        actor_user_id = parse_actor_user_id(actor)
         scope_project_id = command.scope_project_id
         self._resolve_scope_project_id(scope_project_id) if scope_project_id else None
         self._require_manage_access(
@@ -214,8 +198,8 @@ class AnnouncementsService:
         command: UpdateAnnouncementCommand,
     ) -> AnnouncementItem:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
-        announcement_uuid = _parse_uuid(announcement_id, code="invalid_announcement_id")
+        actor_user_id = parse_actor_user_id(actor)
+        announcement_uuid = parse_uuid(announcement_id, code="invalid_announcement_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAnnouncementsRepository(uow.session)
             current = repository.get_announcement_by_id(announcement_uuid)
@@ -282,7 +266,7 @@ class AnnouncementsService:
         announcement_id: str,
     ) -> None:
         session_factory = self._require_session_factory()
-        announcement_uuid = _parse_uuid(announcement_id, code="invalid_announcement_id")
+        announcement_uuid = parse_uuid(announcement_id, code="invalid_announcement_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAnnouncementsRepository(uow.session)
             current = repository.get_announcement_by_id(announcement_uuid)
@@ -302,7 +286,7 @@ class AnnouncementsService:
         query: AnnouncementFeedQuery,
     ) -> AnnouncementPage:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
+        actor_user_id = parse_actor_user_id(actor)
         self._require_feed_access(actor=actor, project_id=query.project_id)
         project_uuid = self._resolve_scope_project_id(query.project_id)
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
@@ -327,8 +311,8 @@ class AnnouncementsService:
         announcement_id: str,
     ) -> datetime:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
-        announcement_uuid = _parse_uuid(announcement_id, code="invalid_announcement_id")
+        actor_user_id = parse_actor_user_id(actor)
+        announcement_uuid = parse_uuid(announcement_id, code="invalid_announcement_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyAnnouncementsRepository(uow.session)
             current = repository.get_announcement_by_id(announcement_uuid)
@@ -356,7 +340,7 @@ class AnnouncementsService:
         query: AnnouncementFeedQuery,
     ) -> int:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
+        actor_user_id = parse_actor_user_id(actor)
         self._require_feed_access(actor=actor, project_id=query.project_id)
         project_uuid = self._resolve_scope_project_id(query.project_id)
         async with SqlAlchemyUnitOfWork(session_factory) as uow:

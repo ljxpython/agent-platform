@@ -12,7 +12,6 @@ check_url() {
 echo "== http health =="
 check_url "runtime-service" "http://127.0.0.1:8123/info"
 check_url "interaction-data-service" "http://127.0.0.1:8081/_service/health"
-check_url "platform-api" "http://127.0.0.1:2024/_proxy/health"
 check_url "platform-api-v2" "http://127.0.0.1:2142/_system/health"
 check_url "platform-web-vue" "http://127.0.0.1:3000"
 

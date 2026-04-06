@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.schemas import OffsetPage
 from app.modules.runtime_policies.domain import (
     RuntimeGraphPolicyItem,
     RuntimeGraphPolicyValue,
@@ -37,25 +38,16 @@ class UpsertRuntimeModelPolicyCommand(BaseModel):
     note: str | None = Field(default=None, max_length=4000)
 
 
-class RuntimeGraphPolicyList(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[RuntimeGraphPolicyItem]
-    total: int
+class RuntimeGraphPolicyList(OffsetPage[RuntimeGraphPolicyItem]):
+    pass
 
 
-class RuntimeToolPolicyList(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[RuntimeToolPolicyItem]
-    total: int
+class RuntimeToolPolicyList(OffsetPage[RuntimeToolPolicyItem]):
+    pass
 
 
-class RuntimeModelPolicyList(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[RuntimeModelPolicyItem]
-    total: int
+class RuntimeModelPolicyList(OffsetPage[RuntimeModelPolicyItem]):
+    pass
 
 
 __all__ = [
@@ -72,4 +64,3 @@ __all__ = [
     "UpsertRuntimeModelPolicyCommand",
     "UpsertRuntimeToolPolicyCommand",
 ]
-

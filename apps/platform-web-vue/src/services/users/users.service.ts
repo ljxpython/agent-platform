@@ -1,5 +1,4 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { platformV2HttpClient } from '@/services/http/client'
 import type {
   ManagementUser,
   ManagementUserListResponse,
@@ -12,12 +11,8 @@ type UserServiceOptions = {
   mode?: UserServiceMode
 }
 
-function useRuntimeUsersApi(options?: UserServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('users') === 'v2'
-}
-
 export async function getMe(): Promise<ManagementUser> {
-  const response = await httpClient.get('/_management/users/me')
+  const response = await platformV2HttpClient.get('/api/identity/me')
   return response.data as ManagementUser
 }
 
@@ -25,7 +20,7 @@ export async function updateMe(payload: {
   username?: string
   email?: string
 }): Promise<ManagementUser> {
-  const response = await httpClient.patch('/_management/users/me', payload)
+  const response = await platformV2HttpClient.patch('/api/identity/me', payload)
   return response.data as ManagementUser
 }
 
@@ -35,11 +30,8 @@ export async function listUsersPage(options?: {
   query?: string
   status?: string
   excludeUserIds?: string[]
-}, requestOptions?: UserServiceOptions): Promise<ManagementUserListResponse> {
-  const useRuntimeApi = useRuntimeUsersApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/users' : '/_management/users'
-  const response = await client.get(endpoint, {
+}, _requestOptions?: UserServiceOptions): Promise<ManagementUserListResponse> {
+  const response = await platformV2HttpClient.get('/api/users', {
     params: {
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
@@ -59,36 +51,27 @@ export async function createUser(payload: {
   username: string
   password: string
   is_super_admin?: boolean
-}, requestOptions?: UserServiceOptions): Promise<ManagementUser> {
-  const useRuntimeApi = useRuntimeUsersApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/users' : '/_management/users'
-  const response = await client.post(endpoint, payload)
+}, _requestOptions?: UserServiceOptions): Promise<ManagementUser> {
+  const response = await platformV2HttpClient.post('/api/users', payload)
   return response.data as ManagementUser
 }
 
 export async function getUser(
   userId: string,
-  requestOptions?: UserServiceOptions
+  _requestOptions?: UserServiceOptions
 ): Promise<ManagementUser> {
-  const useRuntimeApi = useRuntimeUsersApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? `/api/users/${userId}` : `/_management/users/${userId}`
-  const response = await client.get(endpoint)
+  const response = await platformV2HttpClient.get(`/api/users/${userId}`)
   return response.data as ManagementUser
 }
 
 export async function listUserProjects(
   userId: string,
-  requestOptions?: UserServiceOptions
+  _requestOptions?: UserServiceOptions
 ): Promise<{
   items: ManagementUserProject[]
   total: number
 }> {
-  const useRuntimeApi = useRuntimeUsersApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? `/api/users/${userId}/projects` : `/_management/users/${userId}/projects`
-  const response = await client.get(endpoint)
+  const response = await platformV2HttpClient.get(`/api/users/${userId}/projects`)
   const payload = response.data as {
     items?: ManagementUserProject[]
     total?: number
@@ -108,11 +91,8 @@ export async function updateUser(
     status?: 'active' | 'disabled'
     is_super_admin?: boolean
   },
-  requestOptions?: UserServiceOptions
+  _requestOptions?: UserServiceOptions
 ): Promise<ManagementUser> {
-  const useRuntimeApi = useRuntimeUsersApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? `/api/users/${userId}` : `/_management/users/${userId}`
-  const response = await client.patch(endpoint, payload)
+  const response = await platformV2HttpClient.patch(`/api/users/${userId}`, payload)
   return response.data as ManagementUser
 }

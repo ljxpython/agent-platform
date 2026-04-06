@@ -1,15 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { bootstrapPlatformV2Session, login as loginRequest } from '@/services/auth/auth.service'
+import { login as loginRequest, logout as logoutRequest } from '@/services/auth/auth.service'
 import {
   clearAllTokenSets,
-  clearTokenSet,
   getAccessToken,
+  getRefreshToken,
   getTokenSet,
   setTokenSet
 } from '@/services/auth/token'
 import { getCurrentProfile } from '@/services/identity/identity.service'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
 import type { AuthTokenSet, ManagementUser } from '@/types/management'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -27,10 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const nextUser =
-        resolvePlatformClientScope('identity') === 'v2'
-          ? await getCurrentProfile({ mode: 'runtime' }).catch(() => getCurrentProfile())
-          : await getCurrentProfile()
+      const nextUser = await getCurrentProfile()
       user.value = nextUser
       return nextUser
     } catch {
@@ -66,12 +62,6 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       setTokenSet(tokenSet)
-      const v2TokenSet = await bootstrapPlatformV2Session(payload)
-      if (v2TokenSet) {
-        setTokenSet(v2TokenSet, 'v2')
-      } else {
-        clearTokenSet('v2')
-      }
       await fetchCurrentUser()
       hydrated.value = true
     } finally {
@@ -80,8 +70,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    const refreshToken = getRefreshToken()
     clearAllTokenSets()
     user.value = null
+    if (refreshToken) {
+      void logoutRequest(refreshToken).catch(() => {
+        // ignore logout upstream failure after local session is cleared
+      })
+    }
   }
 
   return {

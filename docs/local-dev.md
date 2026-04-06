@@ -8,18 +8,21 @@
 
 ## 1. 固定端口与链路
 
-以下内容对应 contract 中的默认五服务 profile。
+以下内容对应 contract 中的正式本地演示 profile。
 
 - `apps/runtime-service`: `8123`
-- `apps/interaction-data-service`: `8090`
-- `apps/platform-api`: `2024`
+- `apps/interaction-data-service`: `8081`
+- `apps/platform-api-v2`: `2142`
 - `apps/platform-web-vue`: `3000`
+
+可选调试入口：
+
 - `apps/runtime-web`: `3001`
 
 当前默认链路：
 
-- `platform-web-vue` -> `platform-api` -> `runtime-service`
-- `platform-api` / `runtime-service` -> `interaction-data-service`
+- `platform-web-vue` -> `platform-api-v2` -> `runtime-service`
+- `platform-api-v2` / `runtime-service` -> `interaction-data-service`
 - `runtime-web` -> `runtime-service`
 
 ## 2. 配置文件口径
@@ -30,10 +33,12 @@
 - `apps/platform-web-vue/.env.example`
 - `apps/platform-web-vue/.env`
 - `apps/platform-web-vue/.env.local`
-- `apps/runtime-web/.env`
+- `apps/platform-api-v2/.env`
+- `apps/platform-api-v2/deploy/env/local.example.env`
 - `apps/interaction-data-service/.env`
 - `apps/runtime-service/runtime_service/.env`
 - `apps/runtime-service/runtime_service/conf/settings.yaml`
+- `apps/runtime-web/.env`（仅在启用 runtime-web 时）
 
 本地联调时，`runtime-web` 应直连 `http://localhost:8123`，不要沿用旧模板里的 `http://localhost:2024`。
 
@@ -41,9 +46,9 @@
 
 1. 启动 `runtime-service`
 2. 启动 `interaction-data-service`
-3. 启动 `platform-api`
+3. 启动 `platform-api-v2`
 4. 启动 `platform-web-vue`
-5. 启动 `runtime-web`
+5. 如需 runtime 调试，再启动 `runtime-web`
 
 ## 4. 各应用启动命令
 
@@ -65,14 +70,15 @@ uv run langgraph dev --config runtime_service/langgraph.json --port 8123 --no-br
 
 ```bash
 cd apps/interaction-data-service
-uv run uvicorn main:app --host 0.0.0.0 --port 8090 --reload
+uv run uvicorn main:app --host 127.0.0.1 --port 8081 --reload
 ```
 
-### 4.3 `apps/platform-api`
+### 4.3 `apps/platform-api-v2`
 
 ```bash
-cd apps/platform-api
-uv run uvicorn main:app --host 0.0.0.0 --port 2024 --reload
+cd apps/platform-api-v2
+cp deploy/env/local.example.env .env
+uv run uvicorn main:app --host 127.0.0.1 --port 2142 --reload
 ```
 
 ### 4.4 `apps/platform-web-vue`
@@ -82,7 +88,7 @@ cd apps/platform-web-vue
 VITE_DEV_PORT=3000 pnpm dev
 ```
 
-### 4.5 `apps/runtime-web`
+### 4.5 `apps/runtime-web`（可选）
 
 ```bash
 cd apps/runtime-web
@@ -94,7 +100,7 @@ PORT=3001 pnpm dev
 ### 5.0 `interaction-data-service`
 
 ```bash
-curl http://127.0.0.1:8090/_service/health
+curl http://127.0.0.1:8081/_service/health
 ```
 
 ### 5.1 `runtime-service`
@@ -105,11 +111,11 @@ curl http://127.0.0.1:8123/internal/capabilities/models
 curl http://127.0.0.1:8123/internal/capabilities/tools
 ```
 
-### 5.2 `platform-api`
+### 5.2 `platform-api-v2`
 
 ```bash
-curl http://127.0.0.1:2024/_proxy/health
-curl http://127.0.0.1:2024/api/langgraph/info
+curl http://127.0.0.1:2142/_system/health
+curl http://127.0.0.1:2142/api/langgraph/info
 ```
 
 ### 5.3 页面访问
@@ -117,7 +123,7 @@ curl http://127.0.0.1:2024/api/langgraph/info
 - `platform-web-vue`: `http://127.0.0.1:3000`
 - `runtime-web`: `http://127.0.0.1:3001`
 
-如果 `platform-api` 的 `/api/langgraph/info` 返回 `200`，说明平台到 runtime 的主联调链路已经打通。
+如果 `platform-api-v2` 的 `/api/langgraph/info` 返回 `200`，说明平台到 runtime 的主联调链路已经打通。
 
 ## 6. 根级快捷脚本
 
@@ -143,4 +149,5 @@ scripts/dev-down.sh
 - 不共享 Node 依赖
 - 不共享根级 `.env`
 - `apps/platform-web` 仅作为历史兼容入口保留，不再作为默认本地部署前端
-- 先保证默认五服务启动集可独立运行，再处理统一工具链或更深层重构
+- `apps/platform-api` 仅作为历史控制面保留，不再属于正式演示主链
+- 先保证正式四服务演示链路可独立运行，再处理可选调试入口和更深层重构

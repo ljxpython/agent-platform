@@ -93,6 +93,8 @@ class TestcaseDocumentsExportExecutor(OperationExecutorProtocol):
                 "filename": filename,
                 "media_type": media_type,
                 "artifact_ready": True,
+                "artifact_storage_backend": artifact.get("storage_backend"),
+                "artifact_expires_at": artifact.get("expires_at"),
                 "_artifact": artifact,
             },
             metadata={
@@ -152,6 +154,8 @@ class TestcaseCasesExportExecutor(OperationExecutorProtocol):
                 "filename": filename,
                 "media_type": media_type,
                 "artifact_ready": True,
+                "artifact_storage_backend": artifact.get("storage_backend"),
+                "artifact_expires_at": artifact.get("expires_at"),
                 "_artifact": artifact,
             },
             metadata={

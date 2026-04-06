@@ -1,5 +1,4 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { platformV2HttpClient } from '@/services/http/client'
 import type { ManagementProject, ManagementProjectListResponse } from '@/types/management'
 
 export type ProjectServiceMode = 'legacy' | 'runtime'
@@ -8,19 +7,12 @@ type ProjectServiceOptions = {
   mode?: ProjectServiceMode
 }
 
-function useRuntimeProjectsApi(options?: ProjectServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('projects') === 'v2'
-}
-
 export async function listProjectsPage(options?: {
   limit?: number
   offset?: number
   query?: string
-}, requestOptions?: ProjectServiceOptions): Promise<ManagementProjectListResponse> {
-  const useRuntimeApi = useRuntimeProjectsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/projects' : '/_management/projects'
-  const response = await client.get(endpoint, {
+}, _requestOptions?: ProjectServiceOptions): Promise<ManagementProjectListResponse> {
+  const response = await platformV2HttpClient.get('/api/projects', {
     params: {
       limit: options?.limit ?? 100,
       offset: options?.offset ?? 0,
@@ -53,11 +45,8 @@ export async function listRuntimeProjects(): Promise<ManagementProject[]> {
 export async function createProject(payload: {
   name: string
   description?: string
-}, requestOptions?: ProjectServiceOptions): Promise<ManagementProject> {
-  const useRuntimeApi = useRuntimeProjectsApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/projects' : '/_management/projects'
-  const response = await client.post(endpoint, payload)
+}, _requestOptions?: ProjectServiceOptions): Promise<ManagementProject> {
+  const response = await platformV2HttpClient.post('/api/projects', payload)
   return response.data as ManagementProject
 }
 

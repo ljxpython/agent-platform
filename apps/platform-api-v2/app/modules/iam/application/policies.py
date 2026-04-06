@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from app.core.context.models import ActorContext
-from app.core.errors import ForbiddenError, NotAuthenticatedError
+from app.core.errors import BadRequestError, ForbiddenError, NotAuthenticatedError, PlatformApiError
 from app.modules.iam.domain.roles import PlatformRole, ProjectRole
 
 
@@ -18,6 +18,8 @@ class PermissionCode(StrEnum):
     PLATFORM_OPERATION_WRITE = "platform.operation.write"
     PLATFORM_CONFIG_READ = "platform.config.read"
     PLATFORM_CONFIG_WRITE = "platform.config.write"
+    PLATFORM_SERVICE_ACCOUNT_READ = "platform.service_account.read"
+    PLATFORM_SERVICE_ACCOUNT_WRITE = "platform.service_account.write"
     PROJECT_MEMBER_READ = "project.member.read"
     PROJECT_MEMBER_WRITE = "project.member.write"
     PROJECT_AUDIT_READ = "project.audit.read"
@@ -31,6 +33,17 @@ class PermissionCode(StrEnum):
     PROJECT_TESTCASE_WRITE = "project.testcase.write"
     PROJECT_OPERATION_READ = "project.operation.read"
     PROJECT_OPERATION_WRITE = "project.operation.write"
+
+
+class PolicyReason(StrEnum):
+    NOT_AUTHENTICATED = "not_authenticated"
+    PLATFORM_SUPER_ADMIN = "platform_super_admin"
+    PLATFORM_ROLE_ALLOWED = "platform_role_allowed"
+    PROJECT_ROLE_ALLOWED = "project_role_allowed"
+    MISSING_PLATFORM_ROLE = "missing_platform_role"
+    PROJECT_SCOPE_REQUIRED = "project_scope_required"
+    MISSING_PROJECT_ROLE = "missing_project_role"
+    PERMISSION_NOT_REGISTERED = "permission_not_registered"
 
 
 PLATFORM_PERMISSION_MAP: dict[PermissionCode, frozenset[PlatformRole]] = {
@@ -59,6 +72,12 @@ PLATFORM_PERMISSION_MAP: dict[PermissionCode, frozenset[PlatformRole]] = {
         {PlatformRole.SUPER_ADMIN, PlatformRole.OPERATOR, PlatformRole.VIEWER}
     ),
     PermissionCode.PLATFORM_CONFIG_WRITE: frozenset(
+        {PlatformRole.SUPER_ADMIN, PlatformRole.OPERATOR}
+    ),
+    PermissionCode.PLATFORM_SERVICE_ACCOUNT_READ: frozenset(
+        {PlatformRole.SUPER_ADMIN, PlatformRole.OPERATOR, PlatformRole.VIEWER}
+    ),
+    PermissionCode.PLATFORM_SERVICE_ACCOUNT_WRITE: frozenset(
         {PlatformRole.SUPER_ADMIN, PlatformRole.OPERATOR}
     ),
 }
@@ -115,7 +134,7 @@ class AuthorizationRequest:
 @dataclass(frozen=True, slots=True)
 class PolicyDecision:
     allowed: bool
-    reason: str
+    reason: PolicyReason
 
 
 class IamPolicyEngine:
@@ -126,30 +145,30 @@ class IamPolicyEngine:
         authorization: AuthorizationRequest,
     ) -> PolicyDecision:
         if not actor.is_authenticated:
-            return PolicyDecision(allowed=False, reason="not_authenticated")
+            return PolicyDecision(allowed=False, reason=PolicyReason.NOT_AUTHENTICATED)
 
         if actor.has_platform_role(PlatformRole.SUPER_ADMIN.value):
-            return PolicyDecision(allowed=True, reason="platform_super_admin")
+            return PolicyDecision(allowed=True, reason=PolicyReason.PLATFORM_SUPER_ADMIN)
 
         permission = authorization.permission
         if permission in PLATFORM_PERMISSION_MAP:
             required_roles = PLATFORM_PERMISSION_MAP[permission]
             matched = {PlatformRole(role) for role in actor.platform_roles if role in required_roles}
             if matched:
-                return PolicyDecision(allowed=True, reason="platform_role_allowed")
-            return PolicyDecision(allowed=False, reason="missing_platform_role")
+                return PolicyDecision(allowed=True, reason=PolicyReason.PLATFORM_ROLE_ALLOWED)
+            return PolicyDecision(allowed=False, reason=PolicyReason.MISSING_PLATFORM_ROLE)
 
         if permission in PROJECT_PERMISSION_MAP:
             if not authorization.project_id:
-                return PolicyDecision(allowed=False, reason="project_scope_required")
+                return PolicyDecision(allowed=False, reason=PolicyReason.PROJECT_SCOPE_REQUIRED)
             actor_roles = actor.project_role_set(authorization.project_id)
             required_roles = PROJECT_PERMISSION_MAP[permission]
             matched = {ProjectRole(role) for role in actor_roles if role in required_roles}
             if matched:
-                return PolicyDecision(allowed=True, reason="project_role_allowed")
-            return PolicyDecision(allowed=False, reason="missing_project_role")
+                return PolicyDecision(allowed=True, reason=PolicyReason.PROJECT_ROLE_ALLOWED)
+            return PolicyDecision(allowed=False, reason=PolicyReason.MISSING_PROJECT_ROLE)
 
-        return PolicyDecision(allowed=False, reason="permission_not_registered")
+        return PolicyDecision(allowed=False, reason=PolicyReason.PERMISSION_NOT_REGISTERED)
 
     def require(
         self,
@@ -160,6 +179,31 @@ class IamPolicyEngine:
         decision = self.evaluate(actor=actor, authorization=authorization)
         if decision.allowed:
             return
-        if decision.reason == "not_authenticated":
+        if decision.reason is PolicyReason.NOT_AUTHENTICATED:
             raise NotAuthenticatedError()
-        raise ForbiddenError(code="policy_denied", message=decision.reason)
+        if decision.reason is PolicyReason.PROJECT_SCOPE_REQUIRED:
+            raise BadRequestError(
+                code=PolicyReason.PROJECT_SCOPE_REQUIRED.value,
+                message="Project scope required",
+            )
+        if decision.reason is PolicyReason.MISSING_PLATFORM_ROLE:
+            raise ForbiddenError(
+                code="platform_role_missing",
+                message="Platform role missing",
+            )
+        if decision.reason is PolicyReason.MISSING_PROJECT_ROLE:
+            raise ForbiddenError(
+                code="project_role_missing",
+                message="Project role missing",
+            )
+        if decision.reason is PolicyReason.PERMISSION_NOT_REGISTERED:
+            raise PlatformApiError(
+                code=PolicyReason.PERMISSION_NOT_REGISTERED.value,
+                status_code=500,
+                message="Permission not registered",
+            )
+        raise PlatformApiError(
+            code="policy_engine_unhandled_reason",
+            status_code=500,
+            message=f"Unhandled policy decision reason: {decision.reason.value}",
+        )

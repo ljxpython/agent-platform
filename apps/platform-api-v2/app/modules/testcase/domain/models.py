@@ -5,6 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.schemas import OffsetPage
+
 
 class TestcaseOverview(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -36,11 +38,8 @@ class TestcaseBatchSummary(BaseModel):
     parse_status_summary: dict[str, int] = Field(default_factory=dict)
 
 
-class TestcaseBatchPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[TestcaseBatchSummary] = Field(default_factory=list)
-    total: int = 0
+class TestcaseBatchPage(OffsetPage[TestcaseBatchSummary]):
+    pass
 
 
 class TestcaseBatchDetailCase(BaseModel):
@@ -56,11 +55,8 @@ class TestcaseBatchDetailCase(BaseModel):
     updated_at: datetime | None = None
 
 
-class TestcaseBatchDetailCasePage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[TestcaseBatchDetailCase] = Field(default_factory=list)
-    total: int = 0
+class TestcaseBatchDetailCasePage(OffsetPage[TestcaseBatchDetailCase]):
+    pass
 
 
 class TestcaseDocument(BaseModel):
@@ -83,11 +79,8 @@ class TestcaseDocument(BaseModel):
     created_at: datetime
 
 
-class TestcaseDocumentPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[TestcaseDocument] = Field(default_factory=list)
-    total: int = 0
+class TestcaseDocumentPage(OffsetPage[TestcaseDocument]):
+    pass
 
 
 class TestcaseDocumentRelationCase(BaseModel):
@@ -129,11 +122,8 @@ class TestcaseCase(BaseModel):
     updated_at: datetime
 
 
-class TestcaseCasePage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[TestcaseCase] = Field(default_factory=list)
-    total: int = 0
+class TestcaseCasePage(OffsetPage[TestcaseCase]):
+    pass
 
 
 class TestcaseBatchDetail(BaseModel):

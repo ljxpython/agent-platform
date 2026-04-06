@@ -26,15 +26,64 @@ def get_platform_config_service(request: Request) -> PlatformConfigService:
 async def health(
     request: Request,
     context: RequestContext = Depends(get_request_context),
+    service: PlatformConfigService = Depends(get_platform_config_service),
 ) -> dict[str, str]:
     settings = request.app.state.settings
+    session_factory = getattr(request.app.state, "db_session_factory", None)
+    database_ready = not settings.platform_db_enabled or session_factory is not None
+    observability = await service.get_observability_snapshot()
+    workers = observability["workers"]
+    healthy_workers = int(workers["healthy_count"])
+    degraded = settings.platform_db_enabled and healthy_workers == 0
     return {
-        "status": "ok",
+        "status": "degraded" if degraded else "ok",
         "service": settings.app_name,
         "version": settings.app_version,
         "env": settings.app_env,
         "request_id": context.request_id,
+        "trace_id": context.trace_id,
+        "database_ready": str(database_ready).lower(),
+        "healthy_workers": str(healthy_workers),
     }
+
+
+@router.get("/probes/live")
+async def live_probe(request: Request) -> dict[str, object]:
+    settings = request.app.state.settings
+    return {
+        "status": "alive",
+        "service": settings.app_name,
+        "version": settings.app_version,
+    }
+
+
+@router.get("/probes/ready")
+async def ready_probe(
+    request: Request,
+    service: PlatformConfigService = Depends(get_platform_config_service),
+) -> dict[str, object]:
+    settings = request.app.state.settings
+    session_factory = getattr(request.app.state, "db_session_factory", None)
+    database_ready = not settings.platform_db_enabled or session_factory is not None
+    observability = await service.get_observability_snapshot()
+    workers = observability["workers"]
+    ready = database_ready and (
+        not settings.platform_db_enabled or int(workers["healthy_count"]) > 0
+    )
+    return {
+        "status": "ready" if ready else "not_ready",
+        "database_ready": database_ready,
+        "healthy_workers": workers["healthy_count"],
+        "stale_workers": workers["stale_count"],
+    }
+
+
+@router.get("/metrics")
+async def metrics(
+    actor: ActorContext = Depends(get_actor_context),
+    service: PlatformConfigService = Depends(get_platform_config_service),
+) -> dict[str, object]:
+    return await service.get_observability_snapshot_for_actor(actor=actor)
 
 
 @router.get("/platform-config")

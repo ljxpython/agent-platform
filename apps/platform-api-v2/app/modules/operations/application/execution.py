@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from app.core.context import get_current_request_context
 from app.core.context.models import ActorContext
 from app.modules.operations.application.ports import (
     OperationDispatcherProtocol,
@@ -11,6 +12,7 @@ from app.modules.operations.application.ports import (
 )
 
 _ACTOR_SNAPSHOT_KEY = "actor_snapshot"
+_REQUEST_CHAIN_KEY = "_request_chain"
 
 
 class DatabasePollingOperationDispatcher(OperationDispatcherProtocol):
@@ -42,6 +44,20 @@ def with_actor_snapshot(*, metadata: Mapping[str, Any], actor: ActorContext) -> 
             for project_id, roles in actor.project_roles.items()
         },
     }
+    try:
+        request_context = get_current_request_context()
+    except RuntimeError:
+        request_context = None
+
+    if request_context is not None:
+        enriched[_REQUEST_CHAIN_KEY] = {
+            "request_id": request_context.request.request_id,
+            "trace_id": request_context.request.trace_id,
+            "method": request_context.request.method,
+            "path": request_context.request.path,
+            "project_id": request_context.project.project_id,
+            "tenant_id": request_context.tenant.tenant_id,
+        }
     return enriched
 
 

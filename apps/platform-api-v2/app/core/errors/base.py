@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from app.core.errors.payload import build_error_payload
+
 
 class PlatformApiError(Exception):
     def __init__(
@@ -22,18 +24,13 @@ class PlatformApiError(Exception):
         self.extra = dict(extra or {})
 
     def to_payload(self, *, request_id: str | None) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "error": {
-                "code": self.code,
-                "message": self.message,
-                "details": self.details,
-            }
-        }
-        if request_id:
-            payload["request_id"] = request_id
-        if self.extra:
-            payload["error"]["extra"] = self.extra
-        return payload
+        return build_error_payload(
+            code=self.code,
+            message=self.message,
+            request_id=request_id,
+            details=self.details,
+            extra=self.extra,
+        )
 
 
 class BadRequestError(PlatformApiError):

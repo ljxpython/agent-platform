@@ -4,6 +4,16 @@
 
 > `operations` 从“有表有接口”升级成“能被 worker 真实捞起执行”。
 
+补充说明：
+
+- 本文记录的是 `phase-3 / P0` 时点的最小 worker 方案
+- `phase-4 / P1` 已继续补上：
+  - artifact 生命周期治理
+  - `redis_list` queue backend
+- 以当前口径为准时，请同时参考：
+  - `phase-4-p1-artifact-lifecycle.md`
+  - `phase-4-p1-redis-queue.md`
+
 ## 1. 本轮落地结果
 
 已经落地：
@@ -201,7 +211,7 @@ pnpm --dir apps/platform-web-vue dev
 当前 worker 是最小实现，还没做：
 
 - 多 worker 并发 claim 的强化锁策略
-- Redis queue / retry / dead letter
+- dead letter / pending replay / 高级多消费者治理
 - worker 心跳、指标、告警
 - operation 通知中心 / WebSocket 推送
-- artifact 生命周期治理（保留期、清理、对象存储外接）
+- 对象存储外接的正式 backend 实现

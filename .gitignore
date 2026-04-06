@@ -348,6 +348,7 @@ test_*.py
 # 但保留重要的测试配置文件和源码目录
 !/uitest/tests/
 !/uitest/tests-examples/
+!/apps/platform-api-v2/tests/test_*.py
 !/uitest/playwright.config.ts
 !/uitest/package.json
 !/tests/

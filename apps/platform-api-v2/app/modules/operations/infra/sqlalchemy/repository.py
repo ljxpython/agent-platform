@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.modules.operations.application.ports import StoredOperation
@@ -26,6 +27,7 @@ def _to_stored_operation(record: OperationRecord) -> StoredOperation:
         cancel_requested_at=record.cancel_requested_at,
         started_at=record.started_at,
         finished_at=record.finished_at,
+        archived_at=record.archived_at,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -65,11 +67,8 @@ class SqlAlchemyOperationsRepository:
         return _to_stored_operation(record)
 
     def get_by_id(self, operation_id: str) -> StoredOperation | None:
-        try:
-            from uuid import UUID
-
-            operation_uuid = UUID(operation_id)
-        except ValueError:
+        operation_uuid = self._parse_uuid(operation_id)
+        if operation_uuid is None:
             return None
 
         record = self.session.get(OperationRecord, operation_uuid)
@@ -98,8 +97,11 @@ class SqlAlchemyOperationsRepository:
         *,
         project_id: str | None,
         kind: str | None,
+        kinds: tuple[str, ...],
         status: str | None,
+        statuses: tuple[str, ...],
         requested_by: str | None,
+        archive_scope: str,
         limit: int,
         offset: int,
     ) -> tuple[list[StoredOperation], int]:
@@ -108,15 +110,23 @@ class SqlAlchemyOperationsRepository:
             filters.append(OperationRecord.project_id == project_id)
         if kind is not None:
             filters.append(OperationRecord.kind == kind)
+        elif kinds:
+            filters.append(OperationRecord.kind.in_(kinds))
         if status is not None:
             filters.append(OperationRecord.status == status)
+        elif statuses:
+            filters.append(OperationRecord.status.in_(statuses))
         if requested_by is not None:
             filters.append(OperationRecord.requested_by == requested_by)
+        if archive_scope == "exclude":
+            filters.append(OperationRecord.archived_at.is_(None))
+        elif archive_scope == "only":
+            filters.append(OperationRecord.archived_at.is_not(None))
 
         stmt = (
             select(OperationRecord)
             .where(*filters)
-            .order_by(OperationRecord.created_at.desc())
+            .order_by(OperationRecord.archived_at.asc().nullsfirst(), OperationRecord.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -133,15 +143,13 @@ class SqlAlchemyOperationsRepository:
         status: OperationStatus,
         result_payload: dict | None = None,
         error_payload: dict | None = None,
+        metadata: dict | None = None,
         cancel_requested_at: datetime | None = None,
         started_at: datetime | None = None,
         finished_at: datetime | None = None,
     ) -> StoredOperation | None:
-        try:
-            from uuid import UUID
-
-            operation_uuid = UUID(operation_id)
-        except ValueError:
+        operation_uuid = self._parse_uuid(operation_id)
+        if operation_uuid is None:
             return None
 
         record = self.session.get(OperationRecord, operation_uuid)
@@ -153,6 +161,8 @@ class SqlAlchemyOperationsRepository:
             record.result_payload = result_payload
         if error_payload is not None:
             record.error_payload = error_payload
+        if metadata is not None:
+            record.metadata_json = metadata
         if cancel_requested_at is not None:
             record.cancel_requested_at = cancel_requested_at
         if started_at is not None:
@@ -172,14 +182,245 @@ class SqlAlchemyOperationsRepository:
         stmt = select(OperationRecord).where(OperationRecord.status == OperationStatus.SUBMITTED.value)
         if supported_kinds:
             stmt = stmt.where(OperationRecord.kind.in_(supported_kinds))
-        stmt = stmt.order_by(OperationRecord.created_at.asc()).limit(1)
+        stmt = stmt.order_by(OperationRecord.created_at.asc()).limit(8)
 
-        record = self.session.scalar(stmt)
+        records = list(self.session.scalars(stmt).all())
+        for record in records:
+            claimed_metadata = _mark_claimed_metadata(record.metadata_json or {}, started_at=started_at)
+            claim_stmt = (
+                update(OperationRecord)
+                .where(
+                    OperationRecord.id == record.id,
+                    OperationRecord.status == OperationStatus.SUBMITTED.value,
+                )
+                .values(
+                    status=OperationStatus.RUNNING.value,
+                    started_at=started_at,
+                    metadata_json=claimed_metadata,
+                    updated_at=func.now(),
+                )
+            )
+            result = self.session.execute(claim_stmt)
+            if int(result.rowcount or 0) != 1:
+                continue
+
+            self.session.flush()
+            refreshed = self.session.get(OperationRecord, record.id)
+            if refreshed is not None:
+                return _to_stored_operation(refreshed)
+        return None
+
+    def claim_submitted_by_id(
+        self,
+        *,
+        operation_id: str,
+        started_at: datetime,
+    ) -> StoredOperation | None:
+        operation_uuid = self._parse_uuid(operation_id)
+        if operation_uuid is None:
+            return None
+
+        record = self.session.get(OperationRecord, operation_uuid)
+        if record is None or record.status != OperationStatus.SUBMITTED.value:
+            return None
+
+        claimed_metadata = _mark_claimed_metadata(record.metadata_json or {}, started_at=started_at)
+        claim_stmt = (
+            update(OperationRecord)
+            .where(
+                OperationRecord.id == operation_uuid,
+                OperationRecord.status == OperationStatus.SUBMITTED.value,
+            )
+            .values(
+                status=OperationStatus.RUNNING.value,
+                started_at=started_at,
+                metadata_json=claimed_metadata,
+                updated_at=func.now(),
+            )
+        )
+        result = self.session.execute(claim_stmt)
+        if int(result.rowcount or 0) != 1:
+            return None
+
+        self.session.flush()
+        refreshed = self.session.get(OperationRecord, operation_uuid)
+        return _to_stored_operation(refreshed) if refreshed is not None else None
+
+    def requeue_operation(
+        self,
+        *,
+        operation_id: str,
+        error_payload: dict,
+        metadata: dict,
+    ) -> StoredOperation | None:
+        operation_uuid = self._parse_uuid(operation_id)
+        if operation_uuid is None:
+            return None
+
+        record = self.session.get(OperationRecord, operation_uuid)
         if record is None:
             return None
 
-        record.status = OperationStatus.RUNNING.value
-        record.started_at = started_at
+        record.status = OperationStatus.SUBMITTED.value
+        record.error_payload = error_payload
+        record.metadata_json = metadata
+        record.started_at = None
+        record.finished_at = None
         self.session.flush()
         self.session.refresh(record)
         return _to_stored_operation(record)
+
+    def bulk_cancel_operations(
+        self,
+        *,
+        operation_ids: tuple[str, ...],
+        cancel_requested_at: datetime,
+        terminal_statuses: tuple[str, ...],
+    ) -> tuple[list[StoredOperation], list[str]]:
+        updated: list[StoredOperation] = []
+        skipped_ids: list[str] = []
+
+        for operation_uuid, original_id in self._parse_operation_ids(operation_ids):
+            record = self.session.get(OperationRecord, operation_uuid)
+            if record is None or record.status in terminal_statuses:
+                skipped_ids.append(original_id)
+                continue
+            record.status = OperationStatus.CANCELLED.value
+            record.cancel_requested_at = cancel_requested_at
+            record.finished_at = cancel_requested_at
+            updated.append(_to_stored_operation(record))
+
+        self.session.flush()
+        return updated, skipped_ids
+
+    def bulk_archive_operations(
+        self,
+        *,
+        operation_ids: tuple[str, ...],
+        archived_at: datetime,
+        terminal_statuses: tuple[str, ...],
+    ) -> tuple[list[StoredOperation], list[str]]:
+        updated: list[StoredOperation] = []
+        skipped_ids: list[str] = []
+
+        for operation_uuid, original_id in self._parse_operation_ids(operation_ids):
+            record = self.session.get(OperationRecord, operation_uuid)
+            if (
+                record is None
+                or record.status not in terminal_statuses
+                or record.archived_at is not None
+            ):
+                skipped_ids.append(original_id)
+                continue
+            record.archived_at = archived_at
+            updated.append(_to_stored_operation(record))
+
+        self.session.flush()
+        return updated, skipped_ids
+
+    def bulk_restore_operations(
+        self,
+        *,
+        operation_ids: tuple[str, ...],
+    ) -> tuple[list[StoredOperation], list[str]]:
+        updated: list[StoredOperation] = []
+        skipped_ids: list[str] = []
+
+        for operation_uuid, original_id in self._parse_operation_ids(operation_ids):
+            record = self.session.get(OperationRecord, operation_uuid)
+            if record is None or record.archived_at is None:
+                skipped_ids.append(original_id)
+                continue
+            record.archived_at = None
+            updated.append(_to_stored_operation(record))
+
+        self.session.flush()
+        return updated, skipped_ids
+
+    def summarize_operations(self) -> dict[str, object]:
+        status_rows = self.session.execute(
+            select(OperationRecord.status, func.count()).group_by(OperationRecord.status)
+        ).all()
+        counts_by_status = {
+            str(status): int(count or 0)
+            for status, count in status_rows
+        }
+        archived_count = int(
+            self.session.scalar(
+                select(func.count())
+                .select_from(OperationRecord)
+                .where(OperationRecord.archived_at.is_not(None))
+            )
+            or 0
+        )
+        duration_stats = self.session.execute(
+            select(
+                func.avg(
+                    (
+                        func.julianday(OperationRecord.finished_at)
+                        - func.julianday(OperationRecord.started_at)
+                    )
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                ),
+                func.max(
+                    (
+                        func.julianday(OperationRecord.finished_at)
+                        - func.julianday(OperationRecord.started_at)
+                    )
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                ),
+            ).where(
+                OperationRecord.started_at.is_not(None),
+                OperationRecord.finished_at.is_not(None),
+            )
+        ).one()
+        avg_duration_ms, max_duration_ms = duration_stats
+        return {
+            "counts_by_status": counts_by_status,
+            "queued": counts_by_status.get(OperationStatus.SUBMITTED.value, 0),
+            "running": counts_by_status.get(OperationStatus.RUNNING.value, 0),
+            "succeeded": counts_by_status.get(OperationStatus.SUCCEEDED.value, 0),
+            "failed": counts_by_status.get(OperationStatus.FAILED.value, 0),
+            "cancelled": counts_by_status.get(OperationStatus.CANCELLED.value, 0),
+            "archived": archived_count,
+            "avg_duration_ms": round(float(avg_duration_ms or 0.0), 2),
+            "max_duration_ms": round(float(max_duration_ms or 0.0), 2),
+        }
+
+    @staticmethod
+    def _parse_uuid(value: str) -> UUID | None:
+        try:
+            return UUID(value)
+        except ValueError:
+            return None
+
+    def _parse_operation_ids(self, operation_ids: tuple[str, ...]) -> list[tuple[UUID, str]]:
+        parsed: list[tuple[UUID, str]] = []
+        seen: set[UUID] = set()
+        for operation_id in operation_ids:
+            operation_uuid = self._parse_uuid(operation_id)
+            if operation_uuid is None or operation_uuid in seen:
+                continue
+            seen.add(operation_uuid)
+            parsed.append((operation_uuid, operation_id))
+        return parsed
+
+
+def _mark_claimed_metadata(metadata: dict, *, started_at: datetime) -> dict:
+    next_metadata = dict(metadata)
+    execution = next_metadata.get("_execution")
+    if not isinstance(execution, dict):
+        execution = {}
+
+    attempts = execution.get("attempts")
+    normalized_attempts = attempts if isinstance(attempts, int) and attempts >= 0 else 0
+    execution["attempts"] = normalized_attempts + 1
+    execution["last_claimed_at"] = started_at.isoformat()
+    next_metadata["_execution"] = execution
+    return next_metadata

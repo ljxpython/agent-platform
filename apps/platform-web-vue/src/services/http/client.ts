@@ -5,8 +5,7 @@ import {
   clearTokenSet,
   getAccessToken,
   getRefreshToken,
-  setTokenSet,
-  type AuthTokenScope
+  setTokenSet
 } from '@/services/auth/token'
 import type { AuthTokenSet } from '@/types/management'
 
@@ -14,59 +13,42 @@ type RetriableRequest = InternalAxiosRequestConfig & {
   _retry?: boolean
 }
 
-const refreshPromises: Partial<Record<AuthTokenScope, Promise<string> | null>> = {}
+let refreshPromise: Promise<string> | null = null
 
-type ScopeConfig = {
-  baseUrl: string
-  refreshPath: string
-  mapRefreshPayload: (payload: {
-    access_token?: string
-    refresh_token?: string
-    token_type?: string
-  }) => AuthTokenSet
-}
+const platformApiBaseUrl = env.platformApiUrl
+const platformAuthRefreshPath = '/api/identity/session/refresh'
 
-const scopeConfig: Record<AuthTokenScope, ScopeConfig> = {
-  legacy: {
-    baseUrl: env.platformApiUrl,
-    refreshPath: '/_management/auth/refresh',
-    mapRefreshPayload: (payload) => ({
-      accessToken: payload.access_token || '',
-      refreshToken: payload.refresh_token || '',
-      tokenType: payload.token_type || 'bearer'
-    })
-  },
-  v2: {
-    baseUrl: env.platformApiV2Url,
-    refreshPath: '/api/identity/session/refresh',
-    mapRefreshPayload: (payload) => ({
-      accessToken: payload.access_token || '',
-      refreshToken: payload.refresh_token || '',
-      tokenType: payload.token_type || 'bearer'
-    })
+function mapRefreshPayload(payload: {
+  access_token?: string
+  refresh_token?: string
+  token_type?: string
+}): AuthTokenSet {
+  return {
+    accessToken: payload.access_token || '',
+    refreshToken: payload.refresh_token || '',
+    tokenType: payload.token_type || 'bearer'
   }
 }
 
-async function refreshAccessToken(scope: AuthTokenScope): Promise<string> {
-  const refreshToken = getRefreshToken(scope)
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = getRefreshToken()
   if (!refreshToken) {
-    clearTokenSet(scope)
+    clearTokenSet()
     return ''
   }
 
-  if (refreshPromises[scope]) {
-    return refreshPromises[scope] as Promise<string>
+  if (refreshPromise) {
+    return refreshPromise
   }
 
-  const config = scopeConfig[scope]
-  refreshPromises[scope] = (async () => {
+  refreshPromise = (async () => {
     try {
       const response = await axios.post<{
         access_token: string
         refresh_token: string
         token_type?: string
       }>(
-        `${config.baseUrl}${config.refreshPath}`,
+        `${platformApiBaseUrl}${platformAuthRefreshPath}`,
         { refresh_token: refreshToken },
         {
           timeout: env.requestTimeoutMs,
@@ -76,24 +58,24 @@ async function refreshAccessToken(scope: AuthTokenScope): Promise<string> {
         }
       )
 
-      const tokenSet = config.mapRefreshPayload(response.data)
+      const tokenSet = mapRefreshPayload(response.data)
 
-      setTokenSet(tokenSet, scope)
+      setTokenSet(tokenSet)
       return tokenSet.accessToken
     } catch {
-      clearTokenSet(scope)
+      clearTokenSet()
       return ''
     } finally {
-      refreshPromises[scope] = null
+      refreshPromise = null
     }
   })()
 
-  return refreshPromises[scope] as Promise<string>
+  return refreshPromise
 }
 
-function createScopedHttpClient(scope: AuthTokenScope) {
+function createPlatformHttpClient() {
   const client = axios.create({
-    baseURL: scopeConfig[scope].baseUrl,
+    baseURL: platformApiBaseUrl,
     timeout: env.requestTimeoutMs,
     headers: {
       'Content-Type': 'application/json'
@@ -101,7 +83,7 @@ function createScopedHttpClient(scope: AuthTokenScope) {
   })
 
   client.interceptors.request.use((config) => {
-    const token = getAccessToken(scope)
+    const token = getAccessToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -118,7 +100,7 @@ function createScopedHttpClient(scope: AuthTokenScope) {
       }
 
       originalRequest._retry = true
-      const nextToken = await refreshAccessToken(scope)
+      const nextToken = await refreshAccessToken()
       if (!nextToken) {
         return Promise.reject(error)
       }
@@ -132,11 +114,13 @@ function createScopedHttpClient(scope: AuthTokenScope) {
   return client
 }
 
-export const httpClient = createScopedHttpClient('legacy')
-export const platformV2HttpClient = createScopedHttpClient('v2')
+const platformHttpClient = createPlatformHttpClient()
 
-export const legacyBaseUrl = scopeConfig.legacy.baseUrl
-export const platformV2BaseUrl = scopeConfig.v2.baseUrl
+export const httpClient = platformHttpClient
+export const platformV2HttpClient = platformHttpClient
 
-export const legacyAuthRefreshPath = scopeConfig.legacy.refreshPath
-export const platformV2AuthRefreshPath = scopeConfig.v2.refreshPath
+export const legacyBaseUrl = platformApiBaseUrl
+export const platformV2BaseUrl = platformApiBaseUrl
+
+export const legacyAuthRefreshPath = platformAuthRefreshPath
+export const platformV2AuthRefreshPath = platformAuthRefreshPath

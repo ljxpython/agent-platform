@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.context.models import ActorContext
 from app.core.db import SqlAlchemyUnitOfWork
-from app.core.errors import BadRequestError, NotFoundError, ServiceUnavailableError
+from app.core.errors import NotFoundError, ServiceUnavailableError
+from app.core.identifiers import parse_uuid
 from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, PermissionCode
 from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
 from app.modules.runtime_catalog.infra import SqlAlchemyRuntimeCatalogRepository
@@ -28,13 +29,6 @@ from app.modules.runtime_policies.domain import (
     RuntimeToolPolicyValue,
 )
 from app.modules.runtime_policies.infra import SqlAlchemyRuntimePolicyRepository
-
-
-def _parse_uuid(value: str, *, code: str) -> UUID:
-    try:
-        return UUID(value)
-    except ValueError as exc:
-        raise BadRequestError(message=code.replace("_", " "), code=code) from exc
 
 
 class RuntimePolicyOverlayService:
@@ -69,7 +63,7 @@ class RuntimePolicyOverlayService:
             actor=actor,
             authorization=AuthorizationRequest(permission=permission, project_id=project_id),
         )
-        return _parse_uuid(project_id, code="invalid_project_id")
+        return parse_uuid(project_id, code="invalid_project_id")
 
     @staticmethod
     def _ensure_project_exists(uow: SqlAlchemyUnitOfWork, project_uuid: UUID) -> None:
@@ -128,7 +122,7 @@ class RuntimePolicyOverlayService:
     ) -> RuntimeGraphPolicyValue:
         session_factory = self._require_session_factory()
         project_uuid = self._require_project_access(actor=actor, project_id=project_id, write=True)
-        catalog_uuid = _parse_uuid(catalog_id, code="invalid_catalog_id")
+        catalog_uuid = parse_uuid(catalog_id, code="invalid_catalog_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             self._ensure_project_exists(uow, project_uuid)
             catalog_repository = SqlAlchemyRuntimeCatalogRepository(uow.session)
@@ -200,7 +194,7 @@ class RuntimePolicyOverlayService:
     ) -> RuntimeToolPolicyValue:
         session_factory = self._require_session_factory()
         project_uuid = self._require_project_access(actor=actor, project_id=project_id, write=True)
-        catalog_uuid = _parse_uuid(catalog_id, code="invalid_catalog_id")
+        catalog_uuid = parse_uuid(catalog_id, code="invalid_catalog_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             self._ensure_project_exists(uow, project_uuid)
             catalog_repository = SqlAlchemyRuntimeCatalogRepository(uow.session)
@@ -275,7 +269,7 @@ class RuntimePolicyOverlayService:
     ) -> RuntimeModelPolicyValue:
         session_factory = self._require_session_factory()
         project_uuid = self._require_project_access(actor=actor, project_id=project_id, write=True)
-        catalog_uuid = _parse_uuid(catalog_id, code="invalid_catalog_id")
+        catalog_uuid = parse_uuid(catalog_id, code="invalid_catalog_id")
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             self._ensure_project_exists(uow, project_uuid)
             catalog_repository = SqlAlchemyRuntimeCatalogRepository(uow.session)
@@ -300,4 +294,3 @@ class RuntimePolicyOverlayService:
                 note=row.note,
                 updated_at=row.updated_at,
             )
-

@@ -15,6 +15,8 @@ from app.core.errors import (
     PlatformApiError,
     ServiceUnavailableError,
 )
+from app.core.identifiers import parse_uuid
+from app.core.normalization import clean_str, payload_to_dict
 from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, PermissionCode
 from app.modules.iam.domain import ProjectRole
 from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
@@ -66,41 +68,13 @@ _ROLE_PRIORITY: tuple[tuple[str, str], ...] = (
 )
 
 
-def _clean(value: Any) -> str | None:
-    if value is None:
-        return None
-    normalized = str(value).strip()
-    return normalized or None
-
-
-def _parse_uuid(value: str, *, code: str) -> UUID:
-    try:
-        return UUID(value)
-    except ValueError as exc:
-        raise PlatformApiError(
-            code=code,
-            status_code=400,
-            message=code.replace("_", " "),
-        ) from exc
-
-
-def _payload_to_dict(payload: Any) -> dict[str, Any]:
-    if hasattr(payload, "model_dump"):
-        value = payload.model_dump(exclude_none=True)
-        if isinstance(value, dict):
-            return dict(value)
-    if isinstance(payload, dict):
-        return dict(payload)
-    return {}
-
-
 def _normalize_string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     items: list[str] = []
     seen: set[str] = set()
     for item in value:
-        normalized = _clean(item)
+        normalized = clean_str(item)
         if normalized and normalized not in seen:
             seen.add(normalized)
             items.append(normalized)
@@ -111,9 +85,9 @@ def _normalize_testcase_payload(payload: dict[str, Any]) -> dict[str, Any]:
     next_payload = dict(payload)
     for key in ("batch_id", "case_id", "module_name", "priority"):
         if key in next_payload:
-            next_payload[key] = _clean(next_payload.get(key))
+            next_payload[key] = clean_str(next_payload.get(key))
     if "title" in next_payload:
-        title = _clean(next_payload.get("title"))
+        title = clean_str(next_payload.get("title"))
         if title is not None:
             next_payload["title"] = title
     if "description" in next_payload and next_payload.get("description") is None:
@@ -168,7 +142,7 @@ class TestcaseService:
         session_factory = self._require_session_factory()
         self._require_permission(actor=actor, project_id=project_id, write=write)
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
-            project_uuid = _parse_uuid(project_id, code="invalid_project_id")
+            project_uuid = parse_uuid(project_id, code="invalid_project_id")
             repository = SqlAlchemyProjectsRepository(uow.session)
             project = repository.get_project_by_id(project_uuid)
             if project is None or project.status == "deleted":
@@ -192,7 +166,7 @@ class TestcaseService:
         code: str,
     ) -> dict[str, Any]:
         payload_dict = self._ensure_object(payload, code="interaction_data_invalid_response")
-        if _clean(payload_dict.get("project_id")) != project_id:
+        if clean_str(payload_dict.get("project_id")) != project_id:
             raise NotFoundError(message=code, code=code)
         return payload_dict
 
@@ -250,11 +224,11 @@ class TestcaseService:
             "limit": min(_DEFAULT_EXPORT_PAGE_SIZE, max_items + 1),
             "offset": 0,
         }
-        if _clean(query.batch_id):
+        if clean_str(query.batch_id):
             params["batch_id"] = query.batch_id
-        if _clean(query.status):
+        if clean_str(query.status):
             params["status"] = query.status
-        if _clean(query.query):
+        if clean_str(query.query):
             params["query"] = query.query
         first_payload = self._ensure_object(
             await self._upstream.require_json("GET", _TEST_CASES_PATH, params=params),
@@ -300,11 +274,11 @@ class TestcaseService:
             "limit": min(_DEFAULT_EXPORT_PAGE_SIZE, max_items + 1),
             "offset": 0,
         }
-        if _clean(query.batch_id):
+        if clean_str(query.batch_id):
             params["batch_id"] = query.batch_id
-        if _clean(query.parse_status):
+        if clean_str(query.parse_status):
             params["parse_status"] = query.parse_status
-        if _clean(query.query):
+        if clean_str(query.query):
             params["query"] = query.query
         first_payload = self._ensure_object(
             await self._upstream.require_json("GET", _DOCUMENTS_PATH, params=params),
@@ -409,7 +383,7 @@ class TestcaseService:
         query: GetTestcaseBatchDetailQuery,
     ) -> TestcaseBatchDetail:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=False)
-        normalized_batch_id = _clean(batch_id)
+        normalized_batch_id = clean_str(batch_id)
         if normalized_batch_id is None:
             raise BadRequestError(code="invalid_batch_id", message="invalid_batch_id")
 
@@ -431,7 +405,7 @@ class TestcaseService:
             payload.get("batch"),
             code="interaction_data_invalid_response",
         )
-        if _clean(batch_payload.get("batch_id")) != normalized_batch_id:
+        if clean_str(batch_payload.get("batch_id")) != normalized_batch_id:
             raise NotFoundError(code="testcase_batch_not_found", message="testcase_batch_not_found")
 
         document_page_payload = self._ensure_object(
@@ -480,11 +454,11 @@ class TestcaseService:
             "limit": query.limit,
             "offset": query.offset,
         }
-        if _clean(query.batch_id):
+        if clean_str(query.batch_id):
             params["batch_id"] = query.batch_id
-        if _clean(query.parse_status):
+        if clean_str(query.parse_status):
             params["parse_status"] = query.parse_status
-        if _clean(query.query):
+        if clean_str(query.query):
             params["query"] = query.query
 
         payload = self._ensure_object(
@@ -574,7 +548,7 @@ class TestcaseService:
         )
         enriched_items: list[dict[str, Any]] = []
         for item in items:
-            document_id = _clean(item.get("id"))
+            document_id = clean_str(item.get("id"))
             related_cases_count = 0
             if document_id:
                 relations_payload = self._ensure_object(
@@ -589,7 +563,7 @@ class TestcaseService:
                     project_id=project_id,
                     code="document_not_found",
                 )
-                if _clean(document_payload.get("id")) == document_id:
+                if clean_str(document_payload.get("id")) == document_id:
                     related_cases_count = int(relations_payload.get("related_cases_count") or 0)
             enriched_items.append({**item, "related_cases_count": related_cases_count})
 
@@ -619,11 +593,11 @@ class TestcaseService:
             "limit": query.limit,
             "offset": query.offset,
         }
-        if _clean(query.batch_id):
+        if clean_str(query.batch_id):
             params["batch_id"] = query.batch_id
-        if _clean(query.status):
+        if clean_str(query.status):
             params["status"] = query.status
-        if _clean(query.query):
+        if clean_str(query.query):
             params["query"] = query.query
 
         payload = self._ensure_object(

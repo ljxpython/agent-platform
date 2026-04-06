@@ -16,15 +16,44 @@ from app.modules.operations.application.execution import (
     DatabasePollingOperationDispatcher,
     OperationExecutorRegistry,
 )
+from app.modules.operations.application.heartbeat import OperationWorkerHeartbeatReporter
+from app.modules.operations.application.ports import (
+    OperationDispatcherProtocol,
+    OperationQueueConsumerProtocol,
+)
 from app.modules.operations.application.service import OperationsService
 from app.modules.operations.application.worker import OperationWorker
+from app.modules.operations.infra import RedisListOperationQueue
 from app.modules.runtime_catalog.application.operations import RuntimeCatalogRefreshExecutor
 from app.modules.runtime_catalog.bootstrap import build_runtime_catalog_service
 from app.modules.testcase.application import TestcaseService
 
 
 def _build_operation_artifact_store(settings: Settings) -> LocalOperationArtifactStore:
-    return LocalOperationArtifactStore(settings.operations_artifacts_dir)
+    return LocalOperationArtifactStore(
+        settings.operations_artifacts_dir,
+        storage_backend=settings.operations_artifact_storage_backend,
+        retention_hours=settings.operations_artifact_retention_hours,
+    )
+
+
+def _build_operation_dispatcher(settings: Settings) -> OperationDispatcherProtocol:
+    if settings.operations_queue_backend == "redis_list":
+        return RedisListOperationQueue(
+            redis_url=settings.operations_redis_url or "",
+            queue_name=settings.operations_redis_queue_name,
+        )
+    return DatabasePollingOperationDispatcher()
+
+
+def _resolve_queue_consumer(
+    *,
+    settings: Settings,
+    dispatcher: OperationDispatcherProtocol,
+) -> OperationQueueConsumerProtocol | None:
+    if settings.operations_queue_backend == "redis_list" and isinstance(dispatcher, RedisListOperationQueue):
+        return dispatcher
+    return None
 
 
 def _build_assistants_service(
@@ -69,7 +98,7 @@ def build_operations_service(
     settings: Settings,
     session_factory: sessionmaker[Session] | None,
 ) -> OperationsService:
-    dispatcher = DatabasePollingOperationDispatcher()
+    dispatcher = _build_operation_dispatcher(settings)
     return OperationsService(
         session_factory=session_factory,
         dispatcher=dispatcher,
@@ -82,6 +111,7 @@ def build_operation_worker(
     settings: Settings,
     session_factory: sessionmaker[Session],
 ) -> OperationWorker:
+    dispatcher = _build_operation_dispatcher(settings)
     runtime_catalog_service = build_runtime_catalog_service(
         settings=settings,
         session_factory=session_factory,
@@ -126,6 +156,13 @@ def build_operation_worker(
     return OperationWorker(
         session_factory=session_factory,
         executor_registry=registry,
+        dispatcher=dispatcher,
+        queue_consumer=_resolve_queue_consumer(settings=settings, dispatcher=dispatcher),
         poll_interval_seconds=settings.operations_worker_poll_interval_seconds,
         idle_sleep_seconds=settings.operations_worker_idle_sleep_seconds,
+        heartbeat_reporter=OperationWorkerHeartbeatReporter(
+            session_factory=session_factory,
+            queue_backend=settings.operations_queue_backend,
+            heartbeat_interval_seconds=settings.operations_worker_heartbeat_interval_seconds,
+        ),
     )

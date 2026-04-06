@@ -2,12 +2,12 @@ import { z } from 'zod'
 
 const envSchema = z.object({
   VITE_APP_NAME: z.string().min(1).default('Agent Platform Console'),
-  VITE_PLATFORM_API_URL: z.string().url().default('http://localhost:2024'),
+  VITE_PLATFORM_API_URL: z.string().url().default('http://localhost:2142'),
   VITE_PLATFORM_API_V2_URL: z.string().url().optional(),
-  VITE_PLATFORM_API_V2_RUNTIME_ENABLED: z.coerce.boolean().default(false),
+  VITE_PLATFORM_API_V2_RUNTIME_ENABLED: z.coerce.boolean().default(true),
   VITE_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   VITE_DEV_PORT: z.coerce.number().int().positive().default(3000),
-  VITE_DEV_PROXY_TARGET: z.string().url().default('http://localhost:2024'),
+  VITE_DEV_PROXY_TARGET: z.string().url().default('http://localhost:2142'),
   VITE_LANGGRAPH_DEBUG_URL: z.string().optional().default('')
 })
 

@@ -28,6 +28,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    register_auth_context_middleware(app, settings)
+    register_request_context_middleware(app)
+    register_audit_log_middleware(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_allow_origins),
@@ -35,9 +38,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    register_auth_context_middleware(app, settings)
-    register_request_context_middleware(app)
-    register_audit_log_middleware(app)
     register_exception_handlers(app)
     app.include_router(api_router)
     return app

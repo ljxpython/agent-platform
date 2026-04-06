@@ -32,6 +32,7 @@ import type {
   RuntimeToolPolicyItem
 } from '@/types/management'
 import { formatDateTime, shortId } from '@/utils/format'
+import { resolvePlatformHttpErrorMessage } from '@/utils/http-error'
 
 type PolicyTab = 'models' | 'tools' | 'graphs'
 
@@ -386,7 +387,7 @@ async function loadPolicies() {
   }
 
   if (failedSections.length > 0) {
-    error.value = `部分策略列表加载失败：${failedSections.join('、')}`
+    error.value = `部分策略列表加载失败：${failedSections.join('、')}。请确认当前账号具备项目访问权限，并检查 platform-api-v2 日志。`
   }
 
   loading.value = false
@@ -462,7 +463,7 @@ async function savePolicy() {
       message: notice.value
     })
   } catch (saveError) {
-    error.value = saveError instanceof Error ? saveError.message : '策略保存失败'
+    error.value = resolvePlatformHttpErrorMessage(saveError, '策略保存失败', '运行策略')
   } finally {
     saving.value = false
   }

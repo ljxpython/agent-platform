@@ -8,11 +8,10 @@ from app.core.context.models import ActorContext
 from app.core.db import SqlAlchemyUnitOfWork
 from app.core.errors import (
     ConflictError,
-    NotAuthenticatedError,
     NotFoundError,
-    PlatformApiError,
     ServiceUnavailableError,
 )
+from app.core.identifiers import parse_actor_user_id, parse_uuid
 from app.modules.iam.application import AuthorizationRequest, IamPolicyEngine, PermissionCode
 from app.modules.iam.domain import ProjectRole
 from app.modules.projects.application.contracts import (
@@ -30,23 +29,6 @@ from app.modules.projects.domain import (
     ProjectSummary,
 )
 from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
-
-
-def _parse_uuid(value: str, *, code: str) -> UUID:
-    try:
-        return UUID(value)
-    except ValueError as exc:
-        raise PlatformApiError(
-            code=code,
-            status_code=400,
-            message=f"{code.replace('_', ' ')}",
-        ) from exc
-
-
-def _parse_actor_user_id(actor: ActorContext) -> UUID:
-    if not actor.user_id:
-        raise NotAuthenticatedError()
-    return _parse_uuid(actor.user_id, code="invalid_actor_user_id")
 
 
 class ProjectsService:
@@ -93,7 +75,7 @@ class ProjectsService:
         query: ListProjectsQuery,
     ) -> ProjectPage:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
+        actor_user_id = parse_actor_user_id(actor)
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyProjectsRepository(uow.session)
             if actor.has_platform_role("platform_super_admin"):
@@ -121,7 +103,7 @@ class ProjectsService:
         command: CreateProjectCommand,
     ) -> ProjectSummary:
         session_factory = self._require_session_factory()
-        actor_user_id = _parse_actor_user_id(actor)
+        actor_user_id = parse_actor_user_id(actor)
         async with SqlAlchemyUnitOfWork(session_factory) as uow:
             repository = SqlAlchemyProjectsRepository(uow.session)
             tenant = repository.get_or_create_default_tenant()
@@ -144,7 +126,7 @@ class ProjectsService:
         project_id: str,
     ) -> None:
         session_factory = self._require_session_factory()
-        project_uuid = _parse_uuid(project_id, code="invalid_project_id")
+        project_uuid = parse_uuid(project_id, code="invalid_project_id")
         self._policy_engine.require(
             actor=actor,
             authorization=AuthorizationRequest(
@@ -167,7 +149,7 @@ class ProjectsService:
         query: ListProjectMembersQuery,
     ) -> ProjectMemberPage:
         session_factory = self._require_session_factory()
-        project_uuid = _parse_uuid(project_id, code="invalid_project_id")
+        project_uuid = parse_uuid(project_id, code="invalid_project_id")
         self._policy_engine.require(
             actor=actor,
             authorization=AuthorizationRequest(
@@ -195,8 +177,8 @@ class ProjectsService:
         command: UpsertProjectMemberCommand,
     ) -> ProjectMemberView:
         session_factory = self._require_session_factory()
-        project_uuid = _parse_uuid(project_id, code="invalid_project_id")
-        target_user_id = _parse_uuid(user_id, code="invalid_user_id")
+        project_uuid = parse_uuid(project_id, code="invalid_project_id")
+        target_user_id = parse_uuid(user_id, code="invalid_user_id")
         self._policy_engine.require(
             actor=actor,
             authorization=AuthorizationRequest(
@@ -238,8 +220,8 @@ class ProjectsService:
         user_id: str,
     ) -> None:
         session_factory = self._require_session_factory()
-        project_uuid = _parse_uuid(project_id, code="invalid_project_id")
-        target_user_id = _parse_uuid(user_id, code="invalid_user_id")
+        project_uuid = parse_uuid(project_id, code="invalid_project_id")
+        target_user_id = parse_uuid(user_id, code="invalid_user_id")
         self._policy_engine.require(
             actor=actor,
             authorization=AuthorizationRequest(

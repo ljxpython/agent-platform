@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
+from app.core.schemas import OffsetPage
+
 
 class AnnouncementTone(StrEnum):
     INFO = "info"
@@ -41,8 +43,5 @@ class AnnouncementItem(BaseModel):
     is_read: bool = False
 
 
-class AnnouncementPage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    items: list[AnnouncementItem]
-    total: int
+class AnnouncementPage(OffsetPage[AnnouncementItem]):
+    pass

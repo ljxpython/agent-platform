@@ -38,8 +38,14 @@ def _request_id(request: Request) -> str:
     return incoming or uuid.uuid4().hex
 
 
+def _trace_id(request: Request, request_id: str) -> str:
+    incoming = _clean(request.headers.get("x-trace-id"))
+    return incoming or request_id
+
+
 def build_request_context(request: Request) -> PlatformRequestContext:
     request_id = _request_id(request)
+    trace_id = _trace_id(request, request_id)
     started_at = time.perf_counter()
     tenant_id = _clean(request.headers.get("x-tenant-id"))
     project_id = _clean(request.headers.get("x-project-id"))
@@ -51,6 +57,7 @@ def build_request_context(request: Request) -> PlatformRequestContext:
     return PlatformRequestContext(
         request=RequestContext(
             request_id=request_id,
+            trace_id=trace_id,
             method=request.method,
             path=request.url.path,
             query=request.url.query or None,

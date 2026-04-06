@@ -20,8 +20,14 @@
 ## 当前页面能力
 
 - 查看服务版本、环境、数据库、worker、runtime upstream 等运行快照
+- 查看 operation artifact backend / retention / cleanup batch 等生命周期配置
+- 查看 requests 指标、top paths、status family、trace header
+- 查看 worker heartbeat 列表与 execution backlog / duration 统计
+- 查看 service account 概览、OIDC/SSO 边界和敏感配置脱敏视图
+- 查看环境隔离与数据治理快照
 - 查看并修改 `feature flags`
 - 统一纳入当前控制台视觉体系，不再靠临时 system 页面拼接
+- 页面请求明确直连 `platform-api-v2`，不再因为缺少 v2 token 而错误回退到 legacy `/_system` 路径
 
 ## 当前边界
 

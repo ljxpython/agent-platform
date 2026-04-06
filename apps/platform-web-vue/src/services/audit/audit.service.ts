@@ -1,5 +1,4 @@
-import { httpClient, platformV2HttpClient } from '@/services/http/client'
-import { resolvePlatformClientScope } from '@/services/platform/control-plane'
+import { platformV2HttpClient } from '@/services/http/client'
 import type { ManagementAuditListResponse, ManagementAuditRow } from '@/types/management'
 
 type AuditServiceMode = 'legacy' | 'runtime'
@@ -19,10 +18,6 @@ type AuditEventItem = {
   path: string
   status_code: number
   created_at: string
-}
-
-function useRuntimeAuditApi(options?: AuditServiceOptions) {
-  return options?.mode === 'runtime' && resolvePlatformClientScope('audit') === 'v2'
 }
 
 function normalizeAuditItem(item: AuditEventItem | ManagementAuditRow): ManagementAuditRow {
@@ -51,12 +46,9 @@ export async function listAudit(
     method?: string
     statusCode?: number | null
   },
-  requestOptions?: AuditServiceOptions
+  _requestOptions?: AuditServiceOptions
 ): Promise<ManagementAuditListResponse> {
-  const useRuntimeApi = useRuntimeAuditApi(requestOptions)
-  const client = useRuntimeApi ? platformV2HttpClient : httpClient
-  const endpoint = useRuntimeApi ? '/api/audit' : '/_management/audit'
-  const response = await client.get(endpoint, {
+  const response = await platformV2HttpClient.get('/api/audit', {
     params: {
       project_id: projectId?.trim() || undefined,
       limit: options?.limit ?? 50,
