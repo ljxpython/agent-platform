@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { useAuthorization } from '@/composables/useAuthorization'
+import { useTopbarDropdown } from '@/composables/useTopbarDropdown'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
@@ -12,14 +13,25 @@ const authorization = useAuthorization()
 const uiStore = useUiStore()
 const router = useRouter()
 const { t } = useI18n()
-
-const isOpen = ref(false)
-const rootRef = ref<HTMLElement | null>(null)
+const {
+  close,
+  dropdownPlacement,
+  dropdownRef,
+  dropdownStyle,
+  isOpen,
+  rootRef,
+  toggle,
+  triggerRef
+} = useTopbarDropdown({
+  alignment: 'end',
+  fallbackWidth: 256,
+  minWidth: 256
+})
 const initials = computed(() => (authStore.user?.username || 'PW').slice(0, 2).toUpperCase())
 const roleLabel = computed(() => authorization.roleLabel.value || t('common.member'))
 
 async function navigateTo(path: string) {
-  isOpen.value = false
+  close()
   await router.push(path)
 }
 
@@ -29,31 +41,9 @@ async function handleLogout() {
     type: 'success',
     message: t('toast.logoutSuccess')
   })
-  isOpen.value = false
+  close()
   await router.replace('/auth/login')
 }
-
-function close() {
-  isOpen.value = false
-}
-
-function toggle() {
-  isOpen.value = !isOpen.value
-}
-
-function handleClickOutside(event: MouseEvent) {
-  if (rootRef.value && !rootRef.value.contains(event.target as Node)) {
-    close()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
 </script>
 
 <template>
@@ -62,6 +52,7 @@ onBeforeUnmount(() => {
     class="relative"
   >
     <button
+      ref="triggerRef"
       type="button"
       class="pw-topbar-user-trigger"
       :class="isOpen ? 'pw-topbar-user-trigger-active' : ''"
@@ -94,65 +85,70 @@ onBeforeUnmount(() => {
       leave-from-class="translate-y-0 opacity-100"
       leave-to-class="translate-y-1 opacity-0"
     >
-      <div
-        v-if="isOpen"
-        class="pw-topbar-dropdown right-0 mt-2 w-64 p-0"
-      >
-        <div class="border-b border-gray-100 px-4 py-4 dark:border-dark-800">
-          <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-primary text-sm font-semibold text-white">
-              {{ initials }}
+      <Teleport to="body">
+        <div
+          v-if="isOpen"
+          ref="dropdownRef"
+          class="pw-topbar-dropdown p-0"
+          :class="dropdownPlacement === 'top' ? 'origin-bottom' : 'origin-top'"
+          :style="dropdownStyle"
+        >
+          <div class="border-b border-gray-100 px-4 py-4 dark:border-dark-800">
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-primary text-sm font-semibold text-white">
+                {{ initials }}
+              </div>
+              <div class="min-w-0">
+                <div class="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ authStore.user?.username ?? t('common.loading') }}
+                </div>
+                <div class="truncate text-xs text-gray-500 dark:text-dark-400">
+                  {{ authStore.user?.email || t('common.unavailable') }}
+                </div>
+              </div>
             </div>
-            <div class="min-w-0">
-              <div class="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                {{ authStore.user?.username ?? t('common.loading') }}
-              </div>
-              <div class="truncate text-xs text-gray-500 dark:text-dark-400">
-                {{ authStore.user?.email || t('common.unavailable') }}
-              </div>
+            <div class="mt-3 inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-200">
+              {{ roleLabel }}
             </div>
           </div>
-          <div class="mt-3 inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-200">
-            {{ roleLabel }}
-          </div>
-        </div>
 
-        <div class="p-2">
-          <button
-            type="button"
-            class="pw-dropdown-item"
-            @click="navigateTo('/workspace/me')"
-          >
-            <BaseIcon
-              name="user"
-              size="sm"
-            />
-            {{ t('common.profile') }}
-          </button>
-          <button
-            type="button"
-            class="pw-dropdown-item"
-            @click="navigateTo('/workspace/security')"
-          >
-            <BaseIcon
-              name="lock"
-              size="sm"
-            />
-            {{ t('common.security') }}
-          </button>
-          <button
-            type="button"
-            class="pw-dropdown-item text-rose-600 dark:text-rose-300"
-            @click="handleLogout"
-          >
-            <BaseIcon
-              name="logout"
-              size="sm"
-            />
-            {{ t('common.logout') }}
-          </button>
+          <div class="p-2">
+            <button
+              type="button"
+              class="pw-dropdown-item"
+              @click="navigateTo('/workspace/me')"
+            >
+              <BaseIcon
+                name="user"
+                size="sm"
+              />
+              {{ t('common.profile') }}
+            </button>
+            <button
+              type="button"
+              class="pw-dropdown-item"
+              @click="navigateTo('/workspace/security')"
+            >
+              <BaseIcon
+                name="lock"
+                size="sm"
+              />
+              {{ t('common.security') }}
+            </button>
+            <button
+              type="button"
+              class="pw-dropdown-item text-rose-600 dark:text-rose-300"
+              @click="handleLogout"
+            >
+              <BaseIcon
+                name="logout"
+                size="sm"
+              />
+              {{ t('common.logout') }}
+            </button>
+          </div>
         </div>
-      </div>
+      </Teleport>
     </Transition>
   </div>
 </template>

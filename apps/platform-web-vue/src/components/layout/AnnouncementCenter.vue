@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
+import { useTopbarDropdown } from '@/composables/useTopbarDropdown'
 import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import { useAnnouncementsStore } from '@/stores/announcements'
 import { useUiStore } from '@/stores/ui'
@@ -11,9 +12,21 @@ const { t } = useI18n()
 const announcementsStore = useAnnouncementsStore()
 const uiStore = useUiStore()
 const { workspaceStore, activeProjectId } = useWorkspaceProjectContext()
-
-const isOpen = ref(false)
-const rootRef = ref<HTMLElement | null>(null)
+const {
+  close,
+  dropdownPlacement,
+  dropdownRef,
+  dropdownStyle,
+  isOpen,
+  open,
+  rootRef,
+  triggerRef,
+  updateDropdownPosition
+} = useTopbarDropdown({
+  alignment: 'end',
+  fallbackWidth: 360,
+  minWidth: 320
+})
 const selectedAnnouncementId = ref('')
 
 const items = computed(() => announcementsStore.items)
@@ -72,21 +85,14 @@ function toneClasses(tone: 'info' | 'warning' | 'success'): {
   }
 }
 
-function close() {
-  isOpen.value = false
-}
-
 function toggle() {
-  isOpen.value = !isOpen.value
   if (isOpen.value) {
-    selectedAnnouncementId.value = items.value[0]?.id || ''
-  }
-}
-
-function handleClickOutside(event: MouseEvent) {
-  if (rootRef.value && !rootRef.value.contains(event.target as Node)) {
     close()
+    return
   }
+
+  selectedAnnouncementId.value = items.value[0]?.id || ''
+  open()
 }
 
 onMounted(() => {
@@ -97,7 +103,6 @@ onMounted(() => {
   } else {
     void announcementsStore.init(activeProjectId.value)
   }
-  document.addEventListener('click', handleClickOutside)
 })
 
 watch(
@@ -107,9 +112,19 @@ watch(
   }
 )
 
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+watch(
+  () => [isOpen.value, loading.value, items.value, selectedAnnouncement.value],
+  ([openState]) => {
+    if (!openState) {
+      return
+    }
+
+    nextTick(() => {
+      updateDropdownPosition()
+    })
+  },
+  { deep: true }
+)
 
 async function selectAnnouncement(id: string) {
   selectedAnnouncementId.value = id
@@ -132,6 +147,7 @@ async function markAllRead() {
     class="relative"
   >
     <button
+      ref="triggerRef"
       type="button"
       class="pw-topbar-action w-9 px-0"
       :class="isOpen ? 'pw-topbar-action-active' : ''"
@@ -160,120 +176,125 @@ async function markAllRead() {
       leave-from-class="translate-y-0 opacity-100"
       leave-to-class="translate-y-1 opacity-0"
     >
-      <div
-        v-if="isOpen"
-        class="pw-topbar-dropdown right-0 mt-2 w-[min(360px,calc(100vw-1.5rem))] p-0"
-      >
-        <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-800">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                {{ t('topbar.announcements') }}
-              </div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
-                {{
-                  unreadCount > 0
-                    ? t('topbar.announcementsUnread', { count: unreadCount })
-                    : t('topbar.noUnread')
-                }}
-              </div>
-              <div
-                v-if="sourceHint"
-                class="mt-1 text-[11px] text-gray-400 dark:text-dark-500"
-              >
-                {{ sourceHint }}
-              </div>
-            </div>
-            <BaseButton
-              variant="ghost"
-              :disabled="loading || unreadCount === 0"
-              @click="markAllRead"
-            >
-              {{ t('topbar.markAllRead') }}
-            </BaseButton>
-          </div>
-        </div>
-        <div class="grid gap-4 px-4 py-4">
-          <div
-            v-if="loading"
-            class="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm leading-7 text-gray-500 dark:border-dark-700 dark:text-dark-300"
-          >
-            正在同步公告列表...
-          </div>
-          <div
-            v-else-if="items.length"
-            class="grid gap-2"
-          >
-            <button
-              v-for="item in items"
-              :key="item.id"
-              type="button"
-              class="rounded-xl border px-4 py-3 text-left transition-colors"
-              :class="
-                selectedAnnouncement?.id === item.id
-                  ? 'border-primary-200 bg-primary-50 dark:border-primary-900/40 dark:bg-primary-950/20'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-900 dark:hover:bg-dark-800'
-              "
-              @click="selectAnnouncement(item.id)"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                    {{ item.title }}
-                  </div>
-                  <div class="mt-1 text-xs leading-6 text-gray-500 dark:text-dark-300">
-                    {{ item.summary }}
-                  </div>
-                </div>
-                <span
-                  class="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
-                  :class="announcementsStore.isRead(item.id) ? 'bg-gray-300 dark:bg-dark-500' : toneClasses(item.tone).dot"
-                />
-              </div>
-              <div class="mt-2 text-[11px] text-gray-400 dark:text-dark-500">
-                {{ formatAnnouncementTime(item.createdAt) }}
-              </div>
-            </button>
-          </div>
-          <div
-            v-else
-            class="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm leading-7 text-gray-500 dark:border-dark-700 dark:text-dark-300"
-          >
-            <div class="font-semibold text-gray-900 dark:text-white">
-              {{ t('topbar.announcementsEmptyTitle') }}
-            </div>
-            <p class="mt-2">
-              {{ t('topbar.announcementsEmptyDescription') }}
-            </p>
-          </div>
-
-          <div
-            v-if="!loading && selectedAnnouncement"
-            class="rounded-2xl border px-4 py-4 shadow-sm"
-            :class="toneClasses(selectedAnnouncement.tone).card"
-          >
-            <div class="flex items-start gap-3">
-              <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/60 text-current dark:bg-black/10">
-                <BaseIcon
-                  :name="toneClasses(selectedAnnouncement.tone).icon"
-                  size="sm"
-                />
-              </div>
-              <div class="min-w-0">
+      <Teleport to="body">
+        <div
+          v-if="isOpen"
+          ref="dropdownRef"
+          class="pw-topbar-dropdown p-0"
+          :class="dropdownPlacement === 'top' ? 'origin-bottom' : 'origin-top'"
+          :style="dropdownStyle"
+        >
+          <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-800">
+            <div class="flex items-center justify-between gap-3">
+              <div>
                 <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                  {{ selectedAnnouncement.title }}
+                  {{ t('topbar.announcements') }}
                 </div>
-                <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-dark-300">
-                  {{ selectedAnnouncement.body }}
-                </p>
-                <div class="mt-3 text-[11px] text-gray-400 dark:text-dark-500">
-                  {{ sourceHint || t('topbar.announcements') }} · {{ formatAnnouncementTime(selectedAnnouncement.createdAt) }}
+                <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+                  {{
+                    unreadCount > 0
+                      ? t('topbar.announcementsUnread', { count: unreadCount })
+                      : t('topbar.noUnread')
+                  }}
+                </div>
+                <div
+                  v-if="sourceHint"
+                  class="mt-1 text-[11px] text-gray-400 dark:text-dark-500"
+                >
+                  {{ sourceHint }}
+                </div>
+              </div>
+              <BaseButton
+                variant="ghost"
+                :disabled="loading || unreadCount === 0"
+                @click="markAllRead"
+              >
+                {{ t('topbar.markAllRead') }}
+              </BaseButton>
+            </div>
+          </div>
+          <div class="grid gap-4 px-4 py-4">
+            <div
+              v-if="loading"
+              class="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm leading-7 text-gray-500 dark:border-dark-700 dark:text-dark-300"
+            >
+              正在同步公告列表...
+            </div>
+            <div
+              v-else-if="items.length"
+              class="grid gap-2"
+            >
+              <button
+                v-for="item in items"
+                :key="item.id"
+                type="button"
+                class="rounded-xl border px-4 py-3 text-left transition-colors"
+                :class="
+                  selectedAnnouncement?.id === item.id
+                    ? 'border-primary-200 bg-primary-50 dark:border-primary-900/40 dark:bg-primary-950/20'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-900 dark:hover:bg-dark-800'
+                "
+                @click="selectAnnouncement(item.id)"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ item.title }}
+                    </div>
+                    <div class="mt-1 text-xs leading-6 text-gray-500 dark:text-dark-300">
+                      {{ item.summary }}
+                    </div>
+                  </div>
+                  <span
+                    class="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+                    :class="announcementsStore.isRead(item.id) ? 'bg-gray-300 dark:bg-dark-500' : toneClasses(item.tone).dot"
+                  />
+                </div>
+                <div class="mt-2 text-[11px] text-gray-400 dark:text-dark-500">
+                  {{ formatAnnouncementTime(item.createdAt) }}
+                </div>
+              </button>
+            </div>
+            <div
+              v-else
+              class="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm leading-7 text-gray-500 dark:border-dark-700 dark:text-dark-300"
+            >
+              <div class="font-semibold text-gray-900 dark:text-white">
+                {{ t('topbar.announcementsEmptyTitle') }}
+              </div>
+              <p class="mt-2">
+                {{ t('topbar.announcementsEmptyDescription') }}
+              </p>
+            </div>
+
+            <div
+              v-if="!loading && selectedAnnouncement"
+              class="rounded-2xl border px-4 py-4 shadow-sm"
+              :class="toneClasses(selectedAnnouncement.tone).card"
+            >
+              <div class="flex items-start gap-3">
+                <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/60 text-current dark:bg-black/10">
+                  <BaseIcon
+                    :name="toneClasses(selectedAnnouncement.tone).icon"
+                    size="sm"
+                  />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ selectedAnnouncement.title }}
+                  </div>
+                  <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-dark-300">
+                    {{ selectedAnnouncement.body }}
+                  </p>
+                  <div class="mt-3 text-[11px] text-gray-400 dark:text-dark-500">
+                    {{ sourceHint || t('topbar.announcements') }} · {{ formatAnnouncementTime(selectedAnnouncement.createdAt) }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </Teleport>
     </Transition>
   </div>
 </template>
