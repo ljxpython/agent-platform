@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { nextTick, reactive } from 'vue'
+import { computed, nextTick, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { SESSION_EXPIRED_REASON } from '@/services/auth/session-expiry'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
+
+const sessionExpired = computed(
+  () => route.query.reason === SESSION_EXPIRED_REASON
+)
 
 const form = reactive({
   username: 'admin',
@@ -67,6 +72,18 @@ async function handleSubmit() {
     class="space-y-5"
     @submit.prevent="handleSubmit"
   >
+    <div
+      v-if="sessionExpired"
+      class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+    >
+      <div class="font-semibold">
+        {{ t('auth.sessionExpiredTitle') }}
+      </div>
+      <p class="mt-1 leading-6">
+        {{ t('auth.sessionExpiredDescription') }}
+      </p>
+    </div>
+
     <div class="space-y-2">
       <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
         {{ t('auth.username') }}

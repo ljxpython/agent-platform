@@ -31,8 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = nextUser
       return nextUser
     } catch {
-      clearAllTokenSets()
-      user.value = null
+      clearSessionState()
       return null
     }
   }
@@ -70,10 +69,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
-    const refreshToken = getRefreshToken()
+  function clearSessionState() {
     clearAllTokenSets()
     user.value = null
+    hydrated.value = false
+  }
+
+  function logout() {
+    const refreshToken = getRefreshToken()
+    clearSessionState()
     if (refreshToken) {
       void logoutRequest(refreshToken).catch(() => {
         // ignore logout upstream failure after local session is cleared
@@ -90,6 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
     hydrate,
     login,
     logout,
+    clearSessionState,
     fetchCurrentUser
   }
 })

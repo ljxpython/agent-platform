@@ -2,11 +2,11 @@ import axios from 'axios'
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { env } from '@/config/env'
 import {
-  clearTokenSet,
   getAccessToken,
   getRefreshToken,
   setTokenSet
 } from '@/services/auth/token'
+import { handleSessionExpired, hasStoredSession } from '@/services/auth/session-expiry'
 import type { AuthTokenSet } from '@/types/management'
 
 type RetriableRequest = InternalAxiosRequestConfig & {
@@ -32,8 +32,12 @@ function mapRefreshPayload(payload: {
 
 export async function refreshAccessToken(): Promise<string> {
   const refreshToken = getRefreshToken()
+  const hadSession = hasStoredSession()
+
   if (!refreshToken) {
-    clearTokenSet()
+    if (hadSession) {
+      handleSessionExpired()
+    }
     return ''
   }
 
@@ -63,7 +67,9 @@ export async function refreshAccessToken(): Promise<string> {
       setTokenSet(tokenSet)
       return tokenSet.accessToken
     } catch {
-      clearTokenSet()
+      if (hadSession) {
+        handleSessionExpired()
+      }
       return ''
     } finally {
       refreshPromise = null
@@ -94,6 +100,10 @@ function createPlatformHttpClient() {
     (response) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as RetriableRequest | undefined
+
+      if (error.response?.status === 401 && originalRequest?._retry && hasStoredSession()) {
+        handleSessionExpired()
+      }
 
       if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
         return Promise.reject(error)

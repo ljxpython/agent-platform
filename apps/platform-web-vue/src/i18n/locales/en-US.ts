@@ -29,7 +29,9 @@ export const enUS = {
     username: 'Username',
     password: 'Password',
     login: 'Log in',
-    hint: 'Sign in with your platform account to enter the official workspace.'
+    hint: 'Sign in with your platform account to enter the official workspace.',
+    sessionExpiredTitle: 'Session expired',
+    sessionExpiredDescription: 'Your session has expired or been revoked. Please sign in again to continue.'
   },
   nav: {
     overview: 'Overview',

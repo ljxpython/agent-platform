@@ -1,6 +1,7 @@
 import { Client } from '@langchain/langgraph-sdk'
 import { refreshAccessToken } from '@/services/http/client'
 import { getAccessToken } from '@/services/auth/token'
+import { handleSessionExpired, hasStoredSession } from '@/services/auth/session-expiry'
 import { getPlatformApiBaseUrl } from '@/services/platform/control-plane'
 
 function getLanggraphApiUrl() {
@@ -12,6 +13,8 @@ type LanggraphAuthorizedFetchOptions = {
   fetchImpl?: typeof fetch
   getAccessToken?: () => string
   refreshAccessToken?: () => Promise<string>
+  hasStoredSession?: () => boolean
+  onSessionExpired?: () => void
 }
 
 function withAccessToken(init: RequestInit | undefined, accessToken: string): RequestInit {
@@ -34,6 +37,8 @@ export function createLanggraphAuthorizedFetch(options: LanggraphAuthorizedFetch
   const fetchImpl = options.fetchImpl ?? fetch
   const readAccessToken = options.getAccessToken ?? getAccessToken
   const renewAccessToken = options.refreshAccessToken ?? refreshAccessToken
+  const readStoredSession = options.hasStoredSession ?? hasStoredSession
+  const expireSession = options.onSessionExpired ?? handleSessionExpired
 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const initialResponse = await fetchImpl(input, withAccessToken(init, readAccessToken()))
@@ -43,10 +48,18 @@ export function createLanggraphAuthorizedFetch(options: LanggraphAuthorizedFetch
 
     const nextAccessToken = (await renewAccessToken()).trim()
     if (!nextAccessToken) {
+      if (readStoredSession()) {
+        expireSession()
+      }
       return initialResponse
     }
 
-    return fetchImpl(input, withAccessToken(init, nextAccessToken))
+    const retryResponse = await fetchImpl(input, withAccessToken(init, nextAccessToken))
+    if (retryResponse.status === 401 && readStoredSession()) {
+      expireSession()
+    }
+
+    return retryResponse
   }
 }
 

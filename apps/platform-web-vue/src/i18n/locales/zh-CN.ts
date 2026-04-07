@@ -29,7 +29,9 @@ export const zhCN = {
     username: '用户名',
     password: '密码',
     login: '登录',
-    hint: '使用平台账号登录后，可直接进入智能体平台控制台。'
+    hint: '使用平台账号登录后，可直接进入智能体平台控制台。',
+    sessionExpiredTitle: '登录已失效',
+    sessionExpiredDescription: '当前会话已过期或被撤销，请重新登录后继续操作。'
   },
   nav: {
     overview: '总览',
