@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="pw-topbar-dropdown right-0 mt-3 w-64 p-0"
+        class="pw-topbar-dropdown right-0 mt-2 w-64 p-0"
       >
         <div class="border-b border-gray-100 px-4 py-4 dark:border-dark-800">
           <div class="flex items-center gap-3">

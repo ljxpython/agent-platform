@@ -86,7 +86,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="pw-topbar-dropdown right-0 mt-3 w-44"
+        class="pw-topbar-dropdown right-0 mt-2 w-44"
       >
         <button
           v-for="item in availableLocales"

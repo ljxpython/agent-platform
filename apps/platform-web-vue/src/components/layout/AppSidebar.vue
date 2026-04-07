@@ -245,17 +245,17 @@ watch(
       <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
         <BrandMark
           alt="Agent Platform mark"
-          class="scale-[1.18]"
+          class="scale-[1.08]"
         />
       </div>
       <div
         v-if="!uiStore.sidebarCollapsed"
         class="flex min-w-0 flex-col"
       >
-        <div class="truncate text-lg font-bold text-gray-900 dark:text-white">
+        <div class="truncate text-[17px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">
           {{ appMeta.name }}
         </div>
-        <div class="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-gray-400 dark:text-dark-500">
+        <div class="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-dark-500">
           {{ appMeta.versionLabel }}
         </div>
       </div>
@@ -270,8 +270,8 @@ watch(
         <button
           v-if="!uiStore.sidebarCollapsed"
           type="button"
-          class="mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-dark-800"
-          :class="isGroupActive(group) ? 'text-gray-700 dark:text-dark-100' : 'text-gray-500 dark:text-dark-400'"
+          class="mb-2 flex w-full items-center px-3 pb-1 pt-0.5 text-left transition-colors duration-150 hover:text-gray-700 dark:hover:text-dark-200"
+          :class="isGroupActive(group) ? 'text-gray-700 dark:text-dark-100' : 'text-gray-400 dark:text-dark-500'"
           :aria-expanded="isGroupExpanded(group.id)"
           @click="toggleGroup(group.id)"
         >
@@ -281,7 +281,7 @@ watch(
         </button>
         <div
           v-else
-          class="mx-3 my-3 h-px bg-gray-200 dark:bg-dark-800"
+          class="mx-4 my-3 h-px bg-gray-200 dark:bg-dark-800"
         />
         <div
           v-show="isGroupExpanded(group.id)"

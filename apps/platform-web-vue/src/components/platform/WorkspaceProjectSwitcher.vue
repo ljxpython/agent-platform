@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
   >
     <button
       type="button"
-      class="pw-topbar-action min-h-9 min-w-0 max-w-full justify-start gap-1.5 px-2"
+      class="pw-topbar-action min-h-9 min-w-0 max-w-full justify-start gap-1.5 px-2.5"
       :class="isOpen ? 'pw-topbar-action-active' : ''"
       :disabled="!projectOptions.length"
       :aria-label="t('common.project')"
@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
         class="shrink-0 text-gray-400 dark:text-dark-400"
       />
       <span
-        class="max-w-[min(120px,30vw)] truncate text-sm font-medium text-gray-800 dark:text-gray-100 sm:max-w-[128px]"
+        class="max-w-[min(112px,28vw)] truncate text-sm font-medium text-gray-800 dark:text-gray-100 sm:max-w-[120px]"
         :title="currentProjectLabel"
       >
         {{ currentProjectLabel }}
@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="pw-topbar-dropdown right-0 mt-3 w-[min(300px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-2 sm:w-[260px]"
+        class="pw-topbar-dropdown right-0 mt-2 w-[min(300px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-2 sm:w-[260px]"
       >
         <div class="max-h-72 overflow-y-auto overscroll-contain">
           <button

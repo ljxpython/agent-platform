@@ -162,7 +162,7 @@ async function markAllRead() {
     >
       <div
         v-if="isOpen"
-        class="pw-topbar-dropdown right-0 mt-3 w-[min(360px,calc(100vw-1.5rem))] p-0"
+        class="pw-topbar-dropdown right-0 mt-2 w-[min(360px,calc(100vw-1.5rem))] p-0"
       >
         <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-800">
           <div class="flex items-center justify-between gap-3">
