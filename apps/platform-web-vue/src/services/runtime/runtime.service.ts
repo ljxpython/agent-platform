@@ -6,7 +6,6 @@ import {
 import type {
   ManagementOperation,
   RuntimeModelsResponse,
-  RuntimeRefreshResponse,
   RuntimeToolsResponse
 } from '@/types/management'
 
@@ -30,25 +29,11 @@ export async function listRuntimeModels(projectId?: string): Promise<RuntimeMode
   return response.data as RuntimeModelsResponse
 }
 
-export async function refreshRuntimeModels(projectId?: string): Promise<RuntimeRefreshResponse> {
-  const response = await getPlatformHttpClient('runtime_catalog').post('/api/runtime/models/refresh', {}, {
-    headers: buildRuntimeHeaders(projectId)
-  })
-  return response.data as RuntimeRefreshResponse
-}
-
 export async function listRuntimeTools(projectId?: string): Promise<RuntimeToolsResponse> {
   const response = await getPlatformHttpClient('runtime_catalog').get('/api/runtime/tools', {
     headers: buildRuntimeHeaders(projectId)
   })
   return response.data as RuntimeToolsResponse
-}
-
-export async function refreshRuntimeTools(projectId?: string): Promise<RuntimeRefreshResponse> {
-  const response = await getPlatformHttpClient('runtime_catalog').post('/api/runtime/tools/refresh', {}, {
-    headers: buildRuntimeHeaders(projectId)
-  })
-  return response.data as RuntimeRefreshResponse
 }
 
 export async function submitRuntimeRefreshOperation(

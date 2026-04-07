@@ -20,6 +20,7 @@
 ## 当前页面能力
 
 - 按 `Models / Tools / Graphs` 三个视图查看 overlay
+- 页头“刷新目录”会按当前 tab 触发底层 runtime catalog refresh operation，不再只是前端本地重拉 overlay 列表
 - 支持启用/禁用、排序、备注等核心字段编辑
 - 修改后直接回写控制面，不再由页面层自定义缓存协议
 - 保持当前 `platform-web-vue` 的统一视觉与交互规范
@@ -36,5 +37,6 @@
 1. 登录 `platform-web-vue`
 2. 进入任一项目
 3. 打开 `Runtime / Policies`
-4. 分别修改 model/tool/graph 的策略字段
-5. 刷新页面确认配置仍能正确回显
+4. 在 `Models / Tools / Graphs` 三个 tab 下分别点击页头“刷新目录”，确认会生成真实刷新任务并回灌最新目录
+5. 分别修改 model/tool/graph 的策略字段
+6. 刷新页面确认配置仍能正确回显

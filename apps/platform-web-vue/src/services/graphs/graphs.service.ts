@@ -2,11 +2,8 @@ import { platformHttpClient } from '@/services/http/client'
 import type {
   ManagementGraph,
   ManagementGraphListResponse,
-  RuntimeGraphsResponse,
-  RuntimeRefreshResponse
+  RuntimeGraphsResponse
 } from '@/types/management'
-
-type GraphRefreshResponse = RuntimeRefreshResponse
 
 function filterAndSliceGraphs(
   rows: ManagementGraphListResponse['items'],
@@ -64,24 +61,6 @@ export async function listGraphsPage(
     total: filtered.normalizedQuery.length > 0 ? filtered.total : payload.count ?? filtered.total,
     last_synced_at: payload.last_synced_at ?? null
   }
-}
-
-export async function refreshGraphsCatalog(
-  projectId?: string
-): Promise<GraphRefreshResponse> {
-  const response = await platformHttpClient.post(
-    '/api/runtime/graphs/refresh',
-    {},
-    {
-      headers: projectId
-        ? {
-            'x-project-id': projectId
-          }
-        : undefined
-    }
-  )
-
-  return response.data as GraphRefreshResponse
 }
 
 export async function getGraphCatalogItem(

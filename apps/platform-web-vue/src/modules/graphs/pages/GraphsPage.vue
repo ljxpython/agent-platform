@@ -18,12 +18,17 @@ import SearchInput from '@/components/platform/SearchInput.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
-import { listGraphsPage, refreshGraphsCatalog } from '@/services/graphs/graphs.service'
+import { listGraphsPage } from '@/services/graphs/graphs.service'
+import {
+  submitRuntimeRefreshOperation,
+  waitForRuntimeRefreshOperation
+} from '@/services/runtime/runtime.service'
 import { useUiStore } from '@/stores/ui'
 import type { ManagementGraph } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
 import { formatDateTime, shortId } from '@/utils/format'
+import { resolvePlatformHttpErrorMessage } from '@/utils/http-error'
 
 function getSyncTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' {
   if (status === 'synced' || status === 'ready') {
@@ -181,11 +186,21 @@ async function handleRefreshCatalog() {
   notice.value = ''
 
   try {
-    const payload = await refreshGraphsCatalog(projectId)
-    notice.value = `图谱目录已刷新，当前同步 ${payload.count} 条记录`
+    const operation = await submitRuntimeRefreshOperation('graphs', projectId)
+    notice.value = `图谱目录刷新任务已提交，任务号 ${shortId(operation.id)}`
+    const finalOperation = await waitForRuntimeRefreshOperation(operation.id, {
+      timeoutMs: 90000
+    })
+    if (finalOperation.status !== 'succeeded') {
+      throw new Error(
+        (finalOperation.error_payload?.message as string | undefined) || '图谱目录刷新未成功完成'
+      )
+    }
+    const count = Number(finalOperation.result_payload?.count || 0)
+    notice.value = `图谱目录已刷新，当前同步 ${count} 条记录`
     await loadGraphs()
   } catch (refreshError) {
-    error.value = refreshError instanceof Error ? refreshError.message : '图谱目录刷新失败'
+    error.value = resolvePlatformHttpErrorMessage(refreshError, '图谱目录刷新失败', '图谱目录')
   } finally {
     refreshing.value = false
   }

@@ -26,6 +26,10 @@ import {
   updateRuntimeModelPolicy,
   updateRuntimeToolPolicy
 } from '@/services/runtime-policies/runtime-policies.service'
+import {
+  submitRuntimeRefreshOperation,
+  waitForRuntimeRefreshOperation
+} from '@/services/runtime/runtime.service'
 import { useUiStore } from '@/stores/ui'
 import type {
   RuntimeGraphPolicyItem,
@@ -55,6 +59,7 @@ const pagination = usePagination({
 
 const activeTab = ref<PolicyTab>('models')
 const loading = ref(false)
+const refreshing = ref(false)
 const saving = ref(false)
 const error = ref('')
 const notice = ref('')
@@ -80,6 +85,19 @@ const draft = ref<EditingDraft>({
 const currentProjectId = computed(() => activeProjectId.value)
 const currentProjectName = computed(() => activeProject.value?.name || '未选择项目')
 const canManageRuntimePolicies = computed(() => authorization.currentProjectCan('project.runtime.write'))
+const canRefreshRuntimeCatalog = computed(() =>
+  authorization.can('platform.catalog.refresh') || authorization.currentProjectCan('project.runtime.write')
+)
+const activeRefreshResource = computed<'models' | 'tools' | 'graphs'>(() => activeTab.value)
+const activeRefreshLabel = computed(() => {
+  if (activeTab.value === 'tools') {
+    return '工具目录'
+  }
+  if (activeTab.value === 'graphs') {
+    return '图目录'
+  }
+  return '模型目录'
+})
 
 const currentItems = computed(() => {
   if (activeTab.value === 'tools') {
@@ -402,6 +420,48 @@ async function loadPolicies() {
   loading.value = false
 }
 
+async function handleRefreshCatalog() {
+  const projectId = currentProjectId.value
+  if (!projectId) {
+    error.value = '当前没有项目上下文，无法刷新目录'
+    return
+  }
+  if (!canRefreshRuntimeCatalog.value) {
+    error.value = '当前账号没有刷新 Runtime 目录的权限'
+    return
+  }
+
+  refreshing.value = true
+  error.value = ''
+  notice.value = ''
+
+  try {
+    const operation = await submitRuntimeRefreshOperation(activeRefreshResource.value, projectId)
+    notice.value = `${activeRefreshLabel.value}刷新任务已提交，任务号 ${shortId(operation.id)}`
+    const finalOperation = await waitForRuntimeRefreshOperation(operation.id, {
+      timeoutMs: 90000
+    })
+    if (finalOperation.status !== 'succeeded') {
+      throw new Error(
+        (finalOperation.error_payload?.message as string | undefined) || `${activeRefreshLabel.value}刷新未成功完成`
+      )
+    }
+
+    const count = Number(finalOperation.result_payload?.count || 0)
+    notice.value = `${activeRefreshLabel.value}已刷新，当前同步 ${count} 条记录`
+    await loadPolicies()
+    uiStore.pushToast({
+      type: 'success',
+      title: `${activeRefreshLabel.value}已刷新`,
+      message: notice.value
+    })
+  } catch (refreshError) {
+    error.value = resolvePlatformHttpErrorMessage(refreshError, `${activeRefreshLabel.value}刷新失败`, 'Runtime 目录')
+  } finally {
+    refreshing.value = false
+  }
+}
+
 function applyFilters() {
   query.value = queryInput.value.trim()
   if (pagination.page.value === 1) {
@@ -509,13 +569,14 @@ onMounted(() => {
       <template #actions>
         <BaseButton
           variant="secondary"
-          @click="loadPolicies"
+          :disabled="refreshing || !currentProjectId || !canRefreshRuntimeCatalog"
+          @click="handleRefreshCatalog"
         >
           <BaseIcon
             name="refresh"
             size="sm"
           />
-          刷新策略
+          {{ refreshing ? `${activeRefreshLabel}刷新中...` : `刷新${activeRefreshLabel}` }}
         </BaseButton>
         <router-link
           class="pw-btn pw-btn-ghost"

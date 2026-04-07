@@ -22,7 +22,7 @@
 | `announcements` | feed / list / create / update / delete / read | 已对齐 | `AnnouncementCenter` / `AnnouncementsPage` | 顶部公告中心和治理页都走正式接口 |
 | `audit` | `GET /api/audit` | 已对齐 | `AuditPage` / Overview 概览卡 | 正式审计查询页已接通 |
 | `assistants` | list / create / detail / update / delete / resync / schema | 已对齐 | `AssistantsPage` / `AssistantCreatePage` / `AssistantDetailPage` | 助手主链已完整接通，schema 接口用于表单编排 |
-| `runtime_catalog` | models / tools / graphs + refresh | 已对齐 | `RuntimeModelsPage` / `RuntimeToolsPage` / `GraphsPage` / `RuntimePage` | 目录查询和刷新都已接通 |
+| `runtime_catalog` | models / tools / graphs + refresh | 已对齐 | `RuntimeModelsPage` / `RuntimeToolsPage` / `GraphsPage` / `RuntimePage` | 目录查询和刷新都已接通；三类 refresh 已统一回流到 operations 链路 |
 | `runtime_policies` | models / tools / graphs overlay | 已对齐 | `RuntimePoliciesPage` | 项目级策略查询和编辑都已接通，并已补按钮级权限 gate |
 | `operations` | list / detail / stream / bulk / artifact | 已对齐 | `OperationsPage` | 异步治理主链已接通，runtime refresh / assistant resync / testcase export 都统一回流 |
 | `testcase` | overview / role / batches / documents / cases / export / preview / download | 部分对齐 | `TestcaseDocumentsPage` / `TestcaseCasesPage` / `TestcaseGeneratePage` | 文档、用例、导出、预览、下载、详情都已接；批次详情仍是嵌入式消费，没有单独一级治理页 |
