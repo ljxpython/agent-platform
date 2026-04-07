@@ -318,9 +318,9 @@ watch(
             v-for="entry in teamRecommendedItems"
             :key="entry.item.id"
             :to="{ name: 'workspace-resources-top-picks', hash: `#${entry.item.id}` }"
-            class="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200 dark:hover:bg-amber-950/35"
+            class="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200 dark:hover:bg-amber-950/35"
           >
-            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+            <span class="pw-pill-count bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
               Top {{ entry.rank }}
             </span>
             <span>{{ humanizeTemplateName(entry.item.name) }}</span>

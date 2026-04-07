@@ -275,22 +275,22 @@ async function handleSaveEdit() {
           v-for="tab in availableTabs"
           :key="tab.key"
           type="button"
-          class="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition"
+          class="pw-chip-toggle"
           :class="
             activeTab === tab.key
-              ? 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-100'
-              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:bg-dark-800 dark:hover:text-white'
+              ? 'pw-chip-toggle-active'
+              : ''
           "
           @click="activeTab = tab.key"
         >
           <span>{{ tab.label }}</span>
           <span
             v-if="typeof tab.count === 'number'"
-            class="rounded-full px-2 py-0.5 text-[11px]"
+            class="pw-pill-count"
             :class="
               activeTab === tab.key
                 ? 'bg-white text-primary-700 dark:bg-dark-800 dark:text-primary-100'
-                : 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-dark-300'
+                : ''
             "
           >
             {{ tab.count }}
@@ -793,55 +793,55 @@ async function handleSaveEdit() {
                   <div class="mt-3 flex flex-wrap gap-2">
                     <span
                       v-if="historyView.items[historyIndex]?.isLatest"
-                      class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200"
+                      class="pw-pill-soft pw-pill-soft-success"
                     >
                       latest
                     </span>
                     <span
                       v-if="historyView.items[historyIndex]?.isCurrent"
-                      class="inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-[11px] font-medium text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-200"
+                      class="pw-pill-soft pw-pill-soft-primary"
                     >
                       当前快照
                     </span>
                     <span
                       v-if="historyView.items[historyIndex]?.isInSelectedPath && !historyView.items[historyIndex]?.isCurrent"
-                      class="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200"
+                      class="pw-pill-soft pw-pill-soft-info"
                     >
                       当前分支路径
                     </span>
                     <span
                       v-if="(historyView.items[historyIndex]?.siblingCount || 0) > 1"
-                      class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+                      class="pw-pill-soft pw-pill-soft-warning"
                     >
                       分叉组 {{ historyView.items[historyIndex]?.siblingCount }}
                     </span>
                     <span
                       v-if="(historyView.items[historyIndex]?.childCount || 0) > 0"
-                      class="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-700 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200"
+                      class="pw-pill-soft border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200"
                     >
                       后续分支 {{ historyView.items[historyIndex]?.childCount }}
                     </span>
-                    <span class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900/70 dark:text-dark-300">
+                    <span class="pw-pill-soft pw-pill-soft-neutral">
                       {{ historyView.items[historyIndex]?.step || '--' }}
                     </span>
                     <span
                       v-if="historyView.items[historyIndex]?.source"
-                      class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900/70 dark:text-dark-300"
+                      class="pw-pill-soft pw-pill-soft-neutral"
                     >
                       {{ historyView.items[historyIndex]?.source }}
                     </span>
-                    <span class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900/70 dark:text-dark-300">
+                    <span class="pw-pill-soft pw-pill-soft-neutral">
                       messages {{ historyView.items[historyIndex]?.messageCount || 0 }}
                     </span>
                     <span
                       v-if="(historyView.items[historyIndex]?.taskCount || 0) > 0"
-                      class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900/70 dark:text-dark-300"
+                      class="pw-pill-soft pw-pill-soft-neutral"
                     >
                       tasks {{ historyView.items[historyIndex]?.taskCount || 0 }}
                     </span>
                     <span
                       v-if="historyView.items[historyIndex]?.hasInterrupts"
-                      class="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200"
+                      class="pw-pill-soft pw-pill-soft-danger"
                     >
                       interrupts
                     </span>

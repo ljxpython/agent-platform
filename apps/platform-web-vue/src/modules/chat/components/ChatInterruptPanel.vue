@@ -377,11 +377,11 @@ watch([activeInterruptIndex, activeActionIndex, isHitl], () => {
           v-for="(item, index) in hitlInterrupts"
           :key="item.id || `interrupt-${index}`"
           type="button"
-          class="rounded-full border px-3 py-1.5 text-sm transition"
+          class="pw-chip-toggle"
           :class="
             index === activeInterruptIndex
-              ? 'border-sky-300 bg-white text-slate-900 dark:border-primary-900/40 dark:bg-dark-800 dark:text-white'
-              : 'border-transparent text-slate-500 hover:border-sky-200 hover:bg-white hover:text-slate-900 dark:text-dark-300 dark:hover:border-primary-900/40 dark:hover:bg-dark-800 dark:hover:text-white'
+              ? 'pw-chip-toggle-active'
+              : ''
           "
           @click="activeInterruptIndex = index"
         >
@@ -407,7 +407,7 @@ watch([activeInterruptIndex, activeActionIndex, isHitl], () => {
             <span
               v-for="item in allowedDecisions"
               :key="item"
-              class="rounded-full border border-sky-200 bg-sky-100/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700 dark:border-primary-900/30 dark:bg-primary-950/30 dark:text-primary-200"
+              class="pw-pill-soft pw-pill-soft-info uppercase tracking-[0.12em]"
             >
               {{ item }}
             </span>
@@ -433,13 +433,13 @@ watch([activeInterruptIndex, activeActionIndex, isHitl], () => {
             v-for="(action, index) in actionRequests"
             :key="`${action.name}-${index}`"
             type="button"
-            class="rounded-full border px-3 py-1.5 text-sm transition"
+            class="pw-chip-toggle"
             :class="
               index === activeActionIndex
-                ? 'border-sky-300 bg-sky-50 text-slate-900 dark:border-primary-900/40 dark:bg-primary-950/30 dark:text-white'
+                ? 'pw-chip-toggle-active'
                 : savedDecisions[decisionKey(activeInterruptIndex, index)]
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-200'
-                  : 'border-transparent text-slate-500 hover:border-sky-200 hover:bg-white hover:text-slate-900 dark:text-dark-300 dark:hover:border-primary-900/40 dark:hover:bg-dark-800 dark:hover:text-white'
+                  ? 'pw-pill-soft-success'
+                  : ''
             "
             @click="activeActionIndex = index"
           >
@@ -457,11 +457,11 @@ watch([activeInterruptIndex, activeActionIndex, isHitl], () => {
           <button
             v-if="allowApprove"
             type="button"
-            class="rounded-full border px-3 py-1.5 text-sm transition"
+            class="pw-chip-toggle"
             :class="
               selectedMode === 'approve'
-                ? 'border-sky-300 bg-sky-50 text-slate-900 dark:border-primary-900/40 dark:bg-primary-950/30 dark:text-white'
-                : 'border-slate-200 text-slate-500 hover:border-sky-200 hover:text-slate-900 dark:border-dark-700 dark:text-dark-300 dark:hover:border-primary-900/40 dark:hover:text-white'
+                ? 'pw-chip-toggle-active'
+                : ''
             "
             @click="selectedMode = 'approve'"
           >
@@ -470,11 +470,11 @@ watch([activeInterruptIndex, activeActionIndex, isHitl], () => {
           <button
             v-if="allowEdit"
             type="button"
-            class="rounded-full border px-3 py-1.5 text-sm transition"
+            class="pw-chip-toggle"
             :class="
               selectedMode === 'edit'
-                ? 'border-sky-300 bg-sky-50 text-slate-900 dark:border-primary-900/40 dark:bg-primary-950/30 dark:text-white'
-                : 'border-slate-200 text-slate-500 hover:border-sky-200 hover:text-slate-900 dark:border-dark-700 dark:text-dark-300 dark:hover:border-primary-900/40 dark:hover:text-white'
+                ? 'pw-chip-toggle-active'
+                : ''
             "
             @click="selectedMode = 'edit'"
           >
@@ -483,11 +483,11 @@ watch([activeInterruptIndex, activeActionIndex, isHitl], () => {
           <button
             v-if="allowReject"
             type="button"
-            class="rounded-full border px-3 py-1.5 text-sm transition"
+            class="pw-chip-toggle"
             :class="
               selectedMode === 'reject'
-                ? 'border-sky-300 bg-sky-50 text-slate-900 dark:border-primary-900/40 dark:bg-primary-950/30 dark:text-white'
-                : 'border-slate-200 text-slate-500 hover:border-sky-200 hover:text-slate-900 dark:border-dark-700 dark:text-dark-300 dark:hover:border-primary-900/40 dark:hover:text-white'
+                ? 'pw-chip-toggle-active'
+                : ''
             "
             @click="selectedMode = 'reject'"
           >

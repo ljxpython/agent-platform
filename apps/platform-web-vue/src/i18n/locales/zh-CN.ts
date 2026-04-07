@@ -20,11 +20,11 @@ export const zhCN = {
     placeholder: '该模块将在后续迁移中接入真实业务。'
   },
   brand: {
-    title: 'Agent Platform Console',
+    title: 'Agent Platform',
     subtitle: '智能体平台控制台'
   },
   auth: {
-    title: '欢迎进入智能体平台控制台',
+    title: '欢迎进入 Agent Platform',
     description: '统一智能体平台控制台入口，承接项目治理、Agent 工作台与质量链路。',
     username: '用户名',
     password: '密码',

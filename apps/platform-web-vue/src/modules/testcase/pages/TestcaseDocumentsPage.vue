@@ -997,7 +997,7 @@ watch(
               <div class="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-dark-400">
                 runtime_meta
               </div>
-              <pre class="mt-2 max-h-[180px] overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-gray-50 p-3 text-xs text-gray-700 dark:bg-dark-900 dark:text-gray-200">{{ stringifyJson(relations?.runtime_meta) }}</pre>
+              <pre class="pw-code-block mt-2 max-h-[180px]">{{ stringifyJson(relations?.runtime_meta) }}</pre>
             </div>
             <div>
               <div class="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-dark-400">
@@ -1011,25 +1011,25 @@ watch(
               <div class="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-dark-400">
                 parsed_text
               </div>
-              <pre class="mt-2 max-h-[220px] overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-gray-50 p-3 text-xs text-gray-700 dark:bg-dark-900 dark:text-gray-200">{{ selectedItem.parsed_text || '--' }}</pre>
+              <pre class="pw-code-block mt-2 max-h-[220px]">{{ selectedItem.parsed_text || '--' }}</pre>
             </div>
             <div>
               <div class="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-dark-400">
                 structured_data
               </div>
-              <pre class="max-h-[220px] overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-gray-50 p-3 text-xs text-gray-700 dark:bg-dark-900 dark:text-gray-200">{{ stringifyJson(selectedItem.structured_data) }}</pre>
+              <pre class="pw-code-block max-h-[220px]">{{ stringifyJson(selectedItem.structured_data) }}</pre>
             </div>
             <div>
               <div class="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-dark-400">
                 provenance
               </div>
-              <pre class="mt-2 max-h-[220px] overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-gray-50 p-3 text-xs text-gray-700 dark:bg-dark-900 dark:text-gray-200">{{ stringifyJson(selectedItem.provenance) }}</pre>
+              <pre class="pw-code-block mt-2 max-h-[220px]">{{ stringifyJson(selectedItem.provenance) }}</pre>
             </div>
             <div v-if="selectedItem.error">
               <div class="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-dark-400">
                 error
               </div>
-              <pre class="mt-2 max-h-[180px] overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-200">{{ stringifyJson(selectedItem.error) }}</pre>
+              <pre class="mt-2 max-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-200">{{ stringifyJson(selectedItem.error) }}</pre>
             </div>
 
             <div class="pw-panel-muted">
@@ -1080,13 +1080,13 @@ watch(
                 class="mt-4 space-y-4"
               >
                 <div class="grid gap-3 md:grid-cols-3">
-                  <div class="pw-panel px-3 py-3 text-sm">
+                  <div class="pw-panel-muted px-3 py-3 text-sm">
                     文档数：{{ selectedBatchSummary.documents_count }}
                   </div>
-                  <div class="pw-panel px-3 py-3 text-sm">
+                  <div class="pw-panel-muted px-3 py-3 text-sm">
                     用例数：{{ selectedBatchSummary.test_cases_count }}
                   </div>
-                  <div class="pw-panel px-3 py-3 text-sm">
+                  <div class="pw-panel-muted px-3 py-3 text-sm">
                     最新时间：{{ formatDateTime(selectedBatchSummary.latest_created_at) }}
                   </div>
                 </div>

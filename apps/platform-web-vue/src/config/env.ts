@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const envSchema = z.object({
-  VITE_APP_NAME: z.string().min(1).default('Agent Platform Console'),
+  VITE_APP_NAME: z.string().min(1).default('Agent Platform'),
   VITE_PLATFORM_API_URL: z.string().url().default('http://localhost:2142'),
   VITE_PLATFORM_API_V2_URL: z.string().url().optional(),
   VITE_PLATFORM_API_V2_RUNTIME_ENABLED: z.coerce.boolean().default(true),

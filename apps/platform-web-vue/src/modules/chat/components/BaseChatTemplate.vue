@@ -701,9 +701,9 @@ async function handleCancelRun() {
 
     <SurfaceCard
       v-else
-      class="flex min-h-[720px] flex-col overflow-hidden p-0"
+      class="flex min-h-[680px] flex-col overflow-hidden p-0"
     >
-      <div class="border-b border-gray-100 px-6 py-5 dark:border-dark-800">
+      <div class="border-b border-gray-100 px-5 py-4 dark:border-dark-800 md:px-6 md:py-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="min-w-0">
             <div class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -802,7 +802,7 @@ async function handleCancelRun() {
         <div class="relative min-h-0">
           <div
             ref="messagesViewport"
-            class="min-h-0 h-full overflow-y-auto px-6 py-5"
+            class="min-h-0 h-full overflow-y-auto px-5 py-4 md:px-6 md:py-5"
             @scroll="handleMessagesScroll"
           >
             <div
@@ -820,11 +820,20 @@ async function handleCancelRun() {
               v-else-if="displayMessages.length === 0"
               class="flex h-full items-center justify-center"
             >
-              <EmptyState
-                icon="chat"
-                :title="display.emptyTitle || '从这里开始第一轮对话'"
-                :description="display.emptyDescription || '输入框已经可用。发出第一条消息时会自动创建 thread，并把后续历史沉淀到当前项目。'"
-              />
+              <div class="pw-panel-muted mx-auto flex w-full max-w-xl flex-col items-center px-6 py-10 text-center">
+                <div class="pw-empty-state-icon mb-4">
+                  <BaseIcon
+                    name="chat"
+                    size="lg"
+                  />
+                </div>
+                <h3 class="text-lg font-semibold text-gray-950 dark:text-white">
+                  {{ display.emptyTitle || '从这里开始第一轮对话' }}
+                </h3>
+                <p class="mt-3 max-w-md text-sm leading-7 text-gray-500 dark:text-dark-300">
+                  {{ display.emptyDescription || '输入框已经可用。发出第一条消息时会自动创建 thread，并把后续历史沉淀到当前项目。' }}
+                </p>
+              </div>
             </div>
 
             <ChatMessageList

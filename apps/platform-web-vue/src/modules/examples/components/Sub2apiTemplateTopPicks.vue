@@ -65,7 +65,7 @@ function toneOf(item: Sub2apiTemplateItem) {
         </p>
       </div>
 
-      <div class="rounded-full border border-amber-200 bg-amber-50 px-3.5 py-1.5 text-sm font-medium text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+      <div class="pw-pill-soft pw-pill-soft-warning px-3.5 py-1.5 text-sm">
         固定锚点 10 个
       </div>
     </div>
@@ -79,7 +79,7 @@ function toneOf(item: Sub2apiTemplateItem) {
       >
         <div class="flex items-start justify-between gap-4">
           <div>
-            <div class="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+            <div class="pw-pill-soft pw-pill-soft-warning gap-2 uppercase tracking-[0.14em]">
               Top {{ entry.rank }}
             </div>
             <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">

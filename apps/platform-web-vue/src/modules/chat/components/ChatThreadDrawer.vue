@@ -175,7 +175,7 @@ const searchModel = computed({
 
               <button
                 type="button"
-                class="absolute right-3 top-3 rounded-full border border-transparent px-2 py-1 text-[11px] font-medium text-gray-400 opacity-0 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:border-rose-900/40 dark:hover:bg-rose-950/20 dark:hover:text-rose-300"
+                class="absolute right-3 top-3 rounded-lg border border-transparent px-2 py-1 text-[11px] font-medium text-gray-400 opacity-0 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:border-rose-900/40 dark:hover:bg-rose-950/20 dark:hover:text-rose-300"
                 :class="deletingThreadId === item.id ? 'opacity-100' : ''"
                 :disabled="deletingThreadId === item.id"
                 @click.stop="emit('delete-thread', item.id)"

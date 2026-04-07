@@ -148,13 +148,13 @@ async function copyValue(value: string, message: string) {
               </StatusPill>
               <span
                 v-if="curation?.isTeamRecommended"
-                class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"
+                class="pw-pill-soft pw-pill-soft-warning"
               >
                 团队推荐 Top {{ curation.teamRank }}
               </span>
               <span
                 v-else-if="curation?.isRecommended"
-                class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300"
+                class="pw-pill-soft pw-pill-soft-success"
               >
                 首选模板
               </span>
@@ -276,7 +276,7 @@ async function copyValue(value: string, message: string) {
               <span
                 v-for="borrow in detail?.borrow || item.borrow"
                 :key="borrow"
-                class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200"
+                class="pw-pill-soft pw-pill-soft-neutral"
               >
                 {{ borrow }}
               </span>

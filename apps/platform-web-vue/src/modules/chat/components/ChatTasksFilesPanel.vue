@@ -264,11 +264,11 @@ async function handleSaveEdit() {
       <button
         v-if="hasTasks"
         type="button"
-        class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition"
+        class="pw-chip-toggle"
         :class="
           metaOpen === 'tasks'
-            ? 'border border-primary-200 bg-primary-50 text-gray-900 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-white'
-            : 'border border-transparent text-gray-500 hover:bg-white hover:text-gray-900 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white'
+            ? 'pw-chip-toggle-active'
+            : ''
         "
         @click="metaOpen = metaOpen === 'tasks' ? null : 'tasks'"
       >
@@ -283,7 +283,7 @@ async function handleSaveEdit() {
           "
         />
         <span>Tasks</span>
-        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-dark-800 dark:text-dark-200">
+        <span class="pw-pill-count">
           {{ completedTasks }}/{{ totalTasks }}
         </span>
       </button>
@@ -291,11 +291,11 @@ async function handleSaveEdit() {
       <button
         v-if="hasFiles"
         type="button"
-        class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition"
+        class="pw-chip-toggle"
         :class="
           metaOpen === 'files'
-            ? 'border border-primary-200 bg-primary-50 text-gray-900 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-white'
-            : 'border border-transparent text-gray-500 hover:bg-white hover:text-gray-900 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white'
+            ? 'pw-chip-toggle-active'
+            : ''
         "
         @click="metaOpen = metaOpen === 'files' ? null : 'files'"
       >
@@ -304,7 +304,7 @@ async function handleSaveEdit() {
           size="sm"
         />
         <span>Files</span>
-        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-dark-800 dark:text-dark-200">
+        <span class="pw-pill-count">
           {{ files.length }}
         </span>
       </button>

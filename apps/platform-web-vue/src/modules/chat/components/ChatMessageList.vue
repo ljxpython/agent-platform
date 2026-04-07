@@ -108,14 +108,14 @@ function handleEditingInput(event: Event) {
         <template v-if="editingMessageId === displayEntry.id">
           <button
             type="button"
-            class="rounded-full border border-gray-200 px-3 py-1.5 font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800"
+            class="pw-table-tool-button h-8 rounded-lg px-3 text-xs"
             @click="emit('cancel-edit')"
           >
             取消编辑
           </button>
           <button
             type="button"
-            class="rounded-full bg-primary-600 px-3 py-1.5 font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            class="pw-btn-primary inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="isRunning"
             @click="emit('submit-edit', displayEntry.message, displayEntry.id)"
           >
@@ -126,7 +126,7 @@ function handleEditingInput(event: Event) {
         <template v-else>
           <button
             type="button"
-            class="rounded-full border border-gray-200 px-3 py-1.5 font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800"
+            class="pw-table-tool-button h-8 rounded-lg px-3 text-xs"
             @click="emit('copy-message', displayEntry.message)"
           >
             复制
@@ -134,7 +134,7 @@ function handleEditingInput(event: Event) {
           <button
             v-if="canEditMessage(displayEntry.message, displayEntry.id)"
             type="button"
-            class="rounded-full border border-gray-200 px-3 py-1.5 font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800"
+            class="pw-table-tool-button h-8 rounded-lg px-3 text-xs"
             @click="emit('start-edit', displayEntry.message, displayEntry.id)"
           >
             编辑
@@ -142,7 +142,7 @@ function handleEditingInput(event: Event) {
           <button
             v-if="canRetryMessage(displayEntry.message, displayEntry.id)"
             type="button"
-            class="rounded-full border border-gray-200 px-3 py-1.5 font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800"
+            class="pw-table-tool-button h-8 rounded-lg px-3 text-xs"
             @click="emit('retry-message', displayEntry.id)"
           >
             重试
@@ -150,11 +150,11 @@ function handleEditingInput(event: Event) {
 
           <div
             v-if="hasBranchSwitcher(displayEntry.id)"
-            class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-2 py-1 dark:border-dark-700"
+            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1 dark:border-dark-700 dark:bg-dark-900"
           >
             <button
               type="button"
-              class="rounded-full p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
+              class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
               :disabled="getMessageBranchIndex(displayEntry.id) <= 0 || isRunning"
               @click="emit('select-previous-branch', displayEntry.id)"
             >
@@ -169,7 +169,7 @@ function handleEditingInput(event: Event) {
             </span>
             <button
               type="button"
-              class="rounded-full p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
+              class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
               :disabled="
                 getMessageBranchIndex(displayEntry.id) >=
                   ((getMessageMeta(displayEntry.id)?.branchOptions?.length ?? 1) - 1) || isRunning

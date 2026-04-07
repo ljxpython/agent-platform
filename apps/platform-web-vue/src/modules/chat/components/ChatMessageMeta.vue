@@ -63,7 +63,7 @@ function toggleExpanded() {
 <template>
   <div
     v-if="hasMetaSummary"
-    class="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-dark-700 dark:bg-dark-800/70"
+    class="pw-panel-muted mt-4 px-3 py-3"
   >
     <button
       type="button"
@@ -73,11 +73,11 @@ function toggleExpanded() {
       <span class="flex flex-wrap items-center gap-2">
         <span
           v-if="toolCount > 0"
-          class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+          class="pw-pill-soft"
           :class="
             hasPendingTool
-              ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200'
+              ? 'pw-pill-soft-info'
+              : 'pw-pill-soft-success'
           "
         >
           <span
@@ -95,11 +95,11 @@ function toggleExpanded() {
 
         <span
           v-if="subAgentCount > 0"
-          class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+          class="pw-pill-soft"
           :class="
             hasPendingSubAgent
-              ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200'
+              ? 'pw-pill-soft-warning'
+              : 'pw-pill-soft-success'
           "
         >
           <span
@@ -163,11 +163,11 @@ function toggleExpanded() {
               </div>
             </div>
             <span
-              class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+              class="pw-pill-soft"
               :class="
                 tool.status === 'pending'
-                  ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-100'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-100'
+                  ? 'pw-pill-soft-info'
+                  : 'pw-pill-soft-success'
               "
             >
               <span
@@ -234,11 +234,11 @@ function toggleExpanded() {
               </div>
             </div>
             <span
-              class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+              class="pw-pill-soft"
               :class="
                 item.status === 'pending'
-                  ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-100'
+                  ? 'pw-pill-soft-warning'
+                  : 'pw-pill-soft-success'
               "
             >
               <span

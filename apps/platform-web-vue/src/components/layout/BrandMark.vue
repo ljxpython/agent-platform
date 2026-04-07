@@ -22,7 +22,7 @@ const props = withDefaults(
   }>(),
   {
     variant: 'panel-stack',
-    alt: 'Agent Platform Console brand mark'
+    alt: 'Agent Platform brand mark'
   }
 )
 

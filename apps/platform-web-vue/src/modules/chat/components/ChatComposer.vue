@@ -93,7 +93,7 @@ function openFilePicker() {
         <div class="flex flex-wrap items-center gap-3 text-xs leading-6 text-gray-400 dark:text-dark-400">
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 transition hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-dark-700 dark:text-dark-200 dark:hover:border-primary-900/40 dark:hover:bg-primary-950/20 dark:hover:text-primary-100"
+            class="pw-table-tool-button h-9 rounded-lg px-3 text-xs"
             :disabled="isRunning || hasBlockingInterrupt"
             @click="openFilePicker"
           >

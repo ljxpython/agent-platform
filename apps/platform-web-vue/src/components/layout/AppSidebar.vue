@@ -244,7 +244,7 @@ watch(
     <div class="pw-sidebar-header">
       <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
         <BrandMark
-          alt="Agent Platform Console mark"
+          alt="Agent Platform mark"
           class="scale-[1.18]"
         />
       </div>
@@ -270,7 +270,7 @@ watch(
         <button
           v-if="!uiStore.sidebarCollapsed"
           type="button"
-          class="mb-2 flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-dark-800"
+          class="mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-dark-800"
           :class="isGroupActive(group) ? 'text-gray-700 dark:text-dark-100' : 'text-gray-500 dark:text-dark-400'"
           :aria-expanded="isGroupExpanded(group.id)"
           @click="toggleGroup(group.id)"
@@ -278,11 +278,6 @@ watch(
           <span class="pw-sidebar-section-title mb-0 px-0">
             {{ group.label }}
           </span>
-          <BaseIcon
-            :name="isGroupExpanded(group.id) ? 'chevron-down' : 'chevron-right'"
-            size="xs"
-            class="shrink-0 transition-transform duration-200"
-          />
         </button>
         <div
           v-else
@@ -341,7 +336,7 @@ watch(
           class="shrink-0"
         />
         <span v-if="!uiStore.sidebarCollapsed">
-          收起导航
+          收起
         </span>
       </button>
     </div>

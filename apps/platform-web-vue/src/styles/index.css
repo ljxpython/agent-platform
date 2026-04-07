@@ -327,6 +327,50 @@
     @apply dark:border-dark-700 dark:bg-dark-900 dark:text-dark-300;
   }
 
+  .pw-pill-soft {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium;
+  }
+
+  .pw-pill-soft-neutral {
+    @apply border-gray-200 bg-gray-50 text-gray-600;
+    @apply dark:border-dark-700 dark:bg-dark-900 dark:text-dark-300;
+  }
+
+  .pw-pill-soft-primary {
+    @apply border-primary-200 bg-primary-50 text-primary-700;
+    @apply dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-200;
+  }
+
+  .pw-pill-soft-info {
+    @apply border-sky-200 bg-sky-50 text-sky-700;
+    @apply dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200;
+  }
+
+  .pw-pill-soft-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+    @apply dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200;
+  }
+
+  .pw-pill-soft-warning {
+    @apply border-amber-200 bg-amber-50 text-amber-700;
+    @apply dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200;
+  }
+
+  .pw-pill-soft-danger {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+    @apply dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200;
+  }
+
+  .pw-pill-count {
+    @apply rounded-full bg-white/90 px-2 py-0.5 text-[11px] text-gray-500;
+    @apply dark:bg-dark-800 dark:text-dark-300;
+  }
+
+  .pw-code-block {
+    @apply overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-3 text-xs leading-6 text-gray-700;
+    @apply dark:bg-dark-900 dark:text-dark-100;
+  }
+
   .pw-markdown {
     @apply text-sm leading-7 text-slate-800 dark:text-dark-100;
   }
@@ -684,6 +728,17 @@
     @apply inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 transition;
     @apply hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900;
     @apply dark:border-dark-700 dark:bg-dark-800 dark:text-dark-200 dark:hover:border-dark-600 dark:hover:bg-dark-700 dark:hover:text-white;
+  }
+
+  .pw-chip-toggle {
+    @apply inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors;
+    @apply hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900;
+    @apply dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:border-dark-600 dark:hover:bg-dark-800 dark:hover:text-white;
+  }
+
+  .pw-chip-toggle-active {
+    @apply border-primary-200 bg-primary-50 text-primary-700;
+    @apply dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-200;
   }
 
   .pw-data-table-menu {

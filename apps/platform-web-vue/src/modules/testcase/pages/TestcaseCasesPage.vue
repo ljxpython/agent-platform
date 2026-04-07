@@ -1184,7 +1184,7 @@ watch(
                     <div class="text-sm font-semibold text-gray-900 dark:text-white">
                       test_data
                     </div>
-                    <pre class="mt-3 overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-gray-50 p-3 text-xs leading-6 text-gray-700 dark:bg-dark-900 dark:text-gray-200">{{ stringifyJson(asRecord(selectedCase.content_json).test_data) }}</pre>
+                    <pre class="pw-code-block mt-3">{{ stringifyJson(asRecord(selectedCase.content_json).test_data) }}</pre>
                   </div>
                 </div>
               </div>
@@ -1217,7 +1217,7 @@ watch(
                     <div
                       v-for="missingId in selectedCase.missing_source_document_ids || []"
                       :key="missingId"
-                      class="rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+                      class="pw-panel-warning px-3 py-3 text-xs"
                     >
                       缺失文档：{{ missingId }}
                     </div>
@@ -1235,7 +1235,7 @@ watch(
                   <div class="text-sm font-semibold text-gray-900 dark:text-white">
                     meta.quality_review
                   </div>
-                  <pre class="mt-3 overflow-auto whitespace-pre-wrap break-all rounded-2xl bg-gray-50 p-3 text-xs leading-6 text-gray-700 dark:bg-dark-900 dark:text-gray-200">{{ stringifyJson(detailMeta.quality_review) }}</pre>
+                  <pre class="pw-code-block mt-3">{{ stringifyJson(detailMeta.quality_review) }}</pre>
                 </div>
               </div>
             </div>

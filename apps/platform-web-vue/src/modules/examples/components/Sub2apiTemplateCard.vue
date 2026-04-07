@@ -44,22 +44,22 @@ function toneOf(item: Sub2apiTemplateItem) {
       </StatusPill>
       <span
         v-if="curation.isTeamRecommended"
-        class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"
+        class="pw-pill-soft pw-pill-soft-warning"
       >
         团队推荐 Top {{ curation.teamRank }}
       </span>
       <span
         v-else-if="curation.isRecommended"
-        class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300"
+        class="pw-pill-soft pw-pill-soft-success"
       >
         首选模板
       </span>
-      <span class="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200">
+      <span class="pw-pill-soft pw-pill-soft-neutral">
         {{ item.groupTitle }}
       </span>
       <span
         v-if="item.previewPath"
-        class="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-300"
+        class="pw-pill-soft pw-pill-soft-info"
       >
         {{ item.previewPath }}
       </span>
@@ -85,7 +85,7 @@ function toneOf(item: Sub2apiTemplateItem) {
       <span
         v-for="tag in item.tags.slice(0, 5)"
         :key="tag"
-        class="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200"
+        class="pw-pill-soft pw-pill-soft-neutral"
       >
         {{ tag }}
       </span>
