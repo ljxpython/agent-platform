@@ -30,6 +30,7 @@
 ## 3. 交付和运维资料放哪
 
 - `delivery/change-delivery-checklist.md`
+- `delivery/circular-import-remediation-checklist.md`
 - `delivery/module-delivery-template.md`
 - `delivery/platform-web-vue-gap-closure-checklist.md`
 - `delivery/runbook.md`
@@ -38,6 +39,8 @@
 
 其中：
 
+- `circular-import-remediation-checklist.md`
+  - 当前 `platform-api-v2` 的循环导入治理清单与回归记录；`identity / projects / runtime_gateway` 首轮治理已完成
 - `platform-web-vue-gap-closure-checklist.md`
   - 说明 `platform-api-v2` 与 `platform-web-vue` 的正式能力边界、前端收口任务和执行顺序
 

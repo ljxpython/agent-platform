@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -9,6 +10,7 @@ from langchain_core.tools import StructuredTool
 from runtime_service.services.test_case_service.schemas import TestCaseServiceConfig
 
 TEST_CASE_KNOWLEDGE_SERVER_NAME = "test_case_knowledge"
+logger = logging.getLogger(__name__)
 
 
 def build_test_case_knowledge_mcp_specs(
@@ -38,8 +40,21 @@ async def aget_test_case_knowledge_tools(
     if not specs:
         return []
 
-    client = MultiServerMCPClient(specs, tool_name_prefix=False)
-    tools = await client.get_tools()
+    try:
+        client = MultiServerMCPClient(specs, tool_name_prefix=False)
+        tools = await client.get_tools()
+    except Exception:
+        logger.warning(
+            "test_case_service knowledge MCP unavailable, fallback to local-only tools",
+            extra={
+                "knowledge_mcp_url": service_config.knowledge_mcp_url,
+                "knowledge_timeout_seconds": service_config.knowledge_timeout_seconds,
+                "knowledge_sse_read_timeout_seconds": service_config.knowledge_sse_read_timeout_seconds,
+            },
+            exc_info=True,
+        )
+        return []
+
     return [_wrap_mcp_tool_with_string_output(tool) for tool in tools]
 
 

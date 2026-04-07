@@ -12,7 +12,7 @@ from app.adapters.langgraph import (
 from app.core.context.models import ActorContext
 from app.core.errors import BadRequestError
 from app.entrypoints.http.dependencies import get_actor_context
-from app.modules.runtime_gateway.application import RuntimeGatewayService
+from app.modules.runtime_gateway.application.service import RuntimeGatewayService
 
 router = APIRouter(prefix="/api/langgraph", tags=["runtime-gateway"])
 

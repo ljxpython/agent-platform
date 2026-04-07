@@ -615,6 +615,37 @@ def _merge_pdf_parser_result(
     )
 
 
+def _build_pdf_fallback_result(
+    artifact: AttachmentArtifact,
+    *,
+    extracted_text: str,
+    pdf_meta: dict[str, Any] | None,
+    pdf_chunks: list[Mapping[str, Any]] | None,
+    reason: str,
+) -> ParserResult:
+    name = artifact.get("name") or "未命名 PDF"
+    page_count = pdf_meta.get("page_count") if isinstance(pdf_meta, Mapping) else None
+    page_part = f"共 {page_count} 页，" if isinstance(page_count, int) and page_count > 0 else ""
+    preview = _normalize_whitespace(extracted_text)[:280]
+    summary = (
+        f"PDF 已完成文本抽取：{name}，{page_part}"
+        f"但结构化摘要阶段降级处理（{reason}）。"
+        f"请直接基于已抽取文本继续分析。内容预览：{preview}"
+    )
+    return _merge_pdf_parser_result(
+        ParserResult(
+            summary_for_model=summary,
+            parsed_text=extracted_text[:12000],
+            structured_data=dict(pdf_meta or {}),
+            confidence=0.35,
+        ),
+        artifact=artifact,
+        extracted_text=extracted_text,
+        pdf_meta=pdf_meta,
+        pdf_chunks=pdf_chunks,
+    )
+
+
 def _parse_response_to_artifact(
     artifact: AttachmentArtifact,
     response: Any,
@@ -624,10 +655,13 @@ def _parse_response_to_artifact(
     parsed_text_on_failure: str | None = None,
     structured_data_on_failure: dict[str, Any] | None = None,
     result_transform: Callable[[ParserResult], ParserResult] | None = None,
+    fallback_result: ParserResult | None = None,
 ) -> AttachmentArtifact:
     try:
         parsed = _parse_model_response(_extract_openai_response_text(response))
     except Exception as exc:
+        if fallback_result is not None:
+            return _apply_parser_result(artifact, fallback_result, model_id=model_id)
         return _build_failed_artifact_with_context(
             artifact,
             f"{error_prefix}：{exc}",
@@ -660,12 +694,16 @@ def _parse_attachment_with_model(
                 stream=False,
             )
         except Exception as exc:
-            return _build_failed_artifact_with_context(
+            return _apply_parser_result(
                 artifact,
-                f"PDF 摘要生成失败：{exc}",
+                _build_pdf_fallback_result(
+                    artifact,
+                    extracted_text=extracted_text,
+                    pdf_meta=pdf_meta,
+                    pdf_chunks=pdf_chunks,
+                    reason=f"PDF 摘要生成失败：{exc}",
+                ),
                 model_id=model_id,
-                parsed_text=extracted_text[:12000],
-                structured_data=pdf_meta,
             )
         return _parse_response_to_artifact(
             artifact,
@@ -680,6 +718,13 @@ def _parse_attachment_with_model(
                 extracted_text=extracted_text,
                 pdf_meta=pdf_meta,
                 pdf_chunks=pdf_chunks,
+            ),
+            fallback_result=_build_pdf_fallback_result(
+                artifact,
+                extracted_text=extracted_text,
+                pdf_meta=pdf_meta,
+                pdf_chunks=pdf_chunks,
+                reason="PDF 摘要生成失败",
             ),
         )
     try:
@@ -720,12 +765,16 @@ async def _aparse_attachment_with_model(
                 stream=False,
             )
         except Exception as exc:
-            return _build_failed_artifact_with_context(
+            return _apply_parser_result(
                 artifact,
-                f"PDF 摘要生成失败：{exc}",
+                _build_pdf_fallback_result(
+                    artifact,
+                    extracted_text=extracted_text,
+                    pdf_meta=pdf_meta,
+                    pdf_chunks=pdf_chunks,
+                    reason=f"PDF 摘要生成失败：{exc}",
+                ),
                 model_id=model_id,
-                parsed_text=extracted_text[:12000],
-                structured_data=pdf_meta,
             )
         return _parse_response_to_artifact(
             artifact,
@@ -740,6 +789,13 @@ async def _aparse_attachment_with_model(
                 extracted_text=extracted_text,
                 pdf_meta=pdf_meta,
                 pdf_chunks=pdf_chunks,
+            ),
+            fallback_result=_build_pdf_fallback_result(
+                artifact,
+                extracted_text=extracted_text,
+                pdf_meta=pdf_meta,
+                pdf_chunks=pdf_chunks,
+                reason="PDF 摘要生成失败",
             ),
         )
     try:

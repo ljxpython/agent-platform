@@ -1,3 +1,3 @@
-from app.modules.projects.infra.sqlalchemy import SqlAlchemyProjectsRepository
+"""Projects infra package."""
 
-__all__ = ["SqlAlchemyProjectsRepository"]
+__all__: list[str] = []

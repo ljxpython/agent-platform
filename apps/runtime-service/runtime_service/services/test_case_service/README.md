@@ -134,6 +134,33 @@ Agent 通过 `SkillsMiddleware` 自动加载以下 Skills，按需激活：
 - 如果知识库无结果，应明确说明“知识依据不足”，而不是编造业务细节
 - 代码层顺序是：`read_file(requirement-analysis) -> query_project_knowledge -> 正常策略/用例生成`
 
+## 排障记录
+
+### PDF 已上传，却被误判成“无附件业务测试用例生成”
+
+现象：
+
+- `platform-web-vue` 前端真实请求体已经带了 `content[].type=file` 的 PDF block
+- agent 仍返回：`当前请求是无附件业务测试用例生成，但服务未挂载 query_project_knowledge，因此不能基于臆测继续生成。`
+
+根因：
+
+- `MultimodalMiddleware` 会先解析附件，并把结果写进 `state.multimodal_attachments` / `state.multimodal_summary`
+- 同时，模型看到的最新用户消息会被重写为“文本 + 附件摘要”
+- `TestCaseKnowledgeQueryGuardMiddleware` 旧实现只检查 `request.messages` 里是否还存在 `file/image` block
+- 结果就是：附件已经进入多模态状态，但 guard 误以为“当前轮无附件”，从而错误触发 `query_project_knowledge` 强制分支
+
+修复：
+
+- guard 现在除了检查消息内容，还会检查 `request.state["multimodal_attachments"]`
+- 只要多模态状态里已经有附件，就不再把本轮请求判成“无附件业务用例生成”
+
+验证结论：
+
+- 前端附件上传链路正常，不是 `platform-web-vue` 把 PDF 弄丢
+- `MCP` 开关不应影响“有没有识别到上传附件”，它只影响无附件/证据不足时能不能查知识库
+- 修复后，真实新线程已验证能命中 `read_multimodal_attachments`，并继续生成正式测试用例
+
 ## 在 LangGraph 中的注册
 
 ```json

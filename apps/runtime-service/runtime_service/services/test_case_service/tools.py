@@ -27,6 +27,7 @@ from runtime_service.services.test_case_service.schemas import (
     PersistTestCaseItem,
     TestCaseServiceConfig,
 )
+from runtime_service.tools.multimodal import read_multimodal_attachments
 
 TEST_CASES_PATH = "/api/test-case-service/test-cases"
 
@@ -315,7 +316,7 @@ def build_test_case_service_tools(service_config: TestCaseServiceConfig) -> list
             ensure_ascii=False,
         )
 
-    return [persist_test_case_results]
+    return [persist_test_case_results, read_multimodal_attachments]
 
 
 __all__ = ["build_test_case_service_tools"]

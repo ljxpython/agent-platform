@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Callable
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -30,10 +31,13 @@ from app.modules.identity.application.contracts import (
     RefreshSessionCommand,
     UpdateCurrentUserProfileCommand,
 )
-from app.modules.identity.application.ports import IdentityRepository, StoredUser
+from app.modules.identity.application.ports import (
+    IdentityRepository,
+    ProjectRolesReader,
+    StoredUser,
+)
 from app.modules.identity.domain import AuthenticatedSession, SessionTokens, UserProfile, UserStatus
 from app.modules.identity.infra.sqlalchemy.repository import SqlAlchemyIdentityRepository
-from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
 
 
 def _now() -> datetime:
@@ -55,9 +59,11 @@ class IdentityService:
         *,
         settings: Settings,
         session_factory: sessionmaker[Session] | None,
+        project_roles_reader_factory: Callable[[Session], ProjectRolesReader] | None = None,
     ) -> None:
         self._settings = settings
         self._session_factory = session_factory
+        self._project_roles_reader_factory = project_roles_reader_factory
 
     def _require_session_factory(self) -> sessionmaker[Session]:
         if self._session_factory is None:
@@ -71,7 +77,9 @@ class IdentityService:
         return SqlAlchemyIdentityRepository(session)
 
     def _project_roles(self, session: Session, *, user_id: UUID) -> dict[str, tuple[str, ...]]:
-        repository = SqlAlchemyProjectsRepository(session)
+        if self._project_roles_reader_factory is None:
+            return {}
+        repository = self._project_roles_reader_factory(session)
         return repository.list_user_project_roles(user_id=user_id)
 
     def _user_profile(

@@ -1,27 +1,3 @@
-from app.modules.identity.application import (
-    ChangePasswordCommand,
-    IdentityService,
-    LoginCommand,
-    LogoutCommand,
-    RefreshSessionCommand,
-    UpdateCurrentUserProfileCommand,
-)
-from app.modules.identity.domain import (
-    AuthenticatedSession,
-    SessionTokens,
-    UserProfile,
-    UserStatus,
-)
+"""Identity module package."""
 
-__all__ = [
-    "AuthenticatedSession",
-    "ChangePasswordCommand",
-    "IdentityService",
-    "LoginCommand",
-    "LogoutCommand",
-    "RefreshSessionCommand",
-    "SessionTokens",
-    "UpdateCurrentUserProfileCommand",
-    "UserProfile",
-    "UserStatus",
-]
+__all__: list[str] = []

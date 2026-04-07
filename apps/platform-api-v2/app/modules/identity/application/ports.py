@@ -26,6 +26,10 @@ class StoredRefreshToken:
     revoked_at: datetime | None
 
 
+class ProjectRolesReader(Protocol):
+    def list_user_project_roles(self, *, user_id: UUID) -> dict[str, tuple[str, ...]]: ...
+
+
 class IdentityRepository(Protocol):
     def get_user_by_username(self, username: str) -> StoredUser | None: ...
 

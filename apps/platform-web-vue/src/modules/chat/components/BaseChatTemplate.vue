@@ -482,13 +482,36 @@ async function handleDeleteThread(threadId: string) {
 }
 
 async function handleSend() {
-  const currentDraftKey = composerDraftKey.value
-  const sent = await workspace.sendMessage(composerInput.value, composerAttachments.value)
-  if (sent) {
-    writeComposerDraft(currentDraftKey, '')
-    composerInput.value = ''
-    attachmentState.resetAttachments()
+  const draftContent = composerInput.value
+  const draftAttachments = composerAttachments.value.map((attachment) => ({
+    ...attachment,
+    metadata: attachment.metadata ? { ...attachment.metadata } : undefined
+  }))
+
+  if (!draftContent.trim() && draftAttachments.length === 0) {
+    return
   }
+
+  composerInput.value = ''
+  attachmentState.resetAttachments()
+
+  void workspace.sendMessage(draftContent, draftAttachments)
+    .then((sent) => {
+      if (sent) {
+        return
+      }
+
+      if (!composerInput.value.trim() && composerAttachments.value.length === 0) {
+        composerInput.value = draftContent
+        attachmentState.attachments.value = draftAttachments
+      }
+    })
+    .catch(() => {
+      if (!composerInput.value.trim() && composerAttachments.value.length === 0) {
+        composerInput.value = draftContent
+        attachmentState.attachments.value = draftAttachments
+      }
+    })
 }
 
 async function handleSelectThread(threadId: string) {

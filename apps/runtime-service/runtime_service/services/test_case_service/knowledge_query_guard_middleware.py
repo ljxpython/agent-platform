@@ -8,6 +8,7 @@ from deepagents.middleware._utils import append_to_system_message
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import AIMessage
 
+MULTIMODAL_ATTACHMENTS_KEY = "multimodal_attachments"
 REQUIREMENT_ANALYSIS_SKILL_PATH = "/skills/requirement-analysis/SKILL.md"
 READ_FILE_TOOL_NAME = "read_file"
 QUERY_PROJECT_KNOWLEDGE_TOOL_NAME = "query_project_knowledge"
@@ -89,6 +90,13 @@ def _content_has_attachment(content: Any) -> bool:
         if item.get("type") in {"file", "image"}:
             return True
     return False
+
+
+def _state_has_attachment_context(state: Any) -> bool:
+    if not isinstance(state, Mapping):
+        return False
+    attachments = state.get(MULTIMODAL_ATTACHMENTS_KEY)
+    return isinstance(attachments, list) and len(attachments) > 0
 
 
 def _get_latest_user_message(messages: Sequence[Any]) -> Any | None:
@@ -188,7 +196,7 @@ class TestCaseKnowledgeQueryGuardMiddleware(AgentMiddleware[Any, Any]):
             return False, ""
 
         content = _get_message_content(latest_user_message)
-        if _content_has_attachment(content):
+        if _content_has_attachment(content) or _state_has_attachment_context(request.state):
             return False, ""
 
         latest_user_text = _extract_text_from_content(content)

@@ -1,5 +1,39 @@
 # Chat 前端收敛方案
 
+## 当前冻结说明
+
+- 本文档记录的是 chat 前端第一阶段收敛原则、UX 规则和拆包策略。
+- 从“聊天流内核”角度看，后续正式迁移方案已经单独冻结到：
+  - `./chat-langchain-vue-migration-blueprint.md`
+- 后续凡是涉及 `useChatWorkspace`、流式消息、branch / interrupt / tool call 真相源的改造，以那份蓝图为准；本文继续负责页面壳、UX 规则、展示层拆分原则。
+
+## 最新联调状态（2026-04-07）
+
+- `testcase agent` 文本流式对话已真实打通，前端可创建 thread、发送消息、实时拿到 agent 回复。
+- 图片附件对话已真实打通，上传后的图片会作为消息内容提交到 `runs/stream`，页面能看到附件卡片、工具调用和最终回复。
+- PDF 附件入口已补一轮真实联调：
+  - 页面：`/workspace/testcase/generate`
+  - 验证线程：`c9d78156-694c-474a-ae79-8d5f99c2380c`
+  - 当前附件状态为 `parsed`，不再因为 PDF 摘要模型失败直接落成 `failed`
+  - 如果摘要模型不可用，会退回到“基于已抽取文本继续分析”的降级路径
+- 旧坏线程已隔离：
+  - 坏线程：`281a09cb-2d5a-4b06-aa44-4139a4d22bb1`
+  - 默认打开 `/workspace/chat` 时，不再自动落入该线程
+  - 显式打开该线程时，页面会展示“历史线程状态损坏，建议新开对话继续”的 warning
+- chat composable 已完成第一轮拆包：
+  - `useChatWorkspace.ts` 退回编排层
+  - 新增 `usePlatformChatStream.ts` 承接流式消息内核
+  - 新增 `useChatThreadWorkspace.ts` 承接 thread 列表 / 详情 / 坏线程隔离
+- chat composable 已完成第二轮拆包：
+  - `usePlatformChatStream.ts` 继续收口到编排层
+  - 新增 `platform-chat-stream/helpers.ts`
+  - 新增 `platform-chat-stream/actions.ts`
+  - 运行参数构建、interrupt / thread failure 推导、send / retry / resume / cancel 等逻辑已从主文件拆出
+- 修复记录：
+  - 浏览器本地开发环境下，`127.0.0.1` / `localhost` 混用会导致 LangGraph SDK 流式请求跨域或 URL 解析异常；现在前端统一回到同源绝对地址。
+  - `useStream.submit()` 不能直接提交 `HumanMessage` 类实例；现在统一提交标准消息字典，避免服务端出现 `MESSAGE_COERCION_FAILURE`。
+- 当前如果还看到某些旧 thread 的 `state 400`，优先判断是否为修复前产生的坏线程，不要先怀疑现在线路又炸了。
+
 ## 目标
 
 - 保持 `apps/platform-web-vue` 现有视觉风格、主题变量、组件体系不变。
@@ -36,11 +70,15 @@
 ### 2. 数据源层
 
 - `useChatWorkspace`
+- `useChatThreadWorkspace`
+- `usePlatformChatStream`
 - `useChatAttachments`
 
 职责：
 
-- 线程列表、线程详情、流式运行、断点恢复
+- `useChatWorkspace`：页面编排层，组合运行目录、thread 工作台和 stream 内核
+- `useChatThreadWorkspace`：线程列表、线程详情、坏线程隔离、线程切换
+- `usePlatformChatStream`：流式运行、断点恢复、重试、编辑重发、中断恢复
 - 附件上传、粘贴、拖拽
 - 运行参数、取消、重试、checkpoint 分支
 
@@ -247,6 +285,8 @@
 - [x] 增加“有新消息 / Agent 仍在运行 / 回到底部”浮层提示
 - [x] 收敛工具调用与计划更新展示，禁止结构化事件抢占主消息区滚动焦点
 - [x] 收敛 `BaseChatTemplate.vue`，让它只负责编排，不继续堆业务判断
+- [x] 完成 `testcase agent` 基于 `@langchain/vue/useStream` 的真实文本链路联调
+- [x] 完成 `testcase agent` 图片附件链路联调
 
 ## 当前阶段验收标准
 

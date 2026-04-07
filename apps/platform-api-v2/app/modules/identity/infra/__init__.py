@@ -1,3 +1,3 @@
-from app.modules.identity.infra.sqlalchemy import SqlAlchemyIdentityRepository
+"""Identity infra package."""
 
-__all__ = ["SqlAlchemyIdentityRepository"]
+__all__: list[str] = []

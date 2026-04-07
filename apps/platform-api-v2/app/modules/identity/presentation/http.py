@@ -8,7 +8,7 @@ from app.core.context.models import ActorContext
 from app.core.errors import ServiceUnavailableError
 from app.core.schemas import AckResponse
 from app.entrypoints.http.dependencies import get_actor_context
-from app.modules.identity.application import (
+from app.modules.identity.application.contracts import (
     ChangePasswordCommand,
     LoginCommand,
     LogoutCommand,
@@ -17,6 +17,7 @@ from app.modules.identity.application import (
 )
 from app.modules.identity.application.service import IdentityService
 from app.modules.identity.domain import AuthenticatedSession, SessionTokens, UserProfile
+from app.modules.projects.infra.sqlalchemy.repository import SqlAlchemyProjectsRepository
 
 router = APIRouter(prefix="/api/identity", tags=["identity"])
 
@@ -32,6 +33,7 @@ def get_identity_service(request: Request) -> IdentityService:
     return IdentityService(
         settings=settings,
         session_factory=session_factory,
+        project_roles_reader_factory=SqlAlchemyProjectsRepository,
     )
 
 

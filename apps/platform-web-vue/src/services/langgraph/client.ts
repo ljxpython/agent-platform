@@ -1,19 +1,65 @@
 import { Client } from '@langchain/langgraph-sdk'
-import { getPlatformAccessToken, getPlatformApiBaseUrl } from '@/services/platform/control-plane'
+import { refreshAccessToken } from '@/services/http/client'
+import { getAccessToken } from '@/services/auth/token'
+import { getPlatformApiBaseUrl } from '@/services/platform/control-plane'
 
 function getLanggraphApiUrl() {
   const normalizedBase = getPlatformApiBaseUrl('runtime_gateway').replace(/\/+$/, '')
   return normalizedBase.endsWith('/api/langgraph') ? normalizedBase : `${normalizedBase}/api/langgraph`
 }
 
+type LanggraphAuthorizedFetchOptions = {
+  fetchImpl?: typeof fetch
+  getAccessToken?: () => string
+  refreshAccessToken?: () => Promise<string>
+}
+
+function withAccessToken(init: RequestInit | undefined, accessToken: string): RequestInit {
+  const headers = new Headers(init?.headers)
+  const normalizedToken = accessToken.trim()
+
+  if (normalizedToken) {
+    headers.set('Authorization', `Bearer ${normalizedToken}`)
+  } else {
+    headers.delete('Authorization')
+  }
+
+  return {
+    ...init,
+    headers
+  }
+}
+
+export function createLanggraphAuthorizedFetch(options: LanggraphAuthorizedFetchOptions = {}) {
+  const fetchImpl = options.fetchImpl ?? fetch
+  const readAccessToken = options.getAccessToken ?? getAccessToken
+  const renewAccessToken = options.refreshAccessToken ?? refreshAccessToken
+
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const initialResponse = await fetchImpl(input, withAccessToken(init, readAccessToken()))
+    if (initialResponse.status !== 401) {
+      return initialResponse
+    }
+
+    const nextAccessToken = (await renewAccessToken()).trim()
+    if (!nextAccessToken) {
+      return initialResponse
+    }
+
+    return fetchImpl(input, withAccessToken(init, nextAccessToken))
+  }
+}
+
 export function createLanggraphClient(projectId?: string): Client {
-  const accessToken = getPlatformAccessToken('runtime_gateway')
+  const normalizedProjectId = projectId?.trim() || ''
 
   return new Client({
     apiUrl: getLanggraphApiUrl(),
+    callerOptions: {
+      fetch: createLanggraphAuthorizedFetch()
+    },
     defaultHeaders: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...(projectId?.trim() ? { 'x-project-id': projectId.trim() } : {})
+      ...(normalizedProjectId ? { 'x-project-id': normalizedProjectId } : {})
     }
   })
 }

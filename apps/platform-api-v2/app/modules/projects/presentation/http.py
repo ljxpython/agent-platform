@@ -6,13 +6,13 @@ from sqlalchemy.orm import sessionmaker
 from app.core.context.models import ActorContext
 from app.core.schemas import AckResponse
 from app.entrypoints.http.dependencies import get_actor_context
-from app.modules.projects.application import (
+from app.modules.projects.application.contracts import (
     CreateProjectCommand,
     ListProjectMembersQuery,
     ListProjectsQuery,
-    ProjectsService,
     UpsertProjectMemberCommand,
 )
+from app.modules.projects.application.service import ProjectsService
 from app.modules.projects.domain import ProjectMemberPage, ProjectMemberView, ProjectPage, ProjectSummary
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])

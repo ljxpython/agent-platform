@@ -81,6 +81,24 @@ def test_aget_test_case_knowledge_tools_uses_multi_server_client(monkeypatch) ->
     }
 
 
+def test_aget_test_case_knowledge_tools_returns_empty_when_client_init_fails(monkeypatch) -> None:
+    class BrokenClient:
+        def __init__(self, *_args, **_kwargs) -> None:
+            raise RuntimeError("mcp unavailable")
+
+    monkeypatch.setattr(knowledge_mcp, "MultiServerMCPClient", BrokenClient)
+
+    tools = asyncio.run(
+        knowledge_mcp.aget_test_case_knowledge_tools(
+            ServiceConfig(
+                knowledge_mcp_url="http://127.0.0.1:8765/sse",
+            )
+        )
+    )
+
+    assert tools == []
+
+
 def test_wrapped_mcp_tool_supports_repeated_invocations() -> None:
     calls: list[str] = []
 

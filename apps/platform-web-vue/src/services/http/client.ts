@@ -30,7 +30,7 @@ function mapRefreshPayload(payload: {
   }
 }
 
-async function refreshAccessToken(): Promise<string> {
+export async function refreshAccessToken(): Promise<string> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) {
     clearTokenSet()

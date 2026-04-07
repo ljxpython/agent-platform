@@ -920,6 +920,79 @@ def test_multimodal_middleware_marks_malformed_openai_response_as_failed() -> No
     assert response.result[0].text == "ok"
 
 
+def test_multimodal_middleware_pdf_falls_back_to_extracted_text_on_malformed_summary_response() -> None:
+    class FakeCompletions:
+        @staticmethod
+        def create(*args: Any, **kwargs: Any) -> Any:
+            del args, kwargs
+
+            class FakeResponse:
+                choices = None
+                status = 434
+                msg = "Invalid apiKey"
+                body = {"detail": "choices missing"}
+
+            return FakeResponse()
+
+    class FakeClient:
+        chat = type("FakeChat", (), {"completions": FakeCompletions()})()
+
+    class FakeModel:
+        model_name = "fake-openai-compatible"
+        root_client = FakeClient()
+        root_async_client = object()
+
+    middleware = MultimodalMiddleware()
+    request = ModelRequest(
+        model=cast(BaseChatModel, object()),
+        messages=[
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": "请分析这个 PDF"},
+                    {
+                        "type": "file",
+                        "mimeType": "application/pdf",
+                        "data": "pdfbase64",
+                        "metadata": {"filename": "report.pdf"},
+                    },
+                ]
+            )
+        ],
+        system_message=SystemMessage(content="Base prompt"),
+        state=cast(Any, {}),
+    )
+
+    def handler(updated_request: ModelRequest) -> ModelResponse:
+        state = cast(dict[str, Any], updated_request.state)
+        attachment = state[MULTIMODAL_ATTACHMENTS_KEY][0]
+        assert attachment["status"] == "parsed"
+        assert "PDF 已完成文本抽取" in attachment["summary_for_model"]
+        assert "Alpha Beta Gamma" in attachment["parsed_text"]
+        content = cast(list[dict[str, Any]], updated_request.messages[0].content)
+        assert content[1]["type"] == "text"
+        assert "PDF 已完成文本抽取" in content[1]["text"]
+        return ModelResponse(result=[AIMessage(content="ok")])
+
+    with (
+        patch(
+            "runtime_service.middlewares.multimodal.resolve_model_by_id",
+            return_value=FakeModel(),
+        ),
+        patch(
+            "runtime_service.middlewares.multimodal.parsing._prepare_pdf_artifact_for_parsing",
+            return_value=(
+                "Alpha Beta Gamma",
+                {"page_count": 1, "extraction": "unit-test"},
+                [{"page": 1, "text": "Alpha Beta Gamma"}],
+                None,
+            ),
+        ),
+    ):
+        response = middleware.wrap_model_call(request, handler)
+
+    assert response.result[0].text == "ok"
+
+
 def test_resolve_parser_transport_uses_openai_clients() -> None:
 
     class FakeModel:

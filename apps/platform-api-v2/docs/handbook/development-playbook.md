@@ -89,11 +89,15 @@ HTTP handler 只做这几件事：
 - 一个 repository 只服务本模块领域
 - 跨模块组合由 application 层完成
 - infra 只做持久化和适配落地，不承接业务语义
+- 只读跨模块查询优先抽成 query port / query service，不允许直接反向依赖对方 infra repository
+- 包级 `__init__.py` 只做轻量导出，不做 `Service` 的 eager re-export
 
 禁止：
 
 - 新建另一个全局 `access.py`
 - 让 repository 顺手实现业务规则
+- 在 `identity`、`projects`、`runtime_gateway` 这类核心模块之间直接互相咬 infra repository
+- 通过 `module/__init__.py` 间接触发整棵模块树初始化
 
 ## 7. Adapter 规则
 

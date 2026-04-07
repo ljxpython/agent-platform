@@ -1,4 +1,3 @@
-from app.modules.runtime_gateway.application.ports import RuntimeGatewayUpstreamProtocol
-from app.modules.runtime_gateway.application.service import RuntimeGatewayService
+"""Runtime gateway application package."""
 
-__all__ = ["RuntimeGatewayService", "RuntimeGatewayUpstreamProtocol"]
+__all__: list[str] = []

@@ -312,3 +312,10 @@ def test_persist_test_case_results_persists_cases_and_document_links(monkeypatch
     assert payload["source_document_ids"] == ["doc-1"]
     assert payload["content_json"]["meta"]["source_document_ids"] == ["doc-1"]
     assert payload["content_json"]["meta"]["bundle_title"] == "登录测试"
+
+
+def test_build_test_case_service_tools_exposes_multimodal_reader() -> None:
+    tools = build_test_case_service_tools(ServiceConfig())
+    tool_names = [tool.name for tool in tools]
+
+    assert tool_names == ["persist_test_case_results", "read_multimodal_attachments"]

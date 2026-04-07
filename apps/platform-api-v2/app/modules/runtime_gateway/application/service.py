@@ -48,7 +48,27 @@ def _thread_graph_id(thread: dict[str, Any]) -> str | None:
         value = clean_str(metadata.get(key))
         if value:
             return value
+    if clean_str(metadata.get("target_type")) == "graph":
+        legacy_graph_id = clean_str(metadata.get("assistant_id"))
+        if legacy_graph_id:
+            return legacy_graph_id
     return None
+
+
+def _promote_thread_graph_id(payload: dict[str, Any]) -> dict[str, Any]:
+    next_payload = dict(payload)
+    if clean_str(next_payload.get("graph_id")):
+        return next_payload
+
+    metadata = ensure_dict(next_payload.get("metadata"))
+    graph_id = clean_str(metadata.get("graph_id"))
+    if not graph_id and clean_str(metadata.get("target_type")) == "graph":
+        graph_id = clean_str(metadata.get("assistant_id"))
+
+    if graph_id:
+        next_payload["graph_id"] = graph_id
+
+    return next_payload
 
 
 class RuntimeGatewayService:
@@ -254,6 +274,7 @@ class RuntimeGatewayService:
     ) -> Any:
         await self._prepare_project_scope(actor=actor, project_id=project_id, write=True)
         next_payload = self._inject_project_metadata(project_id=project_id, payload=payload)
+        next_payload = _promote_thread_graph_id(next_payload)
         return await self._upstream.create_thread(next_payload)
 
     async def search_threads(
