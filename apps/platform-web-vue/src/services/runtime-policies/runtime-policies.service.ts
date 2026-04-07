@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import type {
   RuntimeGraphPolicyListResponse,
   RuntimeGraphPolicyValue,
@@ -13,7 +13,7 @@ function runtimePolicyPath(projectId: string, suffix: string) {
 }
 
 export async function listRuntimeGraphPolicies(projectId: string): Promise<RuntimeGraphPolicyListResponse> {
-  const response = await platformV2HttpClient.get(runtimePolicyPath(projectId, 'graphs'))
+  const response = await platformHttpClient.get(runtimePolicyPath(projectId, 'graphs'))
   return response.data as RuntimeGraphPolicyListResponse
 }
 
@@ -26,7 +26,7 @@ export async function updateRuntimeGraphPolicy(
     note?: string | null
   }
 ): Promise<RuntimeGraphPolicyValue> {
-  const response = await platformV2HttpClient.put(
+  const response = await platformHttpClient.put(
     runtimePolicyPath(projectId, `graphs/${encodeURIComponent(catalogId)}`),
     payload
   )
@@ -34,7 +34,7 @@ export async function updateRuntimeGraphPolicy(
 }
 
 export async function listRuntimeToolPolicies(projectId: string): Promise<RuntimeToolPolicyListResponse> {
-  const response = await platformV2HttpClient.get(runtimePolicyPath(projectId, 'tools'))
+  const response = await platformHttpClient.get(runtimePolicyPath(projectId, 'tools'))
   return response.data as RuntimeToolPolicyListResponse
 }
 
@@ -47,7 +47,7 @@ export async function updateRuntimeToolPolicy(
     note?: string | null
   }
 ): Promise<RuntimeToolPolicyValue> {
-  const response = await platformV2HttpClient.put(
+  const response = await platformHttpClient.put(
     runtimePolicyPath(projectId, `tools/${encodeURIComponent(catalogId)}`),
     payload
   )
@@ -55,7 +55,7 @@ export async function updateRuntimeToolPolicy(
 }
 
 export async function listRuntimeModelPolicies(projectId: string): Promise<RuntimeModelPolicyListResponse> {
-  const response = await platformV2HttpClient.get(runtimePolicyPath(projectId, 'models'))
+  const response = await platformHttpClient.get(runtimePolicyPath(projectId, 'models'))
   return response.data as RuntimeModelPolicyListResponse
 }
 
@@ -69,7 +69,7 @@ export async function updateRuntimeModelPolicy(
     note?: string | null
   }
 ): Promise<RuntimeModelPolicyValue> {
-  const response = await platformV2HttpClient.put(
+  const response = await platformHttpClient.put(
     runtimePolicyPath(projectId, `models/${encodeURIComponent(catalogId)}`),
     payload
   )

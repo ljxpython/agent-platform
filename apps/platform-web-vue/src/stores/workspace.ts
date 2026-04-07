@@ -29,46 +29,20 @@ export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
     currentProjectId: '',
     projects: [] as ManagementProject[],
-    loading: false,
-    runtimeProjectId: '',
-    runtimeProjects: [] as ManagementProject[],
-    runtimeLoading: false
+    loading: false
   }),
   getters: {
     currentProject(state) {
-      return state.projects.find((project) => project.id === state.currentProjectId) ?? null
-    },
-    runtimeProject(state) {
-      return state.projects.find((project) => project.id === state.currentProjectId) ?? null
-    },
-    runtimeScope() {
-      return 'v2'
-    },
-    runtimeContextEnabled() {
-      return true
-    },
-    runtimeScopedProjectId(state) {
-      return state.currentProjectId
-    },
-    runtimeScopedProjects(state) {
-      return state.projects
-    },
-    runtimeScopedProject(state) {
       return state.projects.find((project) => project.id === state.currentProjectId) ?? null
     }
   },
   actions: {
     hydrateProjectPreference() {
       this.currentProjectId = readProjectPreference(PROJECT_STORAGE_KEY)
-      this.runtimeProjectId = this.currentProjectId
     },
     setProjectId(projectId: string) {
       this.currentProjectId = projectId
-      this.runtimeProjectId = projectId
-      writeProjectPreference(PROJECT_STORAGE_KEY, projectId)
-    },
-    setRuntimeProjectId(projectId: string) {
-      this.setProjectId(projectId)
+      writeProjectPreference(PROJECT_STORAGE_KEY, projectId.trim())
     },
     async hydrateContext() {
       this.loading = true
@@ -77,7 +51,6 @@ export const useWorkspaceStore = defineStore('workspace', {
         this.hydrateProjectPreference()
         const rows = await listProjects()
         this.projects = rows
-        this.runtimeProjects = rows
 
         const nextProjectId =
           rows.find((project) => project.id === this.currentProjectId)?.id ||
@@ -92,21 +65,10 @@ export const useWorkspaceStore = defineStore('workspace', {
         this.loading = false
       }
     },
-    async hydrateRuntimeContext() {
-      this.runtimeLoading = true
-      try {
-        await this.hydrateContext()
-      } finally {
-        this.runtimeLoading = false
-      }
-    },
     reset() {
       this.projects = []
       this.setProjectId('')
-      this.runtimeProjects = []
-      this.runtimeProjectId = ''
       this.loading = false
-      this.runtimeLoading = false
     }
   }
 })

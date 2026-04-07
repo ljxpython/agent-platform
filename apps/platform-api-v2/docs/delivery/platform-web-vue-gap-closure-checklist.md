@@ -82,7 +82,7 @@
   - `identity.service.ts`
   - 最终保留一套正式入口
 - [x] 清理无实际分流意义的 `legacy | runtime` 过渡参数
-- [ ] 收敛 `runtimeProjectId / runtimeScopedProject / runtimeProjects` 这类伪独立上下文抽象
+- [x] 收敛 `runtimeProjectId / runtimeScopedProject / runtimeProjects` 这类伪独立上下文抽象
 - [x] 保证所有页面只能通过统一 service/client 层访问 `platform-api-v2`
 
 ## 5. P1 前端产品缺口补齐
@@ -147,3 +147,4 @@
 - `../decisions/platform-capability-reconciliation.md`
 - `../handbook/project-handbook.md`
 - `../handbook/development-playbook.md`
+- `./platform-web-vue-capability-coverage.md`

@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import { normalizeManagementUser, normalizeProjectRole } from '@/services/auth/permissions'
 import type {
   ManagementUser,
@@ -20,7 +20,7 @@ export async function listUsersPage(options?: {
   status?: string
   excludeUserIds?: string[]
 }): Promise<ManagementUserListResponse> {
-  const response = await platformV2HttpClient.get('/api/users', {
+  const response = await platformHttpClient.get('/api/users', {
     params: {
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
@@ -45,14 +45,14 @@ export async function createUser(payload: {
   password: string
   is_super_admin?: boolean
 }): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.post('/api/users', payload)
+  const response = await platformHttpClient.post('/api/users', payload)
   return normalizeManagementUser(response.data as ManagementUser)
 }
 
 export async function getUser(
   userId: string
 ): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.get(`/api/users/${userId}`)
+  const response = await platformHttpClient.get(`/api/users/${userId}`)
   return normalizeManagementUser(response.data as ManagementUser)
 }
 
@@ -62,7 +62,7 @@ export async function listUserProjects(
   items: ManagementUserProject[]
   total: number
 }> {
-  const response = await platformV2HttpClient.get(`/api/users/${userId}/projects`)
+  const response = await platformHttpClient.get(`/api/users/${userId}/projects`)
   const payload = response.data as {
     items?: ManagementUserProject[]
     total?: number
@@ -83,6 +83,6 @@ export async function updateUser(
     is_super_admin?: boolean
   }
 ): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.patch(`/api/users/${userId}`, payload)
+  const response = await platformHttpClient.patch(`/api/users/${userId}`, payload)
   return normalizeManagementUser(response.data as ManagementUser)
 }

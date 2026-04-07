@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import {
   submitOperation,
   waitForOperationTerminalState
@@ -30,7 +30,7 @@ export async function listAssistantsPage(
     return { items: [], total: 0 }
   }
 
-  const response = await platformV2HttpClient.get(`/api/projects/${projectId}/assistants`, {
+  const response = await platformHttpClient.get(`/api/projects/${projectId}/assistants`, {
     params: {
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
@@ -54,7 +54,7 @@ export async function createAssistant(
     metadata?: Record<string, unknown>
   }
 ): Promise<ManagementAssistant> {
-  const response = await platformV2HttpClient.post(`/api/projects/${projectId}/assistants`, payload)
+  const response = await platformHttpClient.post(`/api/projects/${projectId}/assistants`, payload)
   return response.data as ManagementAssistant
 }
 
@@ -62,7 +62,7 @@ export async function getAssistant(
   assistantId: string,
   projectId?: string
 ): Promise<ManagementAssistant> {
-  const response = await platformV2HttpClient.get(`/api/assistants/${assistantId}`, {
+  const response = await platformHttpClient.get(`/api/assistants/${assistantId}`, {
     headers: getProjectHeaders(projectId)
   })
 
@@ -82,7 +82,7 @@ export async function updateAssistant(
   },
   projectId?: string
 ): Promise<ManagementAssistant> {
-  const response = await platformV2HttpClient.patch(`/api/assistants/${assistantId}`, payload, {
+  const response = await platformHttpClient.patch(`/api/assistants/${assistantId}`, payload, {
     headers: getProjectHeaders(projectId)
   })
 
@@ -93,7 +93,7 @@ export async function resyncAssistant(
   assistantId: string,
   projectId?: string
 ): Promise<ManagementAssistant> {
-  const response = await platformV2HttpClient.post(
+  const response = await platformHttpClient.post(
     `/api/assistants/${assistantId}/resync`,
     {},
     {
@@ -133,7 +133,7 @@ export async function deleteAssistant(
   },
   projectId?: string
 ): Promise<{ ok: boolean }> {
-  const response = await platformV2HttpClient.delete(`/api/assistants/${assistantId}`, {
+  const response = await platformHttpClient.delete(`/api/assistants/${assistantId}`, {
     params: {
       delete_runtime: options?.deleteRuntime || undefined,
       delete_threads: options?.deleteThreads || undefined
@@ -148,7 +148,7 @@ export async function getAssistantParameterSchema(
   graphId: string,
   projectId?: string
 ): Promise<Record<string, unknown>> {
-  const response = await platformV2HttpClient.get(
+  const response = await platformHttpClient.get(
     `/api/graphs/${encodeURIComponent(graphId)}/assistant-parameter-schema`,
     {
       headers: getProjectHeaders(projectId)

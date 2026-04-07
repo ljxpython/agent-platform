@@ -10,8 +10,8 @@ import PageHeader from '@/components/layout/PageHeader.vue'
 import ButtonWithTooltip from '@/components/platform/ButtonWithTooltip.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import { copyText } from '@/utils/clipboard'
 import { shortId } from '@/utils/format'
 import { getMessageText, toPrettyJson } from '@/utils/threads'
@@ -60,7 +60,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const uiStore = useUiStore()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 
 const composerInput = ref('')
 const threadSearch = ref('')
@@ -87,13 +87,13 @@ const draftRunOptions = reactive({
 })
 
 const workspace = useChatWorkspace({
-  projectId: computed(() => workspaceStore.runtimeScopedProjectId || ''),
+  projectId: computed(() => activeProjectId.value || ''),
   target: computed(() => props.target),
   initialThreadId: computed(() => props.initialThreadId?.trim() || '')
 })
 const attachmentState = useChatAttachments()
 
-const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const currentProject = activeProject
 const renderMessages = computed(() => workspace.messages.value)
 const displayMessages = computed(() => buildChatDisplayMessages(renderMessages.value))
 const composerAttachments = computed(() => attachmentState.attachments.value)
@@ -208,7 +208,7 @@ const threadListView = computed(() =>
 const filteredThreadSummary = computed(() => threadListView.value.filteredItems)
 const groupedThreadSummary = computed(() => threadListView.value.groups)
 const composerDraftKey = computed(() => {
-  const projectId = workspaceStore.runtimeScopedProjectId.trim()
+  const projectId = activeProjectId.value.trim()
   const targetId = props.target?.resolvedTargetId?.trim() || 'no-target'
   const threadId = workspace.activeThreadId.value.trim() || '__new__'
 

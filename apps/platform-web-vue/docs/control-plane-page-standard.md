@@ -51,7 +51,9 @@
 - 错误解析统一走共享 HTTP 错误处理
 - 不允许把 legacy fallback 写回正式 service
 - 正式页面统一只走 `platform-api-v2`
+- 正式 service / client 命名不再使用 `legacy*`、`platformV2*` 这类过渡期前缀
 - 项目上下文统一通过 `useWorkspaceProjectContext`
+- 不再维护 `runtimeProjectId / runtimeScopedProject / runtimeProjects` 这类伪独立上下文别名
 - 页面不要再自行判断 `resolvePlatformClientScope(...) === 'v2'`
 - 长耗时导出、刷新、重同步优先走 `operations`
 
@@ -74,6 +76,7 @@
 - 路由级访问控制统一放在路由 `meta.requiredPermissions`
 - 页面内动作统一通过 `useAuthorization()` 判断
 - 导航是否展示、按钮是否可点、危险动作是否可执行，必须使用同一套权限语义
+- 读权限页面里如果存在刷新、编辑、删除、重同步等写动作，必须再做按钮级 permission gate
 - 不允许在页面里继续手写 `is_super_admin`、`admin/editor/executor` 之类的散装判定
 - 项目级权限判断必须带 `projectId`，不能偷懒省略
 - 无权限时优先表现为导航裁剪、按钮禁用、友好提示，真实安全仍由后端兜底

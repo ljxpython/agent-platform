@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -25,7 +27,6 @@ import {
   updateRuntimeToolPolicy
 } from '@/services/runtime-policies/runtime-policies.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type {
   RuntimeGraphPolicyItem,
   RuntimeModelPolicyItem,
@@ -44,8 +45,9 @@ type EditingDraft = {
   note: string
 }
 
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
+const authorization = useAuthorization()
 const pagination = usePagination({
   initialPageSize: 20,
   storageKey: 'pw:runtime-policies:page-size'
@@ -75,8 +77,9 @@ const draft = ref<EditingDraft>({
   note: ''
 })
 
-const currentProjectId = computed(() => workspaceStore.runtimeScopedProjectId)
-const currentProjectName = computed(() => workspaceStore.runtimeScopedProject?.name || '未选择项目')
+const currentProjectId = computed(() => activeProjectId.value)
+const currentProjectName = computed(() => activeProject.value?.name || '未选择项目')
+const canManageRuntimePolicies = computed(() => authorization.currentProjectCan('project.runtime.write'))
 
 const currentItems = computed(() => {
   if (activeTab.value === 'tools') {
@@ -308,6 +311,11 @@ function isSyncTone(status: string): 'neutral' | 'success' | 'warning' | 'danger
 }
 
 function openEditor(item: RuntimeModelPolicyItem | RuntimeToolPolicyItem | RuntimeGraphPolicyItem, tab: PolicyTab) {
+  if (!canManageRuntimePolicies.value) {
+    error.value = '当前账号没有运行策略写权限'
+    return
+  }
+
   editingTab.value = tab
   editingCatalogId.value = item.catalog_id
   editingTitle.value =
@@ -338,6 +346,7 @@ function actionItems(item: RuntimeModelPolicyItem | RuntimeToolPolicyItem | Runt
       key: 'edit',
       label: '编辑策略',
       icon: 'shield',
+      disabled: !canManageRuntimePolicies.value,
       onSelect: () => openEditor(item, tab)
     }
   ]
@@ -423,6 +432,10 @@ function switchTab(tab: PolicyTab) {
 async function savePolicy() {
   const projectId = currentProjectId.value
   if (!projectId || !editingCatalogId.value) {
+    return
+  }
+  if (!canManageRuntimePolicies.value) {
+    error.value = '当前账号没有运行策略写权限'
     return
   }
 
@@ -522,6 +535,12 @@ onMounted(() => {
       title="运行策略存在缺口"
       :description="error"
       variant="danger"
+    />
+    <StateBanner
+      v-else-if="currentProjectId && !canManageRuntimePolicies"
+      title="当前账号只读"
+      description="你可以查看项目级运行策略，但编辑动作已经收口到 project.runtime.write 权限。"
+      variant="info"
     />
     <StateBanner
       v-else-if="notice"
@@ -838,10 +857,10 @@ onMounted(() => {
             取消
           </BaseButton>
           <BaseButton
-            :disabled="saving"
+            :disabled="saving || !canManageRuntimePolicies"
             @click="savePolicy"
           >
-            {{ saving ? '保存中...' : '保存策略' }}
+            {{ canManageRuntimePolicies ? (saving ? '保存中...' : '保存策略') : '当前账号只读' }}
           </BaseButton>
         </div>
       </template>

@@ -53,12 +53,12 @@ export function resolvePlatformHttpErrorMessage(
   const status = extractErrorStatus(error)
   const upstreamMessage = extractErrorMessage(error)
 
-  if (!getAccessToken('v2')) {
-    return '当前登录态缺少 platform-api-v2 会话。请重新登录后再试。'
+  if (!getAccessToken()) {
+    return '当前登录态缺少控制面会话。请重新登录后再试。'
   }
 
   if (status === 401) {
-    return '当前登录态已失效，或缺少 platform-api-v2 会话。请重新登录后再试。'
+    return '当前登录态已失效，请重新登录后再试。'
   }
 
   if (status === 403) {

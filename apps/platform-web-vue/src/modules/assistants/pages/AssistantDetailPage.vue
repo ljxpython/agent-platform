@@ -6,6 +6,7 @@ import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -20,7 +21,6 @@ import {
 } from '@/services/assistants/assistants.service'
 import { getOperationFailureMessage } from '@/services/operations/operations.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
@@ -44,10 +44,10 @@ type ParameterSchemaResponse = {
 
 const route = useRoute()
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
 const authorization = useAuthorization()
-const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const currentProject = activeProject
 const canManageAssistant = computed(() => authorization.currentProjectCan('project.assistant.write'))
 
 const assistantId = computed(() =>
@@ -214,7 +214,7 @@ function applyConfigFieldValue(key: string, value: string, valueType: string) {
 }
 
 async function loadAssistantDetail() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId || !assistantId.value) {
     item.value = null
     error.value = ''
@@ -238,7 +238,7 @@ async function loadAssistantDetail() {
 }
 
 async function loadSchema() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   const graphId = editGraphId.value.trim()
 
   if (!projectId || !graphId) {
@@ -258,7 +258,7 @@ async function loadSchema() {
 }
 
 async function handleSave() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId || !assistantId.value) {
     return
   }
@@ -296,7 +296,7 @@ async function handleSave() {
 }
 
 async function handleResync() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId || !assistantId.value) {
     return
   }
@@ -338,7 +338,7 @@ function cancelDelete() {
 }
 
 async function confirmDelete() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   const currentItem = item.value
   if (!projectId || !currentItem) {
     cancelDelete()
@@ -388,7 +388,7 @@ function openAssistantChat() {
   }
 
   const targetAssistantId = item.value.langgraph_assistant_id?.trim() || item.value.id
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (projectId) {
     writeRecentChatTarget(projectId, {
       targetType: 'assistant',
@@ -407,7 +407,7 @@ function openAssistantChat() {
   })
 }
 
-watch([() => assistantId.value, () => workspaceStore.runtimeScopedProjectId], () => {
+watch([() => assistantId.value, () => activeProjectId.value], () => {
   void loadAssistantDetail()
 }, { immediate: true })
 

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -20,7 +21,6 @@ import {
   submitRuntimeRefreshOperation,
   waitForRuntimeRefreshOperation
 } from '@/services/runtime/runtime.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import type { RuntimeToolItem } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
@@ -47,7 +47,7 @@ const refreshing = ref(false)
 const error = ref('')
 const notice = ref('')
 const lastSyncedAt = ref<string | null>(null)
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
 const authorization = useAuthorization()
 const pagination = usePagination({
@@ -147,7 +147,7 @@ function toolFromRow(row: Record<string, unknown>) {
 }
 
 async function loadTools() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   loading.value = true
   error.value = ''
 
@@ -165,7 +165,7 @@ async function loadTools() {
 }
 
 async function handleRefreshCatalog() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!canRefreshCatalog.value) {
     error.value = '当前账号没有刷新 Runtime 目录的权限'
     return
@@ -267,7 +267,7 @@ watch(
 )
 
 watch(
-  () => workspaceStore.runtimeScopedProjectId,
+  () => activeProjectId.value,
   () => {
     void loadTools()
   }

@@ -1,5 +1,5 @@
 import { getAccessToken } from '@/services/auth/token'
-import { platformV2BaseUrl, platformV2HttpClient } from '@/services/http/client'
+import { platformApiBaseUrl, platformHttpClient } from '@/services/http/client'
 import type {
   OperationArchiveScope,
   OperationArtifactCleanupResult,
@@ -41,7 +41,7 @@ export type OperationPageStreamEvent =
     }
 
 export async function listOperations(options?: ListOperationsOptions): Promise<ManagementOperationPage> {
-  const response = await platformV2HttpClient.get('/api/operations', {
+  const response = await platformHttpClient.get('/api/operations', {
     params: {
       project_id: options?.projectId?.trim() || undefined,
       kind: options?.kind?.trim() || undefined,
@@ -58,43 +58,43 @@ export async function listOperations(options?: ListOperationsOptions): Promise<M
 }
 
 export async function getOperationDetail(operationId: string): Promise<ManagementOperation> {
-  const response = await platformV2HttpClient.get(`/api/operations/${encodeURIComponent(operationId)}`)
+  const response = await platformHttpClient.get(`/api/operations/${encodeURIComponent(operationId)}`)
   return response.data as ManagementOperation
 }
 
 export async function submitOperation(payload: SubmitOperationPayload): Promise<ManagementOperation> {
-  const response = await platformV2HttpClient.post('/api/operations', payload)
+  const response = await platformHttpClient.post('/api/operations', payload)
   return response.data as ManagementOperation
 }
 
 export async function cancelOperation(operationId: string): Promise<ManagementOperation> {
-  const response = await platformV2HttpClient.post(`/api/operations/${encodeURIComponent(operationId)}/cancel`)
+  const response = await platformHttpClient.post(`/api/operations/${encodeURIComponent(operationId)}/cancel`)
   return response.data as ManagementOperation
 }
 
 export async function bulkCancelOperations(operationIds: string[]): Promise<OperationBulkMutationResult> {
-  const response = await platformV2HttpClient.post('/api/operations/bulk/cancel', {
+  const response = await platformHttpClient.post('/api/operations/bulk/cancel', {
     operation_ids: operationIds
   })
   return response.data as OperationBulkMutationResult
 }
 
 export async function bulkArchiveOperations(operationIds: string[]): Promise<OperationBulkMutationResult> {
-  const response = await platformV2HttpClient.post('/api/operations/bulk/archive', {
+  const response = await platformHttpClient.post('/api/operations/bulk/archive', {
     operation_ids: operationIds
   })
   return response.data as OperationBulkMutationResult
 }
 
 export async function bulkRestoreOperations(operationIds: string[]): Promise<OperationBulkMutationResult> {
-  const response = await platformV2HttpClient.post('/api/operations/bulk/restore', {
+  const response = await platformHttpClient.post('/api/operations/bulk/restore', {
     operation_ids: operationIds
   })
   return response.data as OperationBulkMutationResult
 }
 
 export async function cleanupExpiredOperationArtifacts(limit = 100): Promise<OperationArtifactCleanupResult> {
-  const response = await platformV2HttpClient.post('/api/operations/artifacts/cleanup', undefined, {
+  const response = await platformHttpClient.post('/api/operations/artifacts/cleanup', undefined, {
     params: {
       limit
     }
@@ -119,7 +119,7 @@ function parseContentDispositionFilename(header: string | null): string | null {
 }
 
 export async function downloadOperationArtifact(operationId: string): Promise<ManagementDownload> {
-  const response = await platformV2HttpClient.get(`/api/operations/${encodeURIComponent(operationId)}/artifact`, {
+  const response = await platformHttpClient.get(`/api/operations/${encodeURIComponent(operationId)}/artifact`, {
     responseType: 'blob'
   })
   return {
@@ -134,7 +134,7 @@ export async function* createOperationPageStream(
     signal?: AbortSignal
   }
 ): AsyncIterable<OperationPageStreamEvent> {
-  const accessToken = getAccessToken('v2')
+  const accessToken = getAccessToken()
   if (!accessToken) {
     throw new Error('missing_platform_v2_session')
   }
@@ -165,7 +165,7 @@ export async function* createOperationPageStream(
   searchParams.set('limit', String(options.limit ?? 50))
   searchParams.set('offset', String(options.offset ?? 0))
 
-  const response = await fetch(`${platformV2BaseUrl}/api/operations/stream?${searchParams.toString()}`, {
+  const response = await fetch(`${platformApiBaseUrl}/api/operations/stream?${searchParams.toString()}`, {
     method: 'GET',
     headers: {
       Accept: 'text/event-stream',

@@ -3,19 +3,18 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import { useAnnouncementsStore } from '@/stores/announcements'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 
 const { t } = useI18n()
 const announcementsStore = useAnnouncementsStore()
 const uiStore = useUiStore()
-const workspaceStore = useWorkspaceStore()
+const { workspaceStore, activeProjectId } = useWorkspaceProjectContext()
 
 const isOpen = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const selectedAnnouncementId = ref('')
-const activeProjectId = computed(() => workspaceStore.currentProjectId)
 
 const items = computed(() => announcementsStore.items)
 const unreadCount = computed(() => announcementsStore.unreadCount)
@@ -102,7 +101,7 @@ onMounted(() => {
 })
 
 watch(
-  () => activeProjectId.value,
+  activeProjectId,
   (projectId) => {
     void announcementsStore.load(String(projectId || ''))
   }

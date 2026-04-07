@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import type {
   ManagementGraph,
   ManagementGraphListResponse,
@@ -45,7 +45,7 @@ export async function listGraphsPage(
     return { items: [], total: 0, last_synced_at: null }
   }
 
-  const payload = await platformV2HttpClient
+  const payload = await platformHttpClient
     .get('/api/runtime/graphs', {
       headers: {
         'x-project-id': projectId
@@ -69,7 +69,7 @@ export async function listGraphsPage(
 export async function refreshGraphsCatalog(
   projectId?: string
 ): Promise<GraphRefreshResponse> {
-  const response = await platformV2HttpClient.post(
+  const response = await platformHttpClient.post(
     '/api/runtime/graphs/refresh',
     {},
     {

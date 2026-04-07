@@ -5,6 +5,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import ConfirmDialog from '@/components/base/ConfirmDialog.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -25,14 +26,13 @@ import {
 } from '@/services/assistants/assistants.service'
 import { getOperationFailureMessage } from '@/services/operations/operations.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
 import { formatDateTime, shortId } from '@/utils/format'
 
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
 const authorization = useAuthorization()
 
@@ -90,7 +90,7 @@ const columns = computed<DataTableColumn[]>(() => [
   }
 ])
 
-const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const currentProject = activeProject
 const canManageAssistants = computed(() => authorization.currentProjectCan('project.assistant.write'))
 const activeCount = computed(() => items.value.filter((item) => item.status === 'active').length)
 const syncIssueCount = computed(() =>
@@ -136,7 +136,7 @@ function getSyncTone(status: string) {
 }
 
 async function loadAssistants() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     items.value = []
     pagination.setTotal(0)
@@ -200,7 +200,7 @@ async function handleCopyValue(label: string, value: string) {
 }
 
 async function handleResyncAssistant(assistant: ManagementAssistant) {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     return
   }
@@ -248,7 +248,7 @@ function cancelDelete() {
 
 async function confirmDelete() {
   const assistant = deletingAssistant.value
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!assistant || !projectId) {
     cancelDelete()
     return
@@ -293,7 +293,7 @@ function resolveAssistantTargetId(assistant: ManagementAssistant) {
 
 function openAssistantChat(assistant: ManagementAssistant) {
   const assistantId = resolveAssistantTargetId(assistant)
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
 
   if (projectId) {
     writeRecentChatTarget(projectId, {
@@ -314,7 +314,7 @@ function openAssistantChat(assistant: ManagementAssistant) {
 }
 
 function setAssistantAsRecentTarget(assistant: ManagementAssistant) {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   const assistantId = resolveAssistantTargetId(assistant)
   if (!projectId) {
     return
@@ -398,7 +398,7 @@ function assistantActions(assistant: ManagementAssistant): ActionMenuItem[] {
 }
 
 watch(
-  () => workspaceStore.runtimeScopedProjectId,
+  () => activeProjectId.value,
   () => {
     if (pagination.page.value !== 1) {
       pagination.resetPage()

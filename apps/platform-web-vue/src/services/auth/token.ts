@@ -1,19 +1,6 @@
 import type { AuthTokenSet } from '@/types/management'
 
 const TOKEN_STORAGE_KEY = 'pw:auth:token-set'
-export type AuthTokenScope = 'legacy' | 'v2'
-
-function getLegacyStorageKeys(scope?: AuthTokenScope) {
-  if (scope === 'v2') {
-    return [`${TOKEN_STORAGE_KEY}:v2`]
-  }
-
-  if (scope === 'legacy') {
-    return [TOKEN_STORAGE_KEY]
-  }
-
-  return [TOKEN_STORAGE_KEY, `${TOKEN_STORAGE_KEY}:v2`]
-}
 
 function parseTokenSet(raw: string): AuthTokenSet | null {
   try {
@@ -23,62 +10,48 @@ function parseTokenSet(raw: string): AuthTokenSet | null {
   }
 }
 
-function clearLegacyKeys() {
+function clearStoredTokenSet() {
   if (typeof window === 'undefined') {
     return
   }
 
-  for (const key of [TOKEN_STORAGE_KEY, `${TOKEN_STORAGE_KEY}:v2`]) {
-    window.localStorage.removeItem(key)
-  }
+  window.localStorage.removeItem(TOKEN_STORAGE_KEY)
 }
 
-export function getTokenSet(scope: AuthTokenScope = 'legacy'): AuthTokenSet | null {
+export function getTokenSet(): AuthTokenSet | null {
   if (typeof window === 'undefined') {
     return null
   }
 
-  for (const key of getLegacyStorageKeys(scope)) {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) {
-      continue
-    }
-    const tokenSet = parseTokenSet(raw)
-    if (tokenSet) {
-      return tokenSet
-    }
+  const raw = window.localStorage.getItem(TOKEN_STORAGE_KEY)
+  if (!raw) {
+    return null
   }
 
-  return null
+  return parseTokenSet(raw)
 }
 
-export function setTokenSet(tokenSet: AuthTokenSet, _scope: AuthTokenScope = 'legacy'): void {
+export function setTokenSet(tokenSet: AuthTokenSet): void {
   if (typeof window === 'undefined') {
     return
   }
 
-  clearLegacyKeys()
+  clearStoredTokenSet()
   window.localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenSet))
 }
 
-export function clearTokenSet(scope: AuthTokenScope = 'legacy'): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  for (const key of getLegacyStorageKeys(scope)) {
-    window.localStorage.removeItem(key)
-  }
+export function clearTokenSet(): void {
+  clearStoredTokenSet()
 }
 
 export function clearAllTokenSets(): void {
-  clearLegacyKeys()
+  clearStoredTokenSet()
 }
 
-export function getAccessToken(scope: AuthTokenScope = 'legacy'): string {
-  return getTokenSet(scope)?.accessToken?.trim() || ''
+export function getAccessToken(): string {
+  return getTokenSet()?.accessToken?.trim() || ''
 }
 
-export function getRefreshToken(scope: AuthTokenScope = 'legacy'): string {
-  return getTokenSet(scope)?.refreshToken?.trim() || ''
+export function getRefreshToken(): string {
+  return getTokenSet()?.refreshToken?.trim() || ''
 }

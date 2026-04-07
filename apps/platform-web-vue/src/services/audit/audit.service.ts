@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import type { ManagementAuditListResponse, ManagementAuditRow } from '@/types/management'
 
 type AuditEventItem = {
@@ -41,7 +41,7 @@ export async function listAudit(
     statusCode?: number | null
   }
 ): Promise<ManagementAuditListResponse> {
-  const response = await platformV2HttpClient.get('/api/audit', {
+  const response = await platformHttpClient.get('/api/audit', {
     params: {
       project_id: projectId?.trim() || undefined,
       limit: options?.limit ?? 50,

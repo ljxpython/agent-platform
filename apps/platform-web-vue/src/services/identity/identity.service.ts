@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import { normalizeManagementUser } from '@/services/auth/permissions'
 import type { ManagementUser } from '@/types/management'
 
@@ -22,7 +22,7 @@ function normalizeIdentityUserProfile(
 
 export async function getCurrentProfile(
 ): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.get('/api/identity/me')
+  const response = await platformHttpClient.get('/api/identity/me')
   return normalizeIdentityUserProfile(response.data as RuntimeUserProfile | ManagementUser)
 }
 
@@ -32,7 +32,7 @@ export async function updateCurrentProfile(
     email?: string
   }
 ): Promise<ManagementUser> {
-  const response = await platformV2HttpClient.patch('/api/identity/me', {
+  const response = await platformHttpClient.patch('/api/identity/me', {
     username: payload.username?.trim() || undefined,
     email: payload.email?.trim() || ''
   })
@@ -45,7 +45,7 @@ export async function changeCurrentPassword(
     newPassword: string
   }
 ): Promise<{ ok: boolean }> {
-  const response = await platformV2HttpClient.post('/api/identity/password/change', {
+  const response = await platformHttpClient.post('/api/identity/password/change', {
     old_password: payload.oldPassword,
     new_password: payload.newPassword
   })

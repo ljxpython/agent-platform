@@ -9,6 +9,7 @@ import EmptyState from '@/components/platform/EmptyState.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import StatusPill from '@/components/platform/StatusPill.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import { findAssistantByTargetId } from '@/services/assistants/assistants.service'
 import { getGraphCatalogItem } from '@/services/graphs/graphs.service'
 import {
@@ -19,7 +20,6 @@ import {
   resolveRuntimePermissionDescription,
   type RuntimeGatewayErrorMeta
 } from '@/services/runtime-gateway/workspace.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementThread, ThreadHistoryEntry } from '@/types/management'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
 import {
@@ -40,7 +40,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -77,7 +77,7 @@ const appliedFilters = ref({
   status: statusFilter.value
 })
 
-const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const currentProject = activeProject
 const accessDeniedMessage = computed(() => resolveRuntimePermissionDescription(detailErrorMeta.value || listErrorMeta.value))
 const currentPage = computed(() => Math.floor(offset.value / pageSize.value) + 1)
 const maxPage = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -168,7 +168,7 @@ function syncRouteQuery() {
 }
 
 async function loadThreads() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     items.value = []
     total.value = 0
@@ -210,7 +210,7 @@ async function loadThreads() {
 }
 
 async function loadThreadDetail() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId || !selectedThreadId.value) {
     selectedThread.value = null
     threadState.value = null
@@ -342,8 +342,8 @@ function openInChat(threadId: string) {
     if (graphName && graphName !== '--') {
       query.graphName = graphName
     }
-    if (workspaceStore.runtimeScopedProjectId) {
-      writeRecentChatTarget(workspaceStore.runtimeScopedProjectId, {
+    if (activeProjectId.value) {
+      writeRecentChatTarget(activeProjectId.value, {
         targetType: 'graph',
         graphId,
         graphName: graphName !== '--' ? graphName : undefined
@@ -356,8 +356,8 @@ function openInChat(threadId: string) {
     if (assistantName && assistantName !== '--') {
       query.assistantName = assistantName
     }
-    if (workspaceStore.runtimeScopedProjectId) {
-      writeRecentChatTarget(workspaceStore.runtimeScopedProjectId, {
+    if (activeProjectId.value) {
+      writeRecentChatTarget(activeProjectId.value, {
         targetType: 'assistant',
         assistantId,
         assistantName: assistantName !== '--' ? assistantName : undefined
@@ -376,7 +376,7 @@ function toggleHistory(entryId: string) {
 }
 
 watch(
-  () => workspaceStore.runtimeScopedProjectId,
+  () => activeProjectId.value,
   async () => {
     targetNameToken += 1
     resolvedAssistantNames.value = {}
@@ -389,7 +389,7 @@ watch(
 )
 
 watch(
-  [() => workspaceStore.runtimeScopedProjectId, assistantIdsToResolve, graphIdsToResolve],
+  [() => activeProjectId.value, assistantIdsToResolve, graphIdsToResolve],
   async ([projectId, assistantIds, graphIds]) => {
     if (!projectId) {
       return

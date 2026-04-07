@@ -15,8 +15,8 @@ type RetriableRequest = InternalAxiosRequestConfig & {
 
 let refreshPromise: Promise<string> | null = null
 
-const platformApiBaseUrl = env.platformApiUrl
-const platformAuthRefreshPath = '/api/identity/session/refresh'
+export const platformApiBaseUrl = env.platformApiUrl
+export const authRefreshPath = '/api/identity/session/refresh'
 
 function mapRefreshPayload(payload: {
   access_token?: string
@@ -48,7 +48,7 @@ async function refreshAccessToken(): Promise<string> {
         refresh_token: string
         token_type?: string
       }>(
-        `${platformApiBaseUrl}${platformAuthRefreshPath}`,
+        `${platformApiBaseUrl}${authRefreshPath}`,
         { refresh_token: refreshToken },
         {
           timeout: env.requestTimeoutMs,
@@ -114,13 +114,4 @@ function createPlatformHttpClient() {
   return client
 }
 
-const platformHttpClient = createPlatformHttpClient()
-
-export const httpClient = platformHttpClient
-export const platformV2HttpClient = platformHttpClient
-
-export const legacyBaseUrl = platformApiBaseUrl
-export const platformV2BaseUrl = platformApiBaseUrl
-
-export const legacyAuthRefreshPath = platformAuthRefreshPath
-export const platformV2AuthRefreshPath = platformAuthRefreshPath
+export const platformHttpClient = createPlatformHttpClient()

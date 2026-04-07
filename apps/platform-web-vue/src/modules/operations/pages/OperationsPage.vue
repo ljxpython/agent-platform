@@ -7,6 +7,7 @@ import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -31,7 +32,6 @@ import {
   listOperations
 } from '@/services/operations/operations.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type {
   ManagementOperation,
   OperationArchiveScope,
@@ -42,7 +42,7 @@ import { formatDateTime, shortId } from '@/utils/format'
 import { resolvePlatformHttpErrorMessage } from '@/utils/http-error'
 
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
 const authorization = useAuthorization()
 const pagination = usePagination({
@@ -75,8 +75,7 @@ const detailDialogOpen = ref(false)
 const detailLoading = ref(false)
 const selectedOperation = ref<ManagementOperation | null>(null)
 
-const activeProjectId = computed(() => workspaceStore.runtimeProjectId)
-const currentProject = computed(() => workspaceStore.runtimeProject)
+const currentProject = activeProject
 const canReadGlobalOperations = computed(() => authorization.can('platform.operation.read'))
 const canReadProjectOperations = computed(() =>
   authorization.can('project.operation.read', activeProjectId.value)

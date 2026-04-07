@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import { normalizeProjectRole } from '@/services/auth/permissions'
 import type { ManagementProjectMember } from '@/types/management'
 
@@ -21,7 +21,7 @@ export async function listProjectMembers(
     return []
   }
 
-  const response = await platformV2HttpClient.get(`/api/projects/${projectId}/members`, {
+  const response = await platformHttpClient.get(`/api/projects/${projectId}/members`, {
     params: {
       query: options?.query?.trim() || undefined
     }
@@ -36,7 +36,7 @@ export async function upsertProjectMember(payload: {
   userId: string
   role: ManagementProjectMember['role']
 }): Promise<ManagementProjectMember> {
-  const response = await platformV2HttpClient.put(
+  const response = await platformHttpClient.put(
     `/api/projects/${payload.projectId}/members/${payload.userId}`,
     {
       role: normalizeProjectRole(payload.role)
@@ -50,7 +50,7 @@ export async function deleteProjectMember(
   projectId: string,
   userId: string
 ): Promise<{ ok: boolean }> {
-  const response = await platformV2HttpClient.delete(`/api/projects/${projectId}/members/${userId}`)
+  const response = await platformHttpClient.delete(`/api/projects/${projectId}/members/${userId}`)
 
   return response.data as { ok: boolean }
 }

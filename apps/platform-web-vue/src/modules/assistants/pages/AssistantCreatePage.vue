@@ -5,6 +5,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
@@ -12,7 +13,6 @@ import PageHeader from '@/components/layout/PageHeader.vue'
 import { createAssistant, getAssistantParameterSchema } from '@/services/assistants/assistants.service'
 import { listGraphsPage } from '@/services/graphs/graphs.service'
 import { listRuntimeModels, listRuntimeTools } from '@/services/runtime/runtime.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementGraph, RuntimeModelItem, RuntimeToolItem } from '@/types/management'
 
 type SchemaProperty = {
@@ -34,8 +34,8 @@ type ParameterSchemaResponse = {
 }
 
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
-const currentProject = computed(() => workspaceStore.runtimeScopedProject)
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
+const currentProject = activeProject
 
 const graphId = ref('assistant')
 const graphOptions = ref<ManagementGraph[]>([])
@@ -99,7 +99,7 @@ const stats = computed(() => [
   {
     label: '当前项目',
     value: currentProject.value?.name || '未选择',
-    hint: workspaceStore.runtimeScopedProjectId || '--',
+    hint: activeProjectId.value || '--',
     icon: 'project',
     tone: 'primary'
   },
@@ -255,7 +255,7 @@ function toggleRuntimeTool(toolKey: string) {
 }
 
 async function loadGraphs() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     graphOptions.value = []
     return
@@ -280,7 +280,7 @@ async function loadRuntime() {
   runtimeError.value = ''
 
   try {
-    const projectId = workspaceStore.runtimeScopedProjectId
+    const projectId = activeProjectId.value
     const [modelsResponse, toolsResponse] = await Promise.all([
       listRuntimeModels(projectId).catch(() => null),
       listRuntimeTools(projectId).catch(() => null)
@@ -301,7 +301,7 @@ async function loadRuntime() {
 }
 
 async function loadSchema() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   const normalizedGraphId = graphId.value.trim()
   if (!projectId || !normalizedGraphId) {
     schema.value = null
@@ -327,7 +327,7 @@ async function loadSchema() {
 }
 
 async function handleSubmit() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   const normalizedName = name.value.trim()
   const normalizedGraphId = graphId.value.trim()
 
@@ -371,7 +371,7 @@ async function handleSubmit() {
 }
 
 watch(
-  () => workspaceStore.runtimeScopedProjectId,
+  () => activeProjectId.value,
   () => {
     void loadGraphs()
   },
@@ -408,7 +408,7 @@ watch([configPropertyDefs, config], () => {
 }, { immediate: true })
 
 watch(
-  () => workspaceStore.runtimeScopedProjectId,
+  () => activeProjectId.value,
   () => {
     void loadRuntime()
   },

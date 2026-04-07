@@ -4,15 +4,15 @@ import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import { createProject } from '@/services/projects/projects.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 
 const router = useRouter()
-const workspaceStore = useWorkspaceStore()
+const { workspaceStore, activeProjects } = useWorkspaceProjectContext()
 
 const name = ref('')
 const description = ref('')
@@ -20,7 +20,6 @@ const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
 
-const activeProjects = computed(() => workspaceStore.projects)
 const activeLoading = computed(() => workspaceStore.loading)
 const normalizedName = computed(() => name.value.trim())
 const requestPreview = computed(() => ({

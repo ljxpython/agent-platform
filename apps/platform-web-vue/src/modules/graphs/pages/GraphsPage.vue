@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useAuthorization } from '@/composables/useAuthorization'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -18,7 +20,6 @@ import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
 import { listGraphsPage, refreshGraphsCatalog } from '@/services/graphs/graphs.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementGraph } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { writeRecentChatTarget } from '@/utils/chatTarget'
@@ -37,9 +38,10 @@ function getSyncTone(status: string): 'neutral' | 'success' | 'warning' | 'dange
   return 'neutral'
 }
 
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
 const router = useRouter()
+const authorization = useAuthorization()
 
 const items = ref<ManagementGraph[]>([])
 const queryInput = ref('')
@@ -89,7 +91,10 @@ const columns = computed<DataTableColumn[]>(() => [
   }
 ])
 
-const currentProject = computed(() => workspaceStore.currentProject)
+const currentProject = activeProject
+const canRefreshCatalog = computed(() =>
+  authorization.can('platform.catalog.refresh') || authorization.currentProjectCan('project.runtime.write')
+)
 const syncedCount = computed(() =>
   items.value.filter((item) => item.sync_status === 'synced' || item.sync_status === 'ready').length
 )
@@ -129,7 +134,7 @@ function graphFromRow(row: Record<string, unknown>) {
 }
 
 async function loadGraphs() {
-  const projectId = workspaceStore.currentProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     items.value = []
     pagination.setTotal(0)
@@ -163,8 +168,11 @@ async function loadGraphs() {
 }
 
 async function handleRefreshCatalog() {
-  const projectId = workspaceStore.currentProjectId
-  if (!projectId) {
+  const projectId = activeProjectId.value
+  if (!projectId || !canRefreshCatalog.value) {
+    if (!canRefreshCatalog.value) {
+      error.value = '当前账号没有刷新图目录的权限'
+    }
     return
   }
 
@@ -205,7 +213,7 @@ function resetFilters() {
 }
 
 function setAsRecentChatTarget(graph: ManagementGraph) {
-  const projectId = workspaceStore.currentProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     return
   }
@@ -223,7 +231,7 @@ function setAsRecentChatTarget(graph: ManagementGraph) {
 }
 
 function openGraphChat(graph: ManagementGraph) {
-  const projectId = workspaceStore.currentProjectId
+  const projectId = activeProjectId.value
 
   if (projectId) {
     writeRecentChatTarget(projectId, {
@@ -290,7 +298,7 @@ function graphActions(graph: ManagementGraph): ActionMenuItem[] {
 }
 
 watch(
-  () => workspaceStore.currentProjectId,
+  () => activeProjectId.value,
   () => {
     if (pagination.page.value !== 1) {
       pagination.resetPage()
@@ -317,14 +325,14 @@ watch([() => pagination.page.value, () => pagination.pageSize.value], () => {
       <template #actions>
         <BaseButton
           variant="secondary"
-          :disabled="!currentProject || refreshing"
+          :disabled="!currentProject || refreshing || !canRefreshCatalog"
           @click="handleRefreshCatalog"
         >
           <BaseIcon
             name="refresh"
             size="sm"
           />
-          {{ refreshing ? '刷新中...' : '刷新目录' }}
+          {{ canRefreshCatalog ? (refreshing ? '刷新中...' : '刷新目录') : '当前账号只读' }}
         </BaseButton>
       </template>
     </PageHeader>

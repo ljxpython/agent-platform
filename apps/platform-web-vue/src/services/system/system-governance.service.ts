@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import type { PlatformConfigSnapshot } from '@/types/management'
 
 export type SystemProbeStatus = {
@@ -14,21 +14,21 @@ export type SystemProbeStatus = {
 }
 
 export async function getSystemHealth(): Promise<SystemProbeStatus> {
-  const response = await platformV2HttpClient.get('/_system/health')
+  const response = await platformHttpClient.get('/_system/health')
   return response.data as SystemProbeStatus
 }
 
 export async function getSystemLiveProbe(): Promise<SystemProbeStatus> {
-  const response = await platformV2HttpClient.get('/_system/probes/live')
+  const response = await platformHttpClient.get('/_system/probes/live')
   return response.data as SystemProbeStatus
 }
 
 export async function getSystemReadyProbe(): Promise<SystemProbeStatus> {
-  const response = await platformV2HttpClient.get('/_system/probes/ready')
+  const response = await platformHttpClient.get('/_system/probes/ready')
   return response.data as SystemProbeStatus
 }
 
 export async function getSystemMetrics(): Promise<PlatformConfigSnapshot['observability']> {
-  const response = await platformV2HttpClient.get('/_system/metrics')
+  const response = await platformHttpClient.get('/_system/metrics')
   return response.data as PlatformConfigSnapshot['observability']
 }

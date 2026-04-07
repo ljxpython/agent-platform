@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import {
   downloadOperationArtifact,
   submitOperation,
@@ -40,7 +40,7 @@ function buildHeaders(projectId: string) {
 function resolveEndpoint(projectId: string, suffix: string) {
   const normalizedSuffix = suffix.startsWith('/') ? suffix : `/${suffix}`
   return {
-    client: platformV2HttpClient,
+    client: platformHttpClient,
     path: `/api/projects/${projectId}/testcase${normalizedSuffix}`
   }
 }

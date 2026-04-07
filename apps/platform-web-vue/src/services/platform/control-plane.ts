@@ -1,7 +1,7 @@
 import { getAccessToken } from '@/services/auth/token'
 import {
-  httpClient,
-  platformV2HttpClient
+  platformApiBaseUrl,
+  platformHttpClient
 } from '@/services/http/client'
 
 export type PlatformClientModule =
@@ -18,18 +18,12 @@ export type PlatformClientModule =
   | 'runtime_catalog'
   | 'runtime_gateway'
 
-export type PlatformClientScope = 'legacy' | 'v2'
-
-export function resolvePlatformClientScope(_module: PlatformClientModule): PlatformClientScope {
-  return 'v2'
-}
-
 export function getPlatformHttpClient(_module: PlatformClientModule) {
-  return platformV2HttpClient
+  return platformHttpClient
 }
 
 export function getPlatformApiBaseUrl(_module: PlatformClientModule): string {
-  return httpClient.defaults.baseURL || ''
+  return platformApiBaseUrl
 }
 
 export function getPlatformAccessToken(_module: PlatformClientModule): string {

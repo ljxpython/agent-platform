@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import type { ManagementProject, ManagementProjectListResponse } from '@/types/management'
 
 export async function listProjectsPage(options?: {
@@ -6,7 +6,7 @@ export async function listProjectsPage(options?: {
   offset?: number
   query?: string
 }): Promise<ManagementProjectListResponse> {
-  const response = await platformV2HttpClient.get('/api/projects', {
+  const response = await platformHttpClient.get('/api/projects', {
     params: {
       limit: options?.limit ?? 100,
       offset: options?.offset ?? 0,
@@ -39,7 +39,7 @@ export async function createProject(payload: {
   name: string
   description?: string
 }): Promise<ManagementProject> {
-  const response = await platformV2HttpClient.post('/api/projects', payload)
+  const response = await platformHttpClient.post('/api/projects', payload)
   return response.data as ManagementProject
 }
 
@@ -53,6 +53,6 @@ export async function createRuntimeProject(payload: {
 export async function deleteProject(
   projectId: string
 ): Promise<{ ok: boolean }> {
-  const response = await platformV2HttpClient.delete(`/api/projects/${projectId}`)
+  const response = await platformHttpClient.delete(`/api/projects/${projectId}`)
   return response.data as { ok: boolean }
 }

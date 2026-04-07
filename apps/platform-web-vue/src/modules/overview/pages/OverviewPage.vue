@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
 import EmptyState from '@/components/platform/EmptyState.vue'
@@ -13,11 +14,10 @@ import { listAssistantsPage } from '@/services/assistants/assistants.service'
 import { listAudit } from '@/services/audit/audit.service'
 import { listProjectsPage } from '@/services/projects/projects.service'
 import { listUsersPage } from '@/services/users/users.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAssistant, ManagementAuditRow, ManagementProject } from '@/types/management'
 import { formatDateTime } from '@/utils/format'
 
-const workspaceStore = useWorkspaceStore()
+const { workspaceStore, activeProjectId, activeProject } = useWorkspaceProjectContext()
 
 const loading = ref(false)
 const error = ref('')
@@ -29,8 +29,8 @@ const recentProjects = ref<ManagementProject[]>([])
 const recentAuditRows = ref<ManagementAuditRow[]>([])
 const currentProjectAssistants = ref<ManagementAssistant[]>([])
 
-const currentProject = computed(() => workspaceStore.currentProject)
-const assistantProject = computed(() => workspaceStore.currentProject)
+const currentProject = activeProject
+const assistantProject = activeProject
 const stats = computed(() => [
   {
     label: '项目总量',
@@ -89,8 +89,8 @@ async function loadOverview() {
   error.value = ''
 
   await ensureOverviewRuntimeContext()
-  const auditProjectId = workspaceStore.currentProjectId
-  const assistantProjectId = workspaceStore.currentProjectId
+  const auditProjectId = activeProjectId.value
+  const assistantProjectId = activeProjectId.value
   const results = await Promise.allSettled([
     listProjectsPage({ limit: 6, offset: 0 }),
     listUsersPage({ limit: 6, offset: 0 }),
@@ -145,7 +145,7 @@ async function loadOverview() {
 }
 
 watch(
-  () => workspaceStore.currentProjectId,
+  activeProjectId,
   () => {
     void loadOverview()
   },

@@ -5,6 +5,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import { usePagination } from '@/composables/usePagination'
@@ -19,12 +20,11 @@ import StatusPill from '@/components/platform/StatusPill.vue'
 import type { ActionMenuItem, DataTableColumn } from '@/components/platform/data-table'
 import { listAudit } from '@/services/audit/audit.service'
 import { useUiStore } from '@/stores/ui'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { ManagementAuditRow } from '@/types/management'
 import { copyText } from '@/utils/clipboard'
 import { formatDateTime, shortId } from '@/utils/format'
 
-const workspaceStore = useWorkspaceStore()
+const { workspaceStore, activeProjectId, activeProject } = useWorkspaceProjectContext()
 const uiStore = useUiStore()
 const route = useRoute()
 
@@ -92,8 +92,7 @@ function auditRowFromTable(row: Record<string, unknown>) {
   return row as ManagementAuditRow
 }
 
-const activeProjectId = computed(() => workspaceStore.currentProjectId)
-const currentProject = computed(() => workspaceStore.currentProject)
+const currentProject = activeProject
 const errorCount = computed(() => items.value.filter((item) => item.status_code >= 400).length)
 const stats = computed(() => [
   {

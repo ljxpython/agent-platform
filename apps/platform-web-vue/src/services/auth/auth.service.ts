@@ -1,4 +1,4 @@
-import { httpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 
 export async function login(payload: {
   username: string
@@ -8,7 +8,7 @@ export async function login(payload: {
   refresh_token: string
   token_type: string
 }> {
-  const response = await httpClient.post('/api/identity/session', payload)
+  const response = await platformHttpClient.post('/api/identity/session', payload)
   const tokens = response.data?.tokens
   return {
     access_token: String(tokens?.access_token || ''),
@@ -21,7 +21,7 @@ export async function changePassword(payload: {
   oldPassword: string
   newPassword: string
 }): Promise<{ ok: boolean }> {
-  const response = await httpClient.post('/api/identity/password/change', {
+  const response = await platformHttpClient.post('/api/identity/password/change', {
     old_password: payload.oldPassword,
     new_password: payload.newPassword
   })
@@ -34,7 +34,7 @@ export async function logout(refreshToken: string): Promise<void> {
     return
   }
 
-  await httpClient.delete('/api/identity/session', {
+  await platformHttpClient.delete('/api/identity/session', {
     data: {
       refresh_token: refreshToken
     }

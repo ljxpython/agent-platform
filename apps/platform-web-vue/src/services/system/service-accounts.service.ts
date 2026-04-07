@@ -1,4 +1,4 @@
-import { platformV2HttpClient } from '@/services/http/client'
+import { platformHttpClient } from '@/services/http/client'
 import type {
   CreatedServiceAccountToken,
   ManagementServiceAccount,
@@ -11,7 +11,7 @@ export async function listServiceAccounts(options?: {
   query?: string
   status?: string
 }): Promise<ManagementServiceAccountPage> {
-  const response = await platformV2HttpClient.get('/api/service-accounts', {
+  const response = await platformHttpClient.get('/api/service-accounts', {
     params: {
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
@@ -27,7 +27,7 @@ export async function createServiceAccount(payload: {
   description?: string
   platform_roles: string[]
 }): Promise<ManagementServiceAccount> {
-  const response = await platformV2HttpClient.post('/api/service-accounts', payload)
+  const response = await platformHttpClient.post('/api/service-accounts', payload)
   return response.data as ManagementServiceAccount
 }
 
@@ -39,7 +39,7 @@ export async function updateServiceAccount(
     platform_roles?: string[]
   }
 ): Promise<ManagementServiceAccount> {
-  const response = await platformV2HttpClient.patch(`/api/service-accounts/${serviceAccountId}`, payload)
+  const response = await platformHttpClient.patch(`/api/service-accounts/${serviceAccountId}`, payload)
   return response.data as ManagementServiceAccount
 }
 
@@ -50,7 +50,7 @@ export async function createServiceAccountToken(
     expires_in_days?: number
   }
 ): Promise<CreatedServiceAccountToken> {
-  const response = await platformV2HttpClient.post(
+  const response = await platformHttpClient.post(
     `/api/service-accounts/${serviceAccountId}/tokens`,
     payload
   )
@@ -61,6 +61,5 @@ export async function revokeServiceAccountToken(
   serviceAccountId: string,
   tokenId: string
 ): Promise<void> {
-  await platformV2HttpClient.delete(`/api/service-accounts/${serviceAccountId}/tokens/${tokenId}`)
+  await platformHttpClient.delete(`/api/service-accounts/${serviceAccountId}/tokens/${tokenId}`)
 }
-

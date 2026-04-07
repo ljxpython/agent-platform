@@ -2,11 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import SurfaceCard from '@/components/base/SurfaceCard.vue'
+import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import MetricCard from '@/components/platform/MetricCard.vue'
 import StateBanner from '@/components/platform/StateBanner.vue'
 import { listRuntimeModels, listRuntimeTools } from '@/services/runtime/runtime.service'
-import { useWorkspaceStore } from '@/stores/workspace'
 
 type RuntimeEntryCard = {
   title: string
@@ -18,7 +18,7 @@ type RuntimeEntryCard = {
   secondaryTo: string
 }
 
-const workspaceStore = useWorkspaceStore()
+const { activeProjectId } = useWorkspaceProjectContext()
 
 const loading = ref(false)
 const error = ref('')
@@ -88,7 +88,7 @@ const recommendedSteps = [
 ]
 
 async function loadRuntimeOverview() {
-  const projectId = workspaceStore.runtimeScopedProjectId
+  const projectId = activeProjectId.value
   if (!projectId) {
     modelCount.value = 0
     toolCount.value = 0
@@ -134,7 +134,7 @@ async function loadRuntimeOverview() {
 }
 
 watch(
-  () => workspaceStore.runtimeScopedProjectId,
+  () => activeProjectId.value,
   () => {
     void loadRuntimeOverview()
   },
