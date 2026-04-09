@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import type { Message } from '@langchain/langgraph-sdk'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { buildChatMessageMetaView } from '../message-meta-view-model'
 import ChatToolResultRenderer from './ChatToolResultRenderer.vue'
 
-const props = withDefaults(
-  defineProps<{
-    message: Message
-    allMessages: Message[]
-    defaultExpanded?: boolean
-  }>(),
-  {
-    defaultExpanded: false
-  }
-)
+const props = defineProps<{
+  message: Message
+  allMessages: Message[]
+}>()
+
+const emit = defineEmits<{
+  'expanded-change': [expanded: boolean]
+}>()
 
 const metaView = computed(() => buildChatMessageMetaView(props.message, props.allMessages))
 const toolCount = computed(() => metaView.value.toolCalls.length)
@@ -24,7 +22,7 @@ const hasPendingSubAgent = computed(() =>
   metaView.value.subAgentCards.some((item) => item.status === 'pending')
 )
 const hasMetaSummary = computed(() => toolCount.value > 0 || subAgentCount.value > 0)
-const isExpanded = ref(props.defaultExpanded)
+const isExpanded = ref(false)
 
 function summarizeNames(names: string[], limit = 3) {
   const normalizedNames = names
@@ -43,21 +41,11 @@ function summarizeNames(names: string[], limit = 3) {
 const toolSummaryText = computed(() =>
   summarizeNames(metaView.value.toolCalls.map((item) => item.name))
 )
-const subAgentSummaryText = computed(() =>
-  summarizeNames(metaView.value.subAgentCards.map((item) => item.name), 2)
-)
-
-watch(
-  () => props.defaultExpanded,
-  (nextValue) => {
-    if (nextValue) {
-      isExpanded.value = true
-    }
-  }
-)
+const subAgentSummaryText = computed(() => summarizeNames(metaView.value.subAgentCards.map((item) => item.name), 2))
 
 function toggleExpanded() {
   isExpanded.value = !isExpanded.value
+  emit('expanded-change', isExpanded.value)
 }
 </script>
 
@@ -69,6 +57,7 @@ function toggleExpanded() {
     <button
       type="button"
       class="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+      :aria-expanded="isExpanded"
       @click="toggleExpanded"
     >
       <span class="flex flex-wrap items-center gap-2">
@@ -134,7 +123,7 @@ function toggleExpanded() {
         size="xs"
         class="mt-0.5 shrink-0"
       />
-      <span>当前回合的工具调用与子任务会挂在这条消息下，点开即可查看参数、结果和状态。</span>
+      <span>当前回合的工具调用与子任务会挂在这条消息下；点开详情时，主消息流会暂停自动跟随，避免抢你的阅读焦点。</span>
     </div>
 
     <div

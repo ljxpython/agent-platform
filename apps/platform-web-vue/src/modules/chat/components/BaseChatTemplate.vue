@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Message } from '@langchain/langgraph-sdk'
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { LocationQueryRaw } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -32,6 +32,7 @@ import { useChatWorkspace } from '../composables/useChatWorkspace'
 import type { ChatResolvedTarget, ChatWorkspaceDisplay, ChatWorkspaceFeatures } from '../types'
 
 type InspectorTabKey = 'overview' | 'tasks' | 'files' | 'history'
+type FollowPauseReason = 'manualScroll' | 'contextDrawer' | 'runtimeOptions' | 'messageMeta'
 const CHAT_DRAFT_STORAGE_PREFIX = 'pw:chat:draft'
 
 const props = withDefaults(
@@ -70,6 +71,7 @@ const contextDrawerOpen = ref(false)
 const runtimeOptionsDialogOpen = ref(false)
 const inspectorInitialTab = ref<InspectorTabKey>('overview')
 const messagesViewport = ref<HTMLDivElement | null>(null)
+const messagesContent = ref<HTMLDivElement | null>(null)
 const sourceNoteDismissed = ref(false)
 const deletingThreadId = ref('')
 const editingMessageId = ref('')
@@ -77,6 +79,13 @@ const editingMessageValue = ref('')
 const autoFollowEnabled = ref(true)
 const unreadMessageCount = ref(0)
 const bufferedStreamActivity = ref(false)
+const expandedMessageMetaIds = ref<string[]>([])
+const followPauseState = reactive<Record<FollowPauseReason, boolean>>({
+  manualScroll: false,
+  contextDrawer: false,
+  runtimeOptions: false,
+  messageMeta: false
+})
 const draftRunOptions = reactive({
   modelId: '',
   enableTools: false,
@@ -131,6 +140,7 @@ const canSendFreshMessage = computed(
     !hasBlockingInterrupt.value &&
     hasComposerContent.value
 )
+const isInspectingMessageMeta = computed(() => expandedMessageMetaIds.value.length > 0)
 const sendButtonLabel = computed(() => (workspace.runOptions.debugMode ? 'Step' : '发送消息'))
 const debugStatusDescription = computed(() => {
   if (!workspace.canContinueDebug.value) {
@@ -173,6 +183,10 @@ const jumpToLatestTitle = computed(() => {
   return '有新的执行更新'
 })
 const jumpToLatestDescription = computed(() => {
+  if (isInspectingMessageMeta.value) {
+    return '你正在查看工具或子任务详情，点击可回到底部继续跟随。'
+  }
+
   if (unreadMessageCount.value > 0) {
     return '你正在查看历史内容，点击可回到底部继续跟随。'
   }
@@ -245,6 +259,19 @@ function resetBufferedActivity() {
   bufferedStreamActivity.value = false
 }
 
+let scheduledScrollBehavior: globalThis.ScrollBehavior = 'auto'
+let scheduledScrollFrameId: number | null = null
+let keepPinnedFrameId: number | null = null
+
+function mergeScheduledBehavior(nextBehavior: globalThis.ScrollBehavior) {
+  if (scheduledScrollBehavior === 'smooth' || nextBehavior === 'smooth') {
+    scheduledScrollBehavior = 'smooth'
+    return
+  }
+
+  scheduledScrollBehavior = nextBehavior
+}
+
 async function scrollMessagesToLatest(behavior: globalThis.ScrollBehavior = 'auto') {
   await nextTick()
 
@@ -259,10 +286,106 @@ async function scrollMessagesToLatest(behavior: globalThis.ScrollBehavior = 'aut
   })
 }
 
-function resumeAutoFollow(behavior: globalThis.ScrollBehavior = 'auto') {
-  autoFollowEnabled.value = true
+function scheduleScrollToLatest(behavior: globalThis.ScrollBehavior = 'auto') {
+  mergeScheduledBehavior(behavior)
+
+  if (scheduledScrollFrameId !== null) {
+    return
+  }
+
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    void scrollMessagesToLatest(scheduledScrollBehavior)
+    scheduledScrollBehavior = 'auto'
+    return
+  }
+
+  scheduledScrollFrameId = window.requestAnimationFrame(() => {
+    const nextBehavior = scheduledScrollBehavior
+    scheduledScrollBehavior = 'auto'
+    scheduledScrollFrameId = null
+    void scrollMessagesToLatest(nextBehavior)
+  })
+}
+
+function stopKeepPinnedToBottomLoop() {
+  if (keepPinnedFrameId === null || typeof window === 'undefined') {
+    return
+  }
+
+  window.cancelAnimationFrame(keepPinnedFrameId)
+  keepPinnedFrameId = null
+}
+
+function keepPinnedToBottomLoop() {
+  if (
+    typeof window === 'undefined' ||
+    !workspace.sending.value ||
+    !autoFollowEnabled.value
+  ) {
+    stopKeepPinnedToBottomLoop()
+    return
+  }
+
+  const viewport = messagesViewport.value
+  if (viewport) {
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior: 'auto'
+    })
+  }
+
+  keepPinnedFrameId = window.requestAnimationFrame(() => {
+    keepPinnedToBottomLoop()
+  })
+}
+
+function updateAutoFollowState(options?: {
+  resumeBehavior?: globalThis.ScrollBehavior
+  skipScroll?: boolean
+}) {
+  const nextEnabled = !Object.values(followPauseState).some(Boolean)
+  autoFollowEnabled.value = nextEnabled
+
+  if (!nextEnabled) {
+    return
+  }
+
   resetBufferedActivity()
-  void scrollMessagesToLatest(behavior)
+
+  if (!options?.skipScroll) {
+    scheduleScrollToLatest(options?.resumeBehavior ?? 'auto')
+  }
+}
+
+function setFollowPauseReason(
+  reason: FollowPauseReason,
+  isPaused: boolean,
+  options?: {
+    resumeBehavior?: globalThis.ScrollBehavior
+    skipScroll?: boolean
+  }
+) {
+  if (followPauseState[reason] === isPaused) {
+    return
+  }
+
+  followPauseState[reason] = isPaused
+  updateAutoFollowState(options)
+}
+
+function clearExpandedMessageMeta() {
+  if (expandedMessageMetaIds.value.length === 0) {
+    return
+  }
+
+  expandedMessageMetaIds.value = []
+  setFollowPauseReason('messageMeta', false, { resumeBehavior: 'smooth' })
+}
+
+function resumeAutoFollow(behavior: globalThis.ScrollBehavior = 'auto') {
+  setFollowPauseReason('manualScroll', false, { resumeBehavior: behavior })
+  clearExpandedMessageMeta()
+  updateAutoFollowState({ resumeBehavior: behavior })
 }
 
 function handleMessagesScroll() {
@@ -272,13 +395,26 @@ function handleMessagesScroll() {
   }
 
   if (isChatViewportNearBottom(viewport)) {
-    autoFollowEnabled.value = true
-    resetBufferedActivity()
+    setFollowPauseReason('manualScroll', false, { skipScroll: true })
+    if (autoFollowEnabled.value) {
+      resetBufferedActivity()
+    }
     return
   }
 
+  if (!followPauseState.manualScroll) {
+    setFollowPauseReason('manualScroll', true, { skipScroll: true })
+  }
+}
+
+function handleMessagesContentResize() {
   if (autoFollowEnabled.value) {
-    autoFollowEnabled.value = false
+    scheduleScrollToLatest('auto')
+    return
+  }
+
+  if (workspace.sending.value) {
+    bufferedStreamActivity.value = true
   }
 }
 
@@ -334,8 +470,8 @@ watch(
       return
     }
 
-    if (autoFollowEnabled.value && !contextDrawerOpen.value && !runtimeOptionsDialogOpen.value) {
-      resumeAutoFollow(previousCount === 0 ? 'auto' : 'smooth')
+    if (autoFollowEnabled.value) {
+      scheduleScrollToLatest(previousCount === 0 ? 'auto' : 'smooth')
       return
     }
 
@@ -350,8 +486,8 @@ watch(
       return
     }
 
-    if (autoFollowEnabled.value && !contextDrawerOpen.value && !runtimeOptionsDialogOpen.value) {
-      resumeAutoFollow('auto')
+    if (autoFollowEnabled.value) {
+      scheduleScrollToLatest('auto')
       return
     }
 
@@ -364,29 +500,88 @@ watch(
   () => {
     messageActions.cancelEditMessage()
     deletingThreadId.value = ''
-    autoFollowEnabled.value = true
+    expandedMessageMetaIds.value = []
+    followPauseState.manualScroll = false
+    followPauseState.contextDrawer = false
+    followPauseState.runtimeOptions = false
+    followPauseState.messageMeta = false
     resetBufferedActivity()
-    void scrollMessagesToLatest('auto')
+    updateAutoFollowState({ skipScroll: true })
+    scheduleScrollToLatest('auto')
   }
 )
 
 watch(
   () => contextDrawerOpen.value,
   (isOpen) => {
-    if (isOpen) {
-      autoFollowEnabled.value = false
-    }
+    setFollowPauseReason('contextDrawer', isOpen, {
+      resumeBehavior: 'smooth',
+      skipScroll: isOpen
+    })
   }
 )
 
 watch(
   () => runtimeOptionsDialogOpen.value,
   (isOpen) => {
-    if (isOpen) {
-      autoFollowEnabled.value = false
-    }
+    setFollowPauseReason('runtimeOptions', isOpen, {
+      resumeBehavior: 'smooth',
+      skipScroll: isOpen
+    })
   }
 )
+
+watch(
+  [() => workspace.sending.value, () => autoFollowEnabled.value],
+  ([isSending, canFollow], _previous, onCleanup) => {
+    stopKeepPinnedToBottomLoop()
+
+    if (typeof window === 'undefined' || !isSending || !canFollow) {
+      return
+    }
+
+    keepPinnedFrameId = window.requestAnimationFrame(() => {
+      keepPinnedToBottomLoop()
+    })
+
+    onCleanup(() => {
+      stopKeepPinnedToBottomLoop()
+    })
+  },
+  { immediate: true }
+)
+
+watch(
+  messagesContent,
+  (element, _previous, onCleanup) => {
+    if (!element || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const observer = new ResizeObserver(() => {
+      handleMessagesContentResize()
+    })
+    observer.observe(element)
+
+    onCleanup(() => {
+      observer.disconnect()
+    })
+  },
+  {
+    flush: 'post'
+  }
+)
+
+onBeforeUnmount(() => {
+  if (scheduledScrollFrameId === null || typeof window === 'undefined') {
+    stopKeepPinnedToBottomLoop()
+    return
+  }
+
+  window.cancelAnimationFrame(scheduledScrollFrameId)
+  scheduledScrollFrameId = null
+  stopKeepPinnedToBottomLoop()
+})
 
 const messageActions = createChatMessageActions({
   messageMetadataById: workspace.messageMetadataById,
@@ -575,6 +770,30 @@ function handleDismissSourceNote() {
 
 function handleJumpToLatest() {
   resumeAutoFollow('smooth')
+}
+
+function handleMessageMetaExpandedChange(messageId: string, expanded: boolean) {
+  const normalizedId = messageId.trim()
+  if (!normalizedId) {
+    return
+  }
+
+  if (expanded) {
+    if (!expandedMessageMetaIds.value.includes(normalizedId)) {
+      expandedMessageMetaIds.value = [...expandedMessageMetaIds.value, normalizedId]
+    }
+    setFollowPauseReason('messageMeta', true, { skipScroll: true })
+    return
+  }
+
+  if (!expandedMessageMetaIds.value.includes(normalizedId)) {
+    return
+  }
+
+  expandedMessageMetaIds.value = expandedMessageMetaIds.value.filter((item) => item !== normalizedId)
+  setFollowPauseReason('messageMeta', expandedMessageMetaIds.value.length > 0, {
+    resumeBehavior: 'smooth'
+  })
 }
 
 async function handleContinue() {
@@ -829,57 +1048,63 @@ async function handleCancelRun() {
             @scroll="handleMessagesScroll"
           >
             <div
-              v-if="workspace.loadingThreadDetail.value && renderMessages.length === 0"
-              class="space-y-4"
+              ref="messagesContent"
+              class="min-h-full"
             >
               <div
-                v-for="index in 3"
-                :key="index"
-                class="pw-panel-muted h-28 animate-pulse"
+                v-if="workspace.loadingThreadDetail.value && renderMessages.length === 0"
+                class="space-y-4"
+              >
+                <div
+                  v-for="index in 3"
+                  :key="index"
+                  class="pw-panel-muted h-28 animate-pulse"
+                />
+              </div>
+
+              <div
+                v-else-if="displayMessages.length === 0"
+                class="flex h-full items-center justify-center"
+              >
+                <div class="pw-panel-muted mx-auto flex w-full max-w-xl flex-col items-center px-6 py-10 text-center">
+                  <div class="pw-empty-state-icon mb-4">
+                    <BaseIcon
+                      name="chat"
+                      size="lg"
+                    />
+                  </div>
+                  <h3 class="text-lg font-semibold text-gray-950 dark:text-white">
+                    {{ display.emptyTitle || '从这里开始第一轮对话' }}
+                  </h3>
+                  <p class="mt-3 max-w-md text-sm leading-7 text-gray-500 dark:text-dark-300">
+                    {{ display.emptyDescription || '输入框已经可用。发出第一条消息时会自动创建 thread，并把后续历史沉淀到当前项目。' }}
+                  </p>
+                </div>
+              </div>
+
+              <ChatMessageList
+                v-else
+                :display-messages="displayMessages"
+                :all-messages="renderMessages"
+                :editing-message-id="editingMessageId"
+                :editing-message-value="editingMessageValue"
+                :is-running="workspace.sending.value"
+                :get-message-meta="messageActions.getMessageMeta"
+                :get-message-branch-index="messageActions.getMessageBranchIndex"
+                :has-branch-switcher="messageActions.hasBranchSwitcher"
+                :can-edit-message="messageActions.canEditMessage"
+                :can-retry-message="messageActions.canRetryMessage"
+                @update:editing-message-value="editingMessageValue = $event"
+                @copy-message="handleCopyMessage"
+                @cancel-edit="messageActions.cancelEditMessage"
+                @submit-edit="submitEditMessage"
+                @start-edit="messageActions.startEditMessage"
+                @retry-message="handleRetryMessage"
+                @select-previous-branch="messageActions.selectPreviousMessageBranch"
+                @select-next-branch="messageActions.selectNextMessageBranch"
+                @message-meta-expanded-change="handleMessageMetaExpandedChange"
               />
             </div>
-
-            <div
-              v-else-if="displayMessages.length === 0"
-              class="flex h-full items-center justify-center"
-            >
-              <div class="pw-panel-muted mx-auto flex w-full max-w-xl flex-col items-center px-6 py-10 text-center">
-                <div class="pw-empty-state-icon mb-4">
-                  <BaseIcon
-                    name="chat"
-                    size="lg"
-                  />
-                </div>
-                <h3 class="text-lg font-semibold text-gray-950 dark:text-white">
-                  {{ display.emptyTitle || '从这里开始第一轮对话' }}
-                </h3>
-                <p class="mt-3 max-w-md text-sm leading-7 text-gray-500 dark:text-dark-300">
-                  {{ display.emptyDescription || '输入框已经可用。发出第一条消息时会自动创建 thread，并把后续历史沉淀到当前项目。' }}
-                </p>
-              </div>
-            </div>
-
-            <ChatMessageList
-              v-else
-              :display-messages="displayMessages"
-              :all-messages="renderMessages"
-              :editing-message-id="editingMessageId"
-              :editing-message-value="editingMessageValue"
-              :is-running="workspace.sending.value"
-              :get-message-meta="messageActions.getMessageMeta"
-              :get-message-branch-index="messageActions.getMessageBranchIndex"
-              :has-branch-switcher="messageActions.hasBranchSwitcher"
-              :can-edit-message="messageActions.canEditMessage"
-              :can-retry-message="messageActions.canRetryMessage"
-              @update:editing-message-value="editingMessageValue = $event"
-              @copy-message="handleCopyMessage"
-              @cancel-edit="messageActions.cancelEditMessage"
-              @submit-edit="submitEditMessage"
-              @start-edit="messageActions.startEditMessage"
-              @retry-message="handleRetryMessage"
-              @select-previous-branch="messageActions.selectPreviousMessageBranch"
-              @select-next-branch="messageActions.selectNextMessageBranch"
-            />
           </div>
 
           <div

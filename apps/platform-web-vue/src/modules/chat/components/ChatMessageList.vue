@@ -34,6 +34,7 @@ const emit = defineEmits<{
   'retry-message': [messageId: string]
   'select-previous-branch': [messageId: string]
   'select-next-branch': [messageId: string]
+  'message-meta-expanded-change': [messageId: string, expanded: boolean]
 }>()
 
 function handleEditingInput(event: Event) {
@@ -96,7 +97,7 @@ function handleEditingInput(event: Event) {
           <ChatMessageMeta
             :message="displayEntry.message"
             :all-messages="allMessages"
-            :default-expanded="isRunning"
+            @expanded-change="emit('message-meta-expanded-change', displayEntry.id, $event)"
           />
         </div>
       </div>
