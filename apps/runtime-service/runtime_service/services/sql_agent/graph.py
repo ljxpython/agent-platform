@@ -2,49 +2,135 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime_service.runtime.modeling import apply_model_runtime_params, resolve_model
-from runtime_service.runtime.options import build_runtime_config, merge_trusted_auth_context
-from runtime_service.services.sql_agent.chart_mcp import aget_mcp_server_chart_tools
+from langchain.agents import create_agent
+from runtime_service.conf.settings import get_default_model_id
+from runtime_service.middlewares.runtime_request import RuntimeRequestMiddleware
+from runtime_service.runtime.runtime_request_resolver import (
+    AgentDefaults,
+    ResolvedRuntimeSettings,
+)
+from runtime_service.runtime.context import RuntimeContext
+from runtime_service.runtime.modeling import resolve_model_by_id
+from runtime_service.services.sql_agent.chart_mcp import (
+    aget_mcp_server_chart_tools,
+    get_mcp_server_chart_tools,
+)
 from runtime_service.services.sql_agent.prompts import build_sql_agent_system_prompt
 from runtime_service.services.sql_agent.schemas import DEFAULT_DATABASE_NAME
 from runtime_service.services.sql_agent.tools import (
     build_sql_agent_service_config,
     build_sql_agent_tools,
 )
-from runtime_service.tools.registry import build_tools
-from langchain.agents import create_agent
-from langchain_core.runnables import RunnableConfig
-from langgraph_sdk.runtime import ServerRuntime
+from runtime_service.tools.registry import abuild_runtime_tools, build_runtime_tools
+
+SQL_AGENT_DEFAULTS = AgentDefaults(
+    model_id=get_default_model_id(),
+    system_prompt="",
+    enable_tools=False,
+)
+
+SQL_AGENT_SERVICE_CONFIG = build_sql_agent_service_config(None)
+BASELINE_MODEL = resolve_model_by_id(SQL_AGENT_DEFAULTS.model_id)
+BASELINE_PRIVATE_TOOLS = build_sql_agent_tools(BASELINE_MODEL)
+
+_CHART_TOOLS_CACHE: list[Any] | None = None
+_CHART_TOOLS_LOAD_FAILED = False
 
 
-async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
-    del runtime
-    runtime_context = merge_trusted_auth_context(config, {})
-    options = build_runtime_config(config, runtime_context)
-    service_config = build_sql_agent_service_config(config)
-    model = apply_model_runtime_params(resolve_model(options.model_spec), options)
-
-    tools = await build_tools(options)
-    tools.extend(await build_sql_agent_tools(model, config=config))
-    try:
-        tools.extend(await aget_mcp_server_chart_tools())
-    except Exception:
-        pass
-
-    custom_instructions = options.system_prompt or None
-    system_prompt = build_sql_agent_system_prompt(
+def _build_sql_system_prompt(settings: ResolvedRuntimeSettings) -> str:
+    custom_instructions = settings.system_prompt or None
+    return build_sql_agent_system_prompt(
         dialect="sqlite",
-        top_k=service_config.top_k,
+        top_k=SQL_AGENT_SERVICE_CONFIG.top_k,
         database_name=DEFAULT_DATABASE_NAME,
         custom_instructions=custom_instructions,
     )
 
-    return create_agent(
-        model=model,
-        tools=tools,
-        system_prompt=system_prompt,
-        name="sql_agent",
+
+def _get_chart_tools() -> list[Any]:
+    global _CHART_TOOLS_CACHE, _CHART_TOOLS_LOAD_FAILED
+
+    if _CHART_TOOLS_CACHE is not None:
+        return list(_CHART_TOOLS_CACHE)
+    if _CHART_TOOLS_LOAD_FAILED:
+        return []
+
+    try:
+        _CHART_TOOLS_CACHE = list(get_mcp_server_chart_tools())
+    except Exception:
+        _CHART_TOOLS_LOAD_FAILED = True
+        return []
+    return list(_CHART_TOOLS_CACHE)
+
+
+async def _aget_chart_tools() -> list[Any]:
+    global _CHART_TOOLS_CACHE, _CHART_TOOLS_LOAD_FAILED
+
+    if _CHART_TOOLS_CACHE is not None:
+        return list(_CHART_TOOLS_CACHE)
+    if _CHART_TOOLS_LOAD_FAILED:
+        return []
+
+    try:
+        _CHART_TOOLS_CACHE = list(await aget_mcp_server_chart_tools())
+    except Exception:
+        _CHART_TOOLS_LOAD_FAILED = True
+        return []
+    return list(_CHART_TOOLS_CACHE)
+
+
+def _resolve_required_tools(settings: ResolvedRuntimeSettings) -> list[Any]:
+    return [
+        *build_sql_agent_tools(settings.model),
+        *_get_chart_tools(),
+    ]
+
+
+async def _aresolve_required_tools(settings: ResolvedRuntimeSettings) -> list[Any]:
+    return [
+        *build_sql_agent_tools(settings.model),
+        *(await _aget_chart_tools()),
+    ]
+
+
+def _resolve_public_tools(settings: ResolvedRuntimeSettings) -> list[Any]:
+    return build_runtime_tools(
+        enable_tools=settings.enable_tools,
+        requested_tool_names=settings.requested_public_tool_names or None,
     )
 
 
-graph = make_graph
+async def _aresolve_public_tools(settings: ResolvedRuntimeSettings) -> list[Any]:
+    return await abuild_runtime_tools(
+        enable_tools=settings.enable_tools,
+        requested_tool_names=settings.requested_public_tool_names or None,
+    )
+
+
+graph = create_agent(
+    model=BASELINE_MODEL,
+    tools=BASELINE_PRIVATE_TOOLS,
+    middleware=[
+        RuntimeRequestMiddleware(
+            defaults=SQL_AGENT_DEFAULTS,
+            required_tools=[],
+            public_tools=[],
+            required_tool_resolver=_resolve_required_tools,
+            arequired_tool_resolver=_aresolve_required_tools,
+            public_tool_resolver=_resolve_public_tools,
+            apublic_tool_resolver=_aresolve_public_tools,
+            system_prompt_resolver=_build_sql_system_prompt,
+        )
+    ],
+    system_prompt=_build_sql_system_prompt(
+        ResolvedRuntimeSettings(
+            context=RuntimeContext(),
+            model=BASELINE_MODEL,
+            system_prompt="",
+            enable_tools=False,
+            requested_public_tool_names=[],
+        )
+    ),
+    context_schema=RuntimeContext,
+    name="sql_agent",
+)

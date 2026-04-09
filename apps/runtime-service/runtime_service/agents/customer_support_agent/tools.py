@@ -12,6 +12,7 @@ from runtime_service.middlewares.multimodal import (
     MultimodalAgentState,
     MultimodalMiddleware,
 )
+from runtime_service.runtime.context import RuntimeContext
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import SystemMessage, ToolMessage
@@ -102,6 +103,13 @@ STEP_CONFIG: dict[SupportStep, dict[str, Any]] = {
 
 
 class StepMiddleware(AgentMiddleware):
+    tools = [
+        record_warranty_status,
+        record_issue_type,
+        provide_solution,
+        escalate_to_human,
+    ]
+
     @staticmethod
     def _apply_step_config(request: ModelRequest) -> ModelRequest:
         current_step = request.state.get("current_step", "warranty_collector")
@@ -114,10 +122,16 @@ class StepMiddleware(AgentMiddleware):
             if request.state.get(key) is None:
                 raise ValueError(f"{key} must be set before reaching {step}")
 
-        system_prompt = str(config["prompt"]).format(**request.state)
+        step_prompt = str(config["prompt"]).format(**request.state)
+        existing_prompt = request.system_prompt or ""
+        system_prompt = (
+            f"{existing_prompt}\n\n{step_prompt}".strip()
+            if existing_prompt
+            else step_prompt
+        )
         return request.override(
             system_message=SystemMessage(content=system_prompt),
-            tools=list(config["tools"]),
+            tools=[*(request.tools or []), *list(config["tools"])],
         )
 
     def wrap_model_call(
@@ -136,20 +150,16 @@ class StepMiddleware(AgentMiddleware):
 
 
 def build_customer_support_agent(
-    model: Any, base_tools: list[Any] | None = None
+    model: Any,
+    base_tools: list[Any] | None = None,
+    middleware: list[Any] | None = None,
 ) -> Any:
-    all_tools = [
-        record_warranty_status,
-        record_issue_type,
-        provide_solution,
-        escalate_to_human,
-    ]
     tools = list(base_tools or [])
-    tools.extend(all_tools)
     return create_agent(
         model=model,
         tools=tools,
         state_schema=SupportState,
-        middleware=[StepMiddleware(), MultimodalMiddleware()],
+        middleware=[*(middleware or []), StepMiddleware(), MultimodalMiddleware()],
+        context_schema=RuntimeContext,
         name="customer_support_handoff_demo",
     )

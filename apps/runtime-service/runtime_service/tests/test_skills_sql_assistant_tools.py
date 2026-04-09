@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -15,6 +16,10 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from runtime_service.agents.skills_sql_assistant_agent import (  # noqa: E402
     tools as sql_tools,
+)
+
+skills_sql_graph_module = importlib.import_module(
+    "runtime_service.agents.skills_sql_assistant_agent.graph"
 )
 
 
@@ -95,3 +100,9 @@ def test_langgraph_registers_skills_sql_assistant_demo() -> None:
     langgraph_file = _PROJECT_ROOT / "runtime_service" / "langgraph.json"
     data = json.loads(langgraph_file.read_text(encoding="utf-8"))
     assert "skills_sql_assistant_demo" in data["graphs"]
+
+
+def test_skills_sql_graph_exports_static_graph_symbol() -> None:
+    assert hasattr(skills_sql_graph_module, "graph")
+    assert not hasattr(skills_sql_graph_module, "make_graph")
+    assert hasattr(skills_sql_graph_module.graph, "invoke")

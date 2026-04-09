@@ -27,6 +27,15 @@ class ResolvedRuntimeRequest:
     tools: list[Any]
 
 
+@dataclass(frozen=True)
+class ResolvedRuntimeSettings:
+    context: RuntimeContext
+    model: Any
+    system_prompt: str
+    enable_tools: bool
+    requested_public_tool_names: list[str]
+
+
 def normalize_tool_name(raw_name: Any) -> str:
     return str(raw_name or "").strip().lower()
 
@@ -110,13 +119,22 @@ def _dedupe_tools_by_name(tools: Sequence[Any]) -> list[Any]:
     return unique_tools
 
 
-def resolve_runtime_request(
+def dedupe_tools_by_name(tools: Sequence[Any]) -> list[Any]:
+    return _dedupe_tools_by_name(tools)
+
+
+def resolve_optional_tools(
+    public_tool_catalog: Mapping[str, Any],
+    requested_tool_names: Sequence[str],
+) -> list[Any]:
+    return _resolve_optional_tools(public_tool_catalog, requested_tool_names)
+
+
+def resolve_runtime_settings(
     *,
     context: RuntimeContext | Mapping[str, Any] | None,
     defaults: AgentDefaults,
-    required_tools: Sequence[Any],
-    public_tools: Sequence[Any],
-) -> ResolvedRuntimeRequest:
+) -> ResolvedRuntimeSettings:
     runtime_context = coerce_runtime_context(context)
 
     model_id = runtime_context.model_id or defaults.model_id
@@ -143,12 +161,6 @@ def resolve_runtime_request(
         if runtime_context.tools is not None
         else defaults.public_tool_names
     )
-    public_tool_catalog = build_tool_catalog(public_tools)
-    optional_tools = (
-        _resolve_optional_tools(public_tool_catalog, requested_public_tool_names)
-        if enable_tools
-        else []
-    )
 
     model = _bind_model_request_params(
         resolve_model_by_id(model_id),
@@ -156,11 +168,38 @@ def resolve_runtime_request(
         max_tokens=max_tokens,
         top_p=top_p,
     )
-    tools = _dedupe_tools_by_name([*required_tools, *optional_tools])
 
-    return ResolvedRuntimeRequest(
+    return ResolvedRuntimeSettings(
         context=runtime_context,
         model=model,
         system_prompt=system_prompt,
+        enable_tools=enable_tools,
+        requested_public_tool_names=requested_public_tool_names,
+    )
+
+
+def resolve_runtime_request(
+    *,
+    context: RuntimeContext | Mapping[str, Any] | None,
+    defaults: AgentDefaults,
+    required_tools: Sequence[Any],
+    public_tools: Sequence[Any],
+) -> ResolvedRuntimeRequest:
+    settings = resolve_runtime_settings(context=context, defaults=defaults)
+    public_tool_catalog = build_tool_catalog(public_tools)
+    optional_tools = (
+        resolve_optional_tools(
+            public_tool_catalog,
+            settings.requested_public_tool_names,
+        )
+        if settings.enable_tools
+        else []
+    )
+    tools = dedupe_tools_by_name([*required_tools, *optional_tools])
+
+    return ResolvedRuntimeRequest(
+        context=settings.context,
+        model=settings.model,
+        system_prompt=settings.system_prompt,
         tools=tools,
     )

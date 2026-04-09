@@ -173,10 +173,14 @@ def build_sql_database_tools(model: Any, db: SQLDatabase) -> list[Any]:
     return tools
 
 
-async def build_sql_agent_tools(model: Any, *, config: Any | None) -> list[Any]:
+def build_sql_agent_tools(model: Any, *, config: Any | None = None) -> list[Any]:
     del config
     tools = build_sql_database_tools(model, build_lazy_chinook_database())
     return tools
+
+
+async def abuild_sql_agent_tools(model: Any, *, config: Any | None = None) -> list[Any]:
+    return build_sql_agent_tools(model, config=config)
 
 
 __all__ = [
@@ -186,6 +190,7 @@ __all__ = [
     "build_lazy_chinook_database",
     "build_sql_agent_service_config",
     "build_sql_agent_tools",
+    "abuild_sql_agent_tools",
     "build_sql_database_tools",
     "download_chinook_database",
     "validate_read_only_sql",

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import importlib
 import json
 import sqlite3
@@ -16,6 +15,10 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from runtime_service.runtime.options import build_runtime_config  # noqa: E402
+from runtime_service.runtime.context import RuntimeContext  # noqa: E402
+from runtime_service.runtime.runtime_request_resolver import (  # noqa: E402
+    ResolvedRuntimeSettings,
+)
 from runtime_service.services.sql_agent import tools as sql_tools  # noqa: E402
 
 sql_agent_graph = importlib.import_module("runtime_service.services.sql_agent.graph")
@@ -117,83 +120,58 @@ def test_build_sql_agent_service_config_reads_private_flags() -> None:
     assert service_config.top_k == 9
 
 
-def test_make_graph_builds_sql_agent(monkeypatch: Any) -> None:
+def test_sql_graph_resolve_required_tools_includes_chart_tools(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        sql_agent_graph,
+        "build_sql_agent_tools",
+        lambda model, config=None: ["sql_tool", model],
+    )
+    monkeypatch.setattr(sql_agent_graph, "_get_chart_tools", lambda: ["chart_tool"])
+
+    settings = ResolvedRuntimeSettings(
+        context=RuntimeContext(),
+        model="runtime-model",
+        system_prompt="",
+        enable_tools=False,
+        requested_public_tool_names=[],
+    )
+
+    resolved_tools = sql_agent_graph._resolve_required_tools(settings)
+
+    assert resolved_tools == ["sql_tool", "runtime-model", "chart_tool"]
+
+
+def test_sql_graph_build_sql_system_prompt_uses_runtime_prompt(monkeypatch: Any) -> None:
     captured: dict[str, Any] = {}
 
-    class DummyOptions:
-        model_spec = object()
-        system_prompt = ""
-
-    async def fake_build_tools(options: Any) -> list[Any]:
-        del options
-        return ["base_tool"]
-
-    async def fake_build_sql_agent_tools(model: Any, *, config: Any | None) -> list[Any]:
-        del model, config
-        return ["sql_tool"]
-
-    async def fake_chart_tools() -> list[Any]:
-        return ["chart_tool"]
-
-    def fake_create_agent(**kwargs: Any) -> dict[str, Any]:
+    def fake_build_sql_agent_system_prompt(**kwargs: Any) -> str:
         captured.update(kwargs)
-        return {"name": kwargs.get("name"), "tools": kwargs.get("tools")}
+        return "sql system prompt"
 
-    monkeypatch.setattr(sql_agent_graph, "merge_trusted_auth_context", lambda config, ctx: ctx)
-    monkeypatch.setattr(sql_agent_graph, "build_runtime_config", lambda config, ctx: DummyOptions())
-    monkeypatch.setattr(sql_agent_graph, "resolve_model", lambda spec: spec)
-    monkeypatch.setattr(sql_agent_graph, "apply_model_runtime_params", lambda model, options: model)
-    monkeypatch.setattr(sql_agent_graph, "build_tools", fake_build_tools)
-    monkeypatch.setattr(sql_agent_graph, "build_sql_agent_tools", fake_build_sql_agent_tools)
-    monkeypatch.setattr(sql_agent_graph, "aget_mcp_server_chart_tools", fake_chart_tools)
-    monkeypatch.setattr(sql_agent_graph, "build_sql_agent_service_config", lambda config: sql_tools.SQLAgentServiceConfig(top_k=7))
-    monkeypatch.setattr(sql_agent_graph, "build_sql_agent_system_prompt", lambda **kwargs: "sql system prompt")
-    monkeypatch.setattr(sql_agent_graph, "create_agent", fake_create_agent)
+    monkeypatch.setattr(
+        sql_agent_graph,
+        "build_sql_agent_system_prompt",
+        fake_build_sql_agent_system_prompt,
+    )
 
-    result = asyncio.run(sql_agent_graph.make_graph({"configurable": {}}, object()))
+    settings = ResolvedRuntimeSettings(
+        context=RuntimeContext(),
+        model="runtime-model",
+        system_prompt="custom runtime prompt",
+        enable_tools=False,
+        requested_public_tool_names=[],
+    )
 
-    assert result["name"] == "sql_agent"
-    assert captured["tools"] == ["base_tool", "sql_tool", "chart_tool"]
-    assert captured["system_prompt"] == "sql system prompt"
+    prompt = sql_agent_graph._build_sql_system_prompt(settings)
+
+    assert prompt == "sql system prompt"
+    assert captured["custom_instructions"] == "custom runtime prompt"
 
 
-def test_make_graph_ignores_optional_chart_failures(monkeypatch: Any) -> None:
-    captured: dict[str, Any] = {}
-
-    class DummyOptions:
-        model_spec = object()
-        system_prompt = ""
-
-    async def fake_build_tools(options: Any) -> list[Any]:
-        del options
-        return ["base_tool"]
-
-    async def fake_build_sql_agent_tools(model: Any, *, config: Any | None) -> list[Any]:
-        del model, config
-        return ["sql_tool"]
-
-    async def fake_chart_tools() -> list[Any]:
-        raise RuntimeError("chart unavailable")
-
-    def fake_create_agent(**kwargs: Any) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {"name": kwargs.get("name"), "tools": kwargs.get("tools")}
-
-    monkeypatch.setattr(sql_agent_graph, "merge_trusted_auth_context", lambda config, ctx: ctx)
-    monkeypatch.setattr(sql_agent_graph, "build_runtime_config", lambda config, ctx: DummyOptions())
-    monkeypatch.setattr(sql_agent_graph, "resolve_model", lambda spec: spec)
-    monkeypatch.setattr(sql_agent_graph, "apply_model_runtime_params", lambda model, options: model)
-    monkeypatch.setattr(sql_agent_graph, "build_tools", fake_build_tools)
-    monkeypatch.setattr(sql_agent_graph, "build_sql_agent_tools", fake_build_sql_agent_tools)
-    monkeypatch.setattr(sql_agent_graph, "aget_mcp_server_chart_tools", fake_chart_tools)
-    monkeypatch.setattr(sql_agent_graph, "build_sql_agent_service_config", lambda config: sql_tools.SQLAgentServiceConfig(top_k=7))
-    monkeypatch.setattr(sql_agent_graph, "build_sql_agent_system_prompt", lambda **kwargs: "sql system prompt")
-    monkeypatch.setattr(sql_agent_graph, "create_agent", fake_create_agent)
-
-    result = asyncio.run(sql_agent_graph.make_graph({"configurable": {}}, object()))
-
-    assert result["name"] == "sql_agent"
-    assert captured["tools"] == ["base_tool", "sql_tool"]
+def test_sql_graph_exports_static_graph_symbol() -> None:
+    assert hasattr(sql_agent_graph, "graph")
+    assert not hasattr(sql_agent_graph, "make_graph")
+    assert hasattr(sql_agent_graph.graph, "invoke")
 
 
 def test_langgraph_registers_sql_agent() -> None:

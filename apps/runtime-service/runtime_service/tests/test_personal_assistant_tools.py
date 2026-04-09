@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -10,6 +11,10 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from runtime_service.agents.personal_assistant_agent import tools as pa_tools  # noqa: E402
+
+personal_assistant_graph_module = importlib.import_module(
+    "runtime_service.agents.personal_assistant_agent.graph"
+)
 
 
 def _invoke_tool(tool_obj: Any, args: dict[str, Any]) -> Any:
@@ -94,3 +99,9 @@ def test_langgraph_registers_personal_assistant_demo() -> None:
     langgraph_file = _PROJECT_ROOT / "runtime_service" / "langgraph.json"
     data = json.loads(langgraph_file.read_text(encoding="utf-8"))
     assert "personal_assistant_demo" in data["graphs"]
+
+
+def test_personal_assistant_graph_exports_static_graph_symbol() -> None:
+    assert hasattr(personal_assistant_graph_module, "graph")
+    assert not hasattr(personal_assistant_graph_module, "make_graph")
+    assert hasattr(personal_assistant_graph_module.graph, "invoke")

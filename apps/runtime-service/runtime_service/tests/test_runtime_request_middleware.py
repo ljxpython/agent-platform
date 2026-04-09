@@ -46,6 +46,11 @@ class DummyModel:
         return self
 
 
+class NamedTool:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
 def test_resolve_runtime_request_prefers_context_values(monkeypatch: Any) -> None:
     dummy_model = DummyModel()
 
@@ -189,6 +194,107 @@ def test_runtime_request_middleware_awrap_model_call_updates_request(
         assert updated_request.model is dummy_model
         assert updated_request.system_prompt == "default prompt"
         assert updated_request.tools == [required_tool]
+        return ModelResponse(result=[AIMessage(content="ok")])
+
+    response = asyncio.run(middleware.awrap_model_call(request, handler))
+
+    assert response.result[0].text == "ok"
+
+
+def test_runtime_request_middleware_wrap_model_call_supports_custom_resolvers(
+    monkeypatch: Any,
+) -> None:
+    dummy_model = DummyModel()
+    resolved_required = NamedTool("resolved_required")
+
+    monkeypatch.setattr(
+        "runtime_service.runtime.runtime_request_resolver.resolve_model_by_id",
+        lambda _model_id: dummy_model,
+    )
+
+    middleware = RuntimeRequestMiddleware(
+        defaults=AgentDefaults(
+            model_id="default-model",
+            system_prompt="default prompt",
+            enable_tools=True,
+        ),
+        required_tools=[],
+        public_tools=[],
+        required_tool_resolver=lambda settings: [required_tool, resolved_required],
+        public_tool_resolver=lambda settings: [optional_tool_b]
+        if settings.enable_tools
+        else [],
+        system_prompt_resolver=lambda settings: f"wrapped:{settings.system_prompt}",
+    )
+    request = ModelRequest(
+        model=object(),
+        messages=[],
+        runtime=Runtime(
+            context=RuntimeContext(
+                model_id="demo-model",
+                system_prompt="context prompt",
+                enable_tools=True,
+            )
+        ),
+    )
+
+    def handler(updated_request: ModelRequest) -> ModelResponse:
+        assert updated_request.model is dummy_model
+        assert updated_request.system_prompt == "wrapped:context prompt"
+        assert updated_request.tools == [required_tool, resolved_required, optional_tool_b]
+        return ModelResponse(result=[AIMessage(content="ok")])
+
+    response = middleware.wrap_model_call(request, handler)
+
+    assert response.result[0].text == "ok"
+
+
+def test_runtime_request_middleware_awrap_model_call_supports_async_resolvers(
+    monkeypatch: Any,
+) -> None:
+    dummy_model = DummyModel()
+    resolved_required = NamedTool("resolved_required_async")
+
+    monkeypatch.setattr(
+        "runtime_service.runtime.runtime_request_resolver.resolve_model_by_id",
+        lambda _model_id: dummy_model,
+    )
+
+    async def resolve_required(settings: Any) -> list[Any]:
+        del settings
+        return [required_tool, resolved_required]
+
+    async def resolve_public(settings: Any) -> list[Any]:
+        return [optional_tool_a] if settings.enable_tools else []
+
+    middleware = RuntimeRequestMiddleware(
+        defaults=AgentDefaults(
+            model_id="default-model",
+            system_prompt="default prompt",
+            enable_tools=True,
+        ),
+        required_tools=[],
+        public_tools=[],
+        arequired_tool_resolver=resolve_required,
+        apublic_tool_resolver=resolve_public,
+        system_prompt_resolver=lambda settings: f"async:{settings.system_prompt}",
+    )
+    request = ModelRequest(
+        model=object(),
+        messages=[],
+        runtime=Runtime(
+            context=RuntimeContext(
+                model_id="demo-model",
+                system_prompt="context prompt",
+                enable_tools=True,
+            )
+        ),
+    )
+
+    async def handler(updated_request: ModelRequest) -> ModelResponse:
+        assert updated_request.model is dummy_model
+        assert updated_request.system_prompt == "async:context prompt"
+        assert updated_request.tools == [required_tool, resolved_required, optional_tool_a]
         return ModelResponse(result=[AIMessage(content="ok")])
 
     response = asyncio.run(middleware.awrap_model_call(request, handler))

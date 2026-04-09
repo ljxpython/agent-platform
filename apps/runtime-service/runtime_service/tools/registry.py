@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from runtime_service.mcp.loader import get_mcp_tools
@@ -81,14 +82,42 @@ def resolve_requested_tools(
     return selected_builtin, selected_mcp
 
 
-async def build_tools(options: AppRuntimeConfig) -> list[Any]:
-    if not options.enable_tools:
+def build_runtime_tools(
+    *,
+    enable_tools: bool,
+    requested_tool_names: list[str] | None,
+) -> list[Any]:
+    if not enable_tools:
         return []
 
-    builtin_names, mcp_server_names = resolve_requested_tools(options.tools)
+    builtin_names, mcp_server_names = resolve_requested_tools(requested_tool_names)
+    tools: list[Any] = []
+    if builtin_names:
+        tools.extend(get_builtin_tools(builtin_names))
+    if mcp_server_names:
+        tools.extend(asyncio.run(get_mcp_tools(mcp_server_names)))
+    return tools
+
+
+async def abuild_runtime_tools(
+    *,
+    enable_tools: bool,
+    requested_tool_names: list[str] | None,
+) -> list[Any]:
+    if not enable_tools:
+        return []
+
+    builtin_names, mcp_server_names = resolve_requested_tools(requested_tool_names)
     tools: list[Any] = []
     if builtin_names:
         tools.extend(get_builtin_tools(builtin_names))
     if mcp_server_names:
         tools.extend(await get_mcp_tools(mcp_server_names))
     return tools
+
+
+async def build_tools(options: AppRuntimeConfig) -> list[Any]:
+    return await abuild_runtime_tools(
+        enable_tools=options.enable_tools,
+        requested_tool_names=options.tools,
+    )

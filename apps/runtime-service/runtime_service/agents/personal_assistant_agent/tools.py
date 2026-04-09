@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from runtime_service.agents.personal_assistant_agent.prompts import (
@@ -7,11 +8,16 @@ from runtime_service.agents.personal_assistant_agent.prompts import (
     EMAIL_AGENT_PROMPT,
     SUPERVISOR_PROMPT,
 )
+from runtime_service.middlewares.runtime_request import RuntimeRequestMiddleware
 from runtime_service.middlewares.multimodal import (
     MultimodalAgentState,
     MultimodalMiddleware,
 )
+from runtime_service.runtime.context import RuntimeContext, coerce_runtime_context
+from runtime_service.runtime.runtime_request_resolver import AgentDefaults
+from runtime_service.conf.settings import get_default_model_id
 from langchain.agents import create_agent
+from langchain.tools import ToolRuntime
 from langchain_core.tools import tool
 
 
@@ -83,20 +89,55 @@ def _message_to_text(message: Any) -> str:
     return str(message)
 
 
-def build_personal_assistant_agent(
-    model: Any, base_tools: list[Any] | None = None
-) -> Any:
+def _build_specialist_runtime_context(raw_context: Any) -> RuntimeContext:
+    context = coerce_runtime_context(raw_context)
+    return replace(
+        context,
+        system_prompt=None,
+        enable_tools=None,
+        tools=None,
+    )
+
+
+def build_personal_assistant_supervisor_tools(model: Any) -> list[Any]:
+    calendar_tools = [create_calendar_event, get_available_time_slots]
+    email_tools = [send_email]
+
     calendar_agent = create_agent(
         model=model,
-        tools=[create_calendar_event, get_available_time_slots],
+        tools=calendar_tools,
         system_prompt=CALENDAR_AGENT_PROMPT,
+        middleware=[
+            RuntimeRequestMiddleware(
+                defaults=AgentDefaults(
+                    model_id=get_default_model_id(),
+                    system_prompt=CALENDAR_AGENT_PROMPT,
+                    enable_tools=False,
+                ),
+                required_tools=calendar_tools,
+                public_tools=[],
+            )
+        ],
+        context_schema=RuntimeContext,
         name="calendar_assistant",
     )
 
     email_agent = create_agent(
         model=model,
-        tools=[send_email],
+        tools=email_tools,
         system_prompt=EMAIL_AGENT_PROMPT,
+        middleware=[
+            RuntimeRequestMiddleware(
+                defaults=AgentDefaults(
+                    model_id=get_default_model_id(),
+                    system_prompt=EMAIL_AGENT_PROMPT,
+                    enable_tools=False,
+                ),
+                required_tools=email_tools,
+                public_tools=[],
+            )
+        ],
+        context_schema=RuntimeContext,
         name="email_assistant",
     )
 
@@ -104,9 +145,13 @@ def build_personal_assistant_agent(
         "schedule_event",
         description="Use the calendar specialist to handle scheduling requests.",
     )
-    def schedule_event(request: str) -> str:
+    def schedule_event(
+        request: str,
+        runtime: ToolRuntime[RuntimeContext | None, Any],
+    ) -> str:
         result = calendar_agent.invoke(
-            {"messages": [{"role": "user", "content": request}]}
+            {"messages": [{"role": "user", "content": request}]},
+            context=_build_specialist_runtime_context(runtime.context),
         )
         return _message_to_text(result["messages"][-1])
 
@@ -114,20 +159,33 @@ def build_personal_assistant_agent(
         "manage_email",
         description="Use the email specialist to draft and send message requests.",
     )
-    def manage_email(request: str) -> str:
+    def manage_email(
+        request: str,
+        runtime: ToolRuntime[RuntimeContext | None, Any],
+    ) -> str:
         result = email_agent.invoke(
-            {"messages": [{"role": "user", "content": request}]}
+            {"messages": [{"role": "user", "content": request}]},
+            context=_build_specialist_runtime_context(runtime.context),
         )
         return _message_to_text(result["messages"][-1])
 
+    return [schedule_event, manage_email]
+
+
+def build_personal_assistant_agent(
+    model: Any,
+    base_tools: list[Any] | None = None,
+    middleware: list[Any] | None = None,
+) -> Any:
     tools = list(base_tools or [])
-    tools.extend([schedule_event, manage_email])
+    tools.extend(build_personal_assistant_supervisor_tools(model))
 
     return create_agent(
         model=model,
         tools=tools,
         system_prompt=SUPERVISOR_PROMPT,
         state_schema=MultimodalAgentState,
-        middleware=[MultimodalMiddleware()],
+        middleware=[*(middleware or []), MultimodalMiddleware()],
+        context_schema=RuntimeContext,
         name="personal_assistant_supervisor",
     )

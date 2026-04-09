@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -15,6 +16,10 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from runtime_service.agents.customer_support_agent import tools as cs_tools  # noqa: E402
+
+customer_support_graph_module = importlib.import_module(
+    "runtime_service.agents.customer_support_agent.graph"
+)
 
 
 def _invoke_tool(tool_obj: Any, args: dict[str, Any]) -> Any:
@@ -61,8 +66,9 @@ def test_step_middleware_wrap_model_call_applies_prompt_and_tools() -> None:
     )
 
     def handler(updated_request: ModelRequest) -> ModelResponse:
-        assert updated_request.system_prompt == cs_tools.ISSUE_CLASSIFIER_PROMPT.format(
-            warranty_status="in_warranty"
+        assert updated_request.system_prompt == (
+            "base\n\n"
+            + cs_tools.ISSUE_CLASSIFIER_PROMPT.format(warranty_status="in_warranty")
         )
         assert updated_request.tools == [cs_tools.record_issue_type]
         return ModelResponse(result=[AIMessage(content="ok")])
@@ -91,7 +97,8 @@ def test_step_middleware_awrap_model_call_applies_prompt_and_tools() -> None:
     async def handler(updated_request: ModelRequest) -> ModelResponse:
         assert (
             updated_request.system_prompt
-            == cs_tools.RESOLUTION_SPECIALIST_PROMPT.format(
+            == "base\n\n"
+            + cs_tools.RESOLUTION_SPECIALIST_PROMPT.format(
                 warranty_status="in_warranty",
                 issue_type="software",
             )
@@ -121,3 +128,9 @@ def test_langgraph_registers_customer_support_handoffs_demo() -> None:
     langgraph_file = _PROJECT_ROOT / "runtime_service" / "langgraph.json"
     data = json.loads(langgraph_file.read_text(encoding="utf-8"))
     assert "customer_support_handoffs_demo" in data["graphs"]
+
+
+def test_customer_support_graph_exports_static_graph_symbol() -> None:
+    assert hasattr(customer_support_graph_module, "graph")
+    assert not hasattr(customer_support_graph_module, "make_graph")
+    assert hasattr(customer_support_graph_module.graph, "invoke")

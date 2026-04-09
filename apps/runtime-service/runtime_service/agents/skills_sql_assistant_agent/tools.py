@@ -10,6 +10,7 @@ from runtime_service.middlewares.multimodal import (
     MultimodalAgentState,
     MultimodalMiddleware,
 )
+from runtime_service.runtime.context import RuntimeContext
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import SystemMessage
@@ -99,7 +100,9 @@ class SkillMiddleware(AgentMiddleware):
 
 
 def build_skills_sql_assistant_agent(
-    model: Any, base_tools: list[Any] | None = None
+    model: Any,
+    base_tools: list[Any] | None = None,
+    middleware: list[Any] | None = None,
 ) -> Any:
     tools = list(base_tools or [])
     return create_agent(
@@ -107,6 +110,7 @@ def build_skills_sql_assistant_agent(
         tools=tools,
         system_prompt=SQL_ASSISTANT_SYSTEM_PROMPT,
         state_schema=MultimodalAgentState,
-        middleware=[SkillMiddleware(), MultimodalMiddleware()],
+        middleware=[*(middleware or []), SkillMiddleware(), MultimodalMiddleware()],
+        context_schema=RuntimeContext,
         name="skills_sql_assistant_demo",
     )
