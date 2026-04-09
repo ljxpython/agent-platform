@@ -62,5 +62,7 @@ def test_langgraph_registers_assistant_graph() -> None:
     assert "assistant" in data["graphs"]
 
 
-def test_assistant_graph_exports_factory_symbol() -> None:
+def test_assistant_graph_exports_static_graph_symbol() -> None:
     assert hasattr(assistant_graph_module, "graph")
+    assert not hasattr(assistant_graph_module, "make_graph")
+    assert hasattr(assistant_graph_module.graph, "invoke")

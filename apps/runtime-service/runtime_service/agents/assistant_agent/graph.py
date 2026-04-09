@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from runtime_service.agents.assistant_agent.prompts import (
     SYSTEM_PROMPT,
     resolve_assistant_system_prompt,
@@ -16,17 +14,15 @@ from runtime_service.middlewares.multimodal import (
     MultimodalAgentState,
     MultimodalMiddleware,
 )
-from runtime_service.runtime.modeling import apply_model_runtime_params, resolve_model
-from runtime_service.runtime.options import (
-    build_runtime_config,
-    merge_trusted_auth_context,
-)
-from runtime_service.tools.registry import build_tools
+from runtime_service.middlewares.runtime_request import RuntimeRequestMiddleware
+from runtime_service.runtime.context import RuntimeContext
+from runtime_service.runtime.modeling import resolve_model_by_id
+from runtime_service.runtime.runtime_request_resolver import AgentDefaults
+from runtime_service.tools.local import get_builtin_tools
 from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware
-from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
-from langgraph_sdk.runtime import ServerRuntime
+from runtime_service.conf.settings import get_default_model_id
 
 
 @tool(
@@ -37,23 +33,43 @@ def submit_high_impact_action(action: str, details: str) -> str:
     return f"Approved execution request: action={action}; details={details}"
 
 
-async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
-    del runtime
-    runtime_context = merge_trusted_auth_context(config, {})
-    options = build_runtime_config(config, runtime_context)
-    model = apply_model_runtime_params(resolve_model(options.model_spec), options)
-    tools = await build_tools(options)
-    tools.extend(
-        [
-            lookup_internal_knowledge,
-            draft_release_plan,
-            send_demo_email,
-        ]
-    )
-    tools.extend(build_langchain_concepts_demo_tools(model))
-    tools.append(submit_high_impact_action)
+ASSISTANT_DEFAULTS = AgentDefaults(
+    model_id=get_default_model_id(),
+    system_prompt=resolve_assistant_system_prompt(
+        SYSTEM_PROMPT,
+        demo_enabled=True,
+    ),
+    temperature=0.2,
+    enable_tools=True,
+    public_tool_names=("word_count", "utc_now", "to_upper"),
+)
 
-    middleware = [
+BASELINE_MODEL = resolve_model_by_id(ASSISTANT_DEFAULTS.model_id)
+
+ASSISTANT_REQUIRED_TOOLS = [
+    lookup_internal_knowledge,
+    draft_release_plan,
+    send_demo_email,
+    *build_langchain_concepts_demo_tools(BASELINE_MODEL),
+    submit_high_impact_action,
+]
+
+ASSISTANT_PUBLIC_OPTIONAL_TOOLS = get_builtin_tools(
+    list(ASSISTANT_DEFAULTS.public_tool_names)
+)
+
+graph = create_agent(
+    model=BASELINE_MODEL,
+    tools=[
+        *ASSISTANT_REQUIRED_TOOLS,
+        *ASSISTANT_PUBLIC_OPTIONAL_TOOLS,
+    ],
+    middleware=[
+        RuntimeRequestMiddleware(
+            defaults=ASSISTANT_DEFAULTS,
+            required_tools=ASSISTANT_REQUIRED_TOOLS,
+            public_tools=ASSISTANT_PUBLIC_OPTIONAL_TOOLS,
+        ),
         HumanInTheLoopMiddleware(
             interrupt_on={
                 "submit_high_impact_action": {
@@ -64,20 +80,9 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime) -> Any:
             description_prefix="Tool execution pending approval",
         ),
         MultimodalMiddleware(),
-    ]
-    system_prompt = resolve_assistant_system_prompt(
-        options.system_prompt or SYSTEM_PROMPT,
-        demo_enabled=True,
-    )
-
-    return create_agent(
-        model=model,
-        tools=tools,
-        middleware=middleware,
-        system_prompt=system_prompt,
-        state_schema=MultimodalAgentState,
-        name="assistant",
-    )
-
-
-graph = make_graph
+    ],
+    system_prompt=ASSISTANT_DEFAULTS.system_prompt,
+    state_schema=MultimodalAgentState,
+    context_schema=RuntimeContext,
+    name="assistant",
+)

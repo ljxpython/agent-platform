@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import sys
+from pathlib import Path
 from typing import Any
 
 from langchain.tools import ToolRuntime
 from langchain_core.tools import tool
 from langgraph.prebuilt.tool_node import ToolCallRequest
-from runtime_service.runtime.context import RuntimeContext
-from runtime_service.services.test_case_service.tool_runtime_context_middleware import (
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from runtime_service.runtime.context import RuntimeContext  # noqa: E402
+from runtime_service.services.test_case_service.tool_runtime_context_middleware import (  # noqa: E402
     ToolRuntimeContextSanitizerMiddleware,
 )
 
