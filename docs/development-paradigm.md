@@ -153,7 +153,8 @@
 当前仓库里，真正和 AI 能力强相关的内容都已经收敛到 `runtime-service`：
 
 - graph 注册在 `runtime_service/langgraph.json`
-- 运行时参数解析在 `runtime_service/runtime/options.py`
+- 运行时业务输入收敛在 `runtime_service/runtime/context.py`
+- graph 运行时解析收敛在 `runtime_service/middlewares/runtime_request.py`
 - 模型装配在 `runtime_service/runtime/modeling.py`
 - 工具装配在 `runtime_service/tools/registry.py`
 - MCP server 清单在 `runtime_service/mcp/servers.py`
@@ -166,7 +167,6 @@
 - `personal_assistant_demo`：适合 supervisor + subagent 协作
 - `customer_support_handoffs_demo`：适合显式步骤流
 - `sql_agent`：适合服务化 Agent 参考
-- `usecase_workflow_agent`：适合业务工作流型样板
 
 所以，后面新增智能体时，默认思路应该是：
 
@@ -191,17 +191,31 @@
 ```python
 from langchain.agents import create_agent
 
-
-async def make_graph(config, runtime):
-    del runtime
-    options = build_runtime_config(config, {})
-    model = apply_model_runtime_params(resolve_model(options.model_spec), options)
-    tools = await build_tools(options)
-    tools.append(hello_tool)
-    return create_agent(model=model, tools=tools, system_prompt=options.system_prompt)
+from runtime_service.middlewares.runtime_request import RuntimeRequestMiddleware
+from runtime_service.runtime.context import RuntimeContext
+from runtime_service.runtime.modeling import resolve_model_by_id
+from runtime_service.runtime.runtime_request_resolver import AgentDefaults
 
 
-graph = make_graph
+DEFAULTS = AgentDefaults(
+    model_id="default-model",
+    system_prompt="You are a helpful assistant.",
+    enable_tools=False,
+)
+
+graph = create_agent(
+    model=resolve_model_by_id(DEFAULTS.model_id),
+    tools=[hello_tool],
+    system_prompt=DEFAULTS.system_prompt,
+    context_schema=RuntimeContext,
+    middleware=[
+        RuntimeRequestMiddleware(
+            defaults=DEFAULTS,
+            required_tools=[hello_tool],
+            public_tools=[],
+        )
+    ],
+)
 ```
 
 真正要做的事情，通常只剩下 3 步：
