@@ -367,9 +367,11 @@ export function Thread({
     if (trimmedModelId) {
       runtimeContext.model_id = trimmedModelId;
     }
-    if (appliedRunOptions.enableTools && appliedRunOptions.toolNames.length > 0) {
+    if (appliedRunOptions.enableTools) {
       runtimeContext.enable_tools = true;
-      runtimeContext.tools = appliedRunOptions.toolNames;
+      if (appliedRunOptions.toolNames.length > 0) {
+        runtimeContext.tools = appliedRunOptions.toolNames;
+      }
     }
     const normalizedTemperature = appliedRunOptions.temperature.trim();
     if (normalizedTemperature) {
@@ -392,13 +394,7 @@ export function Thread({
   }
 
   function buildRunConfig(): Record<string, unknown> | undefined {
-    const runtimeContext = buildRuntimeContext();
-    if (!runtimeContext) {
-      return undefined;
-    }
-    return {
-      configurable: runtimeContext,
-    };
+    return undefined;
   }
 
   function buildSubmissionContext(): Record<string, unknown> | undefined {
@@ -417,7 +413,7 @@ export function Thread({
   function hasAppliedRunOptions(): boolean {
     return Boolean(
       appliedRunOptions.modelId.trim() ||
-        (appliedRunOptions.enableTools && appliedRunOptions.toolNames.length > 0) ||
+        appliedRunOptions.enableTools ||
         appliedRunOptions.temperature.trim() ||
         appliedRunOptions.maxTokens.trim(),
     );
@@ -798,9 +794,9 @@ export function Thread({
                     {allowRunOptions ? <Sheet open={advancedOptionsOpen} onOpenChange={setAdvancedOptionsOpen}>
                       <SheetContent side={isLargeScreen ? "right" : "bottom"} className="overflow-y-auto sm:max-w-xl">
                         <SheetHeader>
-                          <SheetTitle>Run options</SheetTitle>
+                          <SheetTitle>Run Context</SheetTitle>
                           <SheetDescription>
-                            These overrides apply only to subsequent messages in the current chat session and do not modify assistant defaults.
+                            These overrides write only into runtime context for subsequent messages in the current chat session and do not modify assistant defaults.
                           </SheetDescription>
                         </SheetHeader>
 

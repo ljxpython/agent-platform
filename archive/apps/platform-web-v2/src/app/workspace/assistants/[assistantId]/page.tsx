@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   applyAssistantConfigFieldValue,
@@ -33,10 +33,31 @@ import {
   buildChatHref,
   writeRecentChatTarget,
 } from "@/lib/chat-target-preference";
+import { normalizeAssistantRuntimeContract } from "@/lib/assistant-runtime-contract";
 import { parseJsonObject, stringifyJsonObject } from "@/lib/json-object";
 import { useWorkspaceContext } from "@/providers/WorkspaceProvider";
 
 const FORM_ID = "assistant-detail-form";
+
+function buildAssistantEditorState(input: {
+  config?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  projectId?: string | null;
+}) {
+  const normalizedRuntime = normalizeAssistantRuntimeContract({
+    config: input.config,
+    context: input.context,
+    metadata: input.metadata,
+    projectId: input.projectId,
+  });
+
+  return {
+    config: stringifyJsonObject(normalizedRuntime.config),
+    context: stringifyJsonObject(normalizedRuntime.context),
+    metadata: stringifyJsonObject(normalizedRuntime.metadata),
+  };
+}
 
 export default function AssistantDetailPage() {
   const params = useParams<{ assistantId: string }>();
@@ -61,6 +82,27 @@ export default function AssistantDetailPage() {
   const [editMetadata, setEditMetadata] = useState("{}");
   const [configFields, setConfigFields] = useState<Record<string, string>>({});
 
+  const syncEditorStateFromAssistant = useCallback(
+    (payload: ManagementAssistant) => {
+      const normalizedEditorState = buildAssistantEditorState({
+        config: payload.config,
+        context: payload.context,
+        metadata: payload.metadata,
+        projectId: payload.project_id,
+      });
+
+      setItem(payload);
+      setEditName(payload.name);
+      setEditDescription(payload.description || "");
+      setEditGraphId(payload.graph_id);
+      setEditStatus(payload.status === "disabled" ? "disabled" : "active");
+      setEditConfig(normalizedEditorState.config);
+      setEditContext(normalizedEditorState.context);
+      setEditMetadata(normalizedEditorState.metadata);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!assistantId) {
       return;
@@ -70,16 +112,7 @@ export default function AssistantDetailPage() {
     setError(null);
     setNotice(null);
     void getAssistant(assistantId, projectId || undefined)
-      .then((payload) => {
-        setItem(payload);
-        setEditName(payload.name);
-        setEditDescription(payload.description || "");
-        setEditGraphId(payload.graph_id);
-        setEditStatus(payload.status === "disabled" ? "disabled" : "active");
-        setEditConfig(stringifyJsonObject(payload.config));
-        setEditContext(stringifyJsonObject(payload.context));
-        setEditMetadata(stringifyJsonObject(payload.metadata));
-      })
+      .then((payload) => syncEditorStateFromAssistant(payload))
       .catch((loadError) =>
         setError(
           loadError instanceof Error
@@ -88,7 +121,7 @@ export default function AssistantDetailPage() {
         ),
       )
       .finally(() => setLoading(false));
-  }, [assistantId, projectId]);
+  }, [assistantId, projectId, syncEditorStateFromAssistant]);
 
   useEffect(() => {
     if (!editGraphId.trim()) {
@@ -128,6 +161,12 @@ export default function AssistantDetailPage() {
     setError(null);
     setNotice(null);
     try {
+      const normalizedRuntime = normalizeAssistantRuntimeContract({
+        config: parseJsonObject(editConfig, "config"),
+        context: parseJsonObject(editContext, "context"),
+        metadata: parseJsonObject(editMetadata, "metadata"),
+        projectId: item?.project_id || projectId,
+      });
       const updated = await updateAssistant(
         assistantId,
         {
@@ -135,13 +174,13 @@ export default function AssistantDetailPage() {
           description: editDescription.trim(),
           graph_id: editGraphId.trim(),
           status: editStatus,
-          config: parseJsonObject(editConfig, "config"),
-          context: parseJsonObject(editContext, "context"),
-          metadata: parseJsonObject(editMetadata, "metadata"),
+          config: normalizedRuntime.config,
+          context: normalizedRuntime.context,
+          metadata: normalizedRuntime.metadata,
         },
         projectId || undefined,
       );
-      setItem(updated);
+      syncEditorStateFromAssistant(updated);
       setNotice("Assistant updated");
     } catch (saveError) {
       setError(
@@ -167,14 +206,7 @@ export default function AssistantDetailPage() {
         assistantId,
         projectId || undefined,
       );
-      setItem(updated);
-      setEditName(updated.name);
-      setEditDescription(updated.description || "");
-      setEditGraphId(updated.graph_id);
-      setEditStatus(updated.status === "disabled" ? "disabled" : "active");
-      setEditConfig(stringifyJsonObject(updated.config));
-      setEditContext(stringifyJsonObject(updated.context));
-      setEditMetadata(stringifyJsonObject(updated.metadata));
+      syncEditorStateFromAssistant(updated);
       setNotice("Assistant resynced");
     } catch (resyncError) {
       setError(
@@ -381,7 +413,7 @@ export default function AssistantDetailPage() {
             </FormSection>
 
             <FormSection
-              description="schema 驱动字段继续保留，避免配置被粗暴降级成只剩几个文本框。"
+              description="schema 驱动字段继续保留，但 contract 口子得收死：config 放执行控制，context 放业务运行时。"
               title="Parameters"
             >
               <div className="grid gap-5">
@@ -473,7 +505,7 @@ export default function AssistantDetailPage() {
 
                 <div className="grid gap-5 xl:grid-cols-3">
                   <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
-                    Config (JSON object)
+                    Config / Execution (JSON object)
                     <Textarea
                       className="font-mono text-xs leading-6"
                       disabled={saving}
@@ -483,7 +515,7 @@ export default function AssistantDetailPage() {
                   </label>
 
                   <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
-                    Context (JSON object)
+                    Context / Runtime (JSON object)
                     <Textarea
                       className="font-mono text-xs leading-6"
                       disabled={saving}

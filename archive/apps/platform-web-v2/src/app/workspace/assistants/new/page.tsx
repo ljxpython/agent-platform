@@ -36,6 +36,7 @@ import {
   type RuntimeToolItem,
 } from "@/lib/management-api/runtime";
 import { parseJsonObject } from "@/lib/json-object";
+import { normalizeAssistantRuntimeContract } from "@/lib/assistant-runtime-contract";
 import { useWorkspaceContext } from "@/providers/WorkspaceProvider";
 
 const FORM_ID = "create-assistant-form";
@@ -48,50 +49,20 @@ function buildCreateAssistantPayload(input: {
   graphId: string;
   metadata: string;
   name: string;
+  projectId: string;
   runtimeEnableTools: boolean;
   runtimeModelId: string;
   runtimeToolNames: string[];
 }) {
-  const configObject = parseJsonObject(input.config, "config");
-  const contextObject = parseJsonObject(input.context, "context");
-  const metadataObject = parseJsonObject(input.metadata, "metadata");
-  const configurableRaw =
-    configObject &&
-    typeof configObject.configurable === "object" &&
-    !Array.isArray(configObject.configurable)
-      ? (configObject.configurable as Record<string, unknown>)
-      : {};
-  const configurable: Record<string, unknown> = { ...configurableRaw };
-
-  const trimmedModelId = input.runtimeModelId.trim();
-  if (trimmedModelId) {
-    contextObject.model_id = trimmedModelId;
-    configurable.model_id = trimmedModelId;
-  } else {
-    delete contextObject.model_id;
-    delete configurable.model_id;
-  }
-
-  const cleanedTools = input.runtimeToolNames
-    .map((name) => name.trim())
-    .filter((name) => name.length > 0);
-  if (input.runtimeEnableTools && cleanedTools.length > 0) {
-    contextObject.enable_tools = true;
-    contextObject.tools = cleanedTools;
-    configurable.enable_tools = true;
-    configurable.tools = cleanedTools;
-  } else {
-    delete contextObject.enable_tools;
-    delete contextObject.tools;
-    delete configurable.enable_tools;
-    delete configurable.tools;
-  }
-
-  if (Object.keys(configurable).length > 0) {
-    configObject.configurable = configurable;
-  } else {
-    delete (configObject as Record<string, unknown>).configurable;
-  }
+  const normalizedRuntime = normalizeAssistantRuntimeContract({
+    config: parseJsonObject(input.config, "config"),
+    context: parseJsonObject(input.context, "context"),
+    metadata: parseJsonObject(input.metadata, "metadata"),
+    projectId: input.projectId,
+    runtimeEnableTools: input.runtimeEnableTools,
+    runtimeModelId: input.runtimeModelId,
+    runtimeToolNames: input.runtimeToolNames,
+  });
 
   const payload: {
     assistant_id?: string;
@@ -112,14 +83,14 @@ function buildCreateAssistantPayload(input: {
   if (input.assistantId.trim()) {
     payload.assistant_id = input.assistantId.trim();
   }
-  if (Object.keys(configObject).length > 0) {
-    payload.config = configObject;
+  if (Object.keys(normalizedRuntime.config).length > 0) {
+    payload.config = normalizedRuntime.config;
   }
-  if (Object.keys(contextObject).length > 0) {
-    payload.context = contextObject;
+  if (Object.keys(normalizedRuntime.context).length > 0) {
+    payload.context = normalizedRuntime.context;
   }
-  if (Object.keys(metadataObject).length > 0) {
-    payload.metadata = metadataObject;
+  if (Object.keys(normalizedRuntime.metadata).length > 0) {
+    payload.metadata = normalizedRuntime.metadata;
   }
 
   return payload;
@@ -176,6 +147,7 @@ export default function CreateAssistantPage() {
           graphId,
           metadata,
           name,
+          projectId,
           runtimeEnableTools,
           runtimeModelId,
           runtimeToolNames,
@@ -198,6 +170,7 @@ export default function CreateAssistantPage() {
     graphId,
     metadata,
     name,
+    projectId,
     runtimeEnableTools,
     runtimeModelId,
     runtimeToolNames,
@@ -349,6 +322,7 @@ export default function CreateAssistantPage() {
         graphId,
         metadata,
         name,
+        projectId,
         runtimeEnableTools,
         runtimeModelId,
         runtimeToolNames,
@@ -491,8 +465,8 @@ export default function CreateAssistantPage() {
         </FormSection>
 
         <FormSection
-          description="runtime 相关选择优先写入 context；旧 graph 迁移完成前，同时镜像到 config.configurable。"
-          title="Runtime Configuration"
+          description="runtime 相关选择只写入 context；config 只保留执行控制，configurable 不在这里夹带业务字段。"
+          title="Runtime Context"
         >
           <div className="grid gap-5 lg:grid-cols-2">
             <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
@@ -615,7 +589,7 @@ export default function CreateAssistantPage() {
         </FormSection>
 
         <FormSection
-          description="schema 驱动字段和原始 JSON 同时保留，方便从旧平台迁过来的复杂助手继续落地。"
+          description="schema 驱动字段和原始 JSON 同时保留；config 放执行控制，context 放业务运行时。"
           title="Assistant Parameters"
         >
           <div className="grid gap-5">
@@ -708,7 +682,7 @@ export default function CreateAssistantPage() {
 
             <div className="grid gap-5 xl:grid-cols-3">
               <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
-                Config (JSON object)
+                Config / Execution (JSON object)
                 <Textarea
                   className="font-mono text-xs leading-6"
                   disabled={submitting}
@@ -718,7 +692,7 @@ export default function CreateAssistantPage() {
               </label>
 
               <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
-                Context (JSON object)
+                Context / Runtime (JSON object)
                 <Textarea
                   className="font-mono text-xs leading-6"
                   disabled={submitting}
