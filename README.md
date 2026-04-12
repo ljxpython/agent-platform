@@ -5,16 +5,28 @@
 <p align="center"><a href="README.en.md">English</a> | 中文</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/LangGraph-1.0%2B-0E9F6E" alt="LangGraph" />
-  <img src="https://img.shields.io/badge/LangChain-1.2%2B-1C7ED6" alt="LangChain" />
-  <img src="https://img.shields.io/badge/FastAPI-0.133%2B-009688" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Next.js-15.5-black" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-19.1-61DAFB" alt="React" />
-  <img src="https://img.shields.io/badge/MCP-Enabled-7C3AED" alt="MCP" />
+  <img src="https://img.shields.io/badge/Vue-3%20Workspace-42B883" alt="Vue 3 Workspace" />
+  <img src="https://img.shields.io/badge/Testcase-Agent%20Live-2563EB" alt="Testcase Agent Live" />
+  <img src="https://img.shields.io/badge/Skills-Private%20Skill%20Stack-0F766E" alt="Skills" />
+  <img src="https://img.shields.io/badge/MCP-Knowledge%20Ready-7C3AED" alt="MCP Knowledge Ready" />
+  <img src="https://img.shields.io/badge/Harness-AI%20Continuous%20Coding-F59E0B" alt="Harness" />
+  <img src="https://img.shields.io/badge/LangGraph-Runtime%20Core-111827" alt="LangGraph Runtime Core" />
   <img src="https://img.shields.io/badge/README-EN%2FZH-F59E0B" alt="README EN/ZH" />
 </p>
 
 <p align="center"><a href="#system-overview">系统总览</a> · <a href="#frontend-entry">前端入口</a> · <a href="#quick-start">快速开始</a> · <a href="docs/deployment-guide.md">部署文档</a> · <a href="docs/CHANGELOG.md">更新日志</a> · <a href="docs/commit-and-changelog-guidelines.md">提交规范</a> · <a href="#acknowledgements">致谢参考</a> · <a href="#ai-deploy">AI代理部署</a></p>
+
+## Testcase Agent 展示视频
+
+<p align="center"><a href="https://youtu.be/SVplU-uIci0">打开演示视频</a></p>
+
+<p align="center">
+  <a href="https://youtu.be/SVplU-uIci0">
+    <img src="docs/assets/testcase-agent-demo-cover.jpg" alt="Testcase Agent 展示视频" width="100%" />
+  </a>
+</p>
+
+<p align="center"><sub>当前平台 Testcase Agent 展示视频，点击封面可跳转播放。</sub></p>
 
 基于 `LangGraph / LangChain` 的企业级 AI 平台架构，可在此基础上进行二次开发。  
 它把**平台治理层**和**Agent Runtime 执行层**拆开，既支持平台侧的认证、项目管理、审计、catalog 管理，也支持 Agent 侧的图编排、模型装配、Tools / MCP / Skills 接入与快速调试，适合作为企业内部 AI 平台和智能体应用的基础骨架。

@@ -5,16 +5,28 @@
 <p align="center">English | <a href="README.md">中文</a></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/LangGraph-1.0%2B-0E9F6E" alt="LangGraph" />
-  <img src="https://img.shields.io/badge/LangChain-1.2%2B-1C7ED6" alt="LangChain" />
-  <img src="https://img.shields.io/badge/FastAPI-0.133%2B-009688" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Next.js-15.5-black" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-19.1-61DAFB" alt="React" />
-  <img src="https://img.shields.io/badge/MCP-Enabled-7C3AED" alt="MCP" />
+  <img src="https://img.shields.io/badge/Vue-3%20Workspace-42B883" alt="Vue 3 Workspace" />
+  <img src="https://img.shields.io/badge/Testcase-Agent%20Live-2563EB" alt="Testcase Agent Live" />
+  <img src="https://img.shields.io/badge/Skills-Private%20Skill%20Stack-0F766E" alt="Skills" />
+  <img src="https://img.shields.io/badge/MCP-Knowledge%20Ready-7C3AED" alt="MCP Knowledge Ready" />
+  <img src="https://img.shields.io/badge/Harness-AI%20Continuous%20Coding-F59E0B" alt="Harness" />
+  <img src="https://img.shields.io/badge/LangGraph-Runtime%20Core-111827" alt="LangGraph Runtime Core" />
   <img src="https://img.shields.io/badge/README-EN%2FZH-F59E0B" alt="README EN/ZH" />
 </p>
 
 <p align="center"><a href="#system-overview">System Overview</a> · <a href="#frontend-entry">Frontend Entry</a> · <a href="#quick-start">Quick Start</a> · <a href="docs/deployment-guide.md">Deployment Guide</a> · <a href="docs/CHANGELOG.md">Changelog</a> · <a href="docs/commit-and-changelog-guidelines.md">Commit Guidelines</a> · <a href="#acknowledgements">Acknowledgements</a> · <a href="#ai-deploy">AI Deployment</a></p>
+
+## Testcase Agent Demo
+
+<p align="center"><a href="https://youtu.be/SVplU-uIci0">Open demo video</a></p>
+
+<p align="center">
+  <a href="https://youtu.be/SVplU-uIci0">
+    <img src="docs/assets/testcase-agent-demo-cover.jpg" alt="Testcase Agent Demo" width="100%" />
+  </a>
+</p>
+
+<p align="center"><sub>Current Testcase Agent showcase for the platform. Click the cover image to play it on YouTube.</sub></p>
 
 An enterprise AI agent platform architecture built on `LangGraph / LangChain`, intended as a reusable foundation for further development.  
 It separates the **platform governance layer** from the **Agent Runtime execution layer**, so the repo can support platform-side authentication, project management, audit, and catalog management, while also supporting runtime graph orchestration, model assembly, Tools / MCP / Skills integration, and rapid agent debugging.
