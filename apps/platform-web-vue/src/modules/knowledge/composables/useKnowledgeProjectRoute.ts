@@ -4,7 +4,7 @@ import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectCon
 
 export function useKnowledgeProjectRoute() {
   const route = useRoute()
-  const { activeProjects, setActiveProjectId } = useWorkspaceProjectContext()
+  const { activeProjectId, activeProjects, setActiveProjectId } = useWorkspaceProjectContext()
 
   const projectId = computed(() =>
     typeof route.params.projectId === 'string' ? route.params.projectId.trim() : ''
@@ -17,7 +17,7 @@ export function useKnowledgeProjectRoute() {
   watch(
     () => projectId.value,
     (nextProjectId) => {
-      if (nextProjectId) {
+      if (nextProjectId && nextProjectId !== activeProjectId.value) {
         setActiveProjectId(nextProjectId)
       }
     },

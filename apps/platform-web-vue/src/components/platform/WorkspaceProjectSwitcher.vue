@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseIcon from '@/components/base/BaseIcon.vue'
 import { useTopbarDropdown } from '@/composables/useTopbarDropdown'
 import { useWorkspaceProjectContext } from '@/composables/useWorkspaceProjectContext'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const { activeProjectId, activeProjects, setActiveProjectId, workspaceStore } = useWorkspaceProjectContext()
 const refreshing = ref(false)
 const {
@@ -58,8 +61,27 @@ async function toggle() {
   toggleDropdown()
 }
 
-function selectProject(projectId: string) {
-  setActiveProjectId(projectId)
+async function selectProject(projectId: string) {
+  if (projectId === activeProjectId.value) {
+    close()
+    return
+  }
+
+  const currentRouteProjectId = typeof route.params.projectId === 'string' ? route.params.projectId.trim() : ''
+  if (currentRouteProjectId) {
+    await router.replace({
+      name: String(route.name || ''),
+      params: {
+        ...route.params,
+        projectId,
+      },
+      query: route.query,
+      hash: route.hash,
+    })
+  } else {
+    setActiveProjectId(projectId)
+  }
+
   close()
 }
 

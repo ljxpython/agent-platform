@@ -63,6 +63,44 @@ class _RecordingKnowledgeUpstream:
                 'params': params,
             }
         )
+        if method == 'GET' and path == '/documents':
+            return {
+                'statuses': {
+                    'PROCESSED': [
+                        {
+                            'id': 'doc-alpha',
+                            'file_path': 'alpha.pdf',
+                            'status': 'processed',
+                            'content_summary': 'summary for alpha.pdf',
+                            'metadata': {'workspace_key': workspace_key},
+                        },
+                        {
+                            'id': 'doc-beta',
+                            'file_path': 'beta.pdf',
+                            'status': 'processed',
+                            'content_summary': 'summary for beta.pdf',
+                            'metadata': {'workspace_key': workspace_key},
+                        },
+                    ]
+                }
+            }
+        if method == 'GET' and path in {'/documents/doc-alpha/detail', '/documents/doc-beta/detail'}:
+            return {
+                'id': path.split('/')[-2],
+                'file_path': 'alpha.pdf' if 'alpha' in path else 'beta.pdf',
+                'status': 'processed',
+                'content_summary': 'detail summary',
+                'full_content': 'full content body',
+                'chunks': [
+                    {
+                        'chunk_id': 'chunk-1',
+                        'content': 'chunk content',
+                        'file_path': 'alpha.pdf' if 'alpha' in path else 'beta.pdf',
+                        'reference_id': '1',
+                    }
+                ],
+                'metadata': {'workspace_key': workspace_key},
+            }
         return {
             'method': method,
             'path': path,
@@ -137,10 +175,32 @@ class ProjectKnowledgeServiceIntegrationTest(unittest.IsolatedAsyncioTestCase):
             project_id=str(self.project_a.id),
             query=page,
         )
+        await self.service.get_scan_progress(
+            actor=self.editor_actor,
+            project_id=str(self.project_a.id),
+        )
         await self.service.query(
             actor=self.editor_actor,
             project_id=str(self.project_a.id),
             request=query,
+        )
+        await self.service.get_document_detail(
+            actor=self.editor_actor,
+            project_id=str(self.project_a.id),
+            document_id='doc-alpha',
+        )
+        await self.service.reprocess_failed_documents(
+            actor=self.editor_actor,
+            project_id=str(self.project_a.id),
+        )
+        await self.service.cancel_pipeline(
+            actor=self.editor_actor,
+            project_id=str(self.project_a.id),
+        )
+        await self.service.list_popular_graph_labels(
+            actor=self.editor_actor,
+            project_id=str(self.project_a.id),
+            limit=5,
         )
         await self.service.get_graph(
             actor=self.editor_actor,
@@ -167,10 +227,32 @@ class ProjectKnowledgeServiceIntegrationTest(unittest.IsolatedAsyncioTestCase):
             project_id=str(self.project_b.id),
             query=page,
         )
+        await self.service.get_scan_progress(
+            actor=self.editor_actor,
+            project_id=str(self.project_b.id),
+        )
         await self.service.query(
             actor=self.editor_actor,
             project_id=str(self.project_b.id),
             request=query,
+        )
+        await self.service.get_document_detail(
+            actor=self.editor_actor,
+            project_id=str(self.project_b.id),
+            document_id='doc-beta',
+        )
+        await self.service.reprocess_failed_documents(
+            actor=self.editor_actor,
+            project_id=str(self.project_b.id),
+        )
+        await self.service.cancel_pipeline(
+            actor=self.editor_actor,
+            project_id=str(self.project_b.id),
+        )
+        await self.service.list_popular_graph_labels(
+            actor=self.editor_actor,
+            project_id=str(self.project_b.id),
+            limit=5,
         )
         await self.service.get_graph(
             actor=self.editor_actor,
@@ -200,6 +282,16 @@ class ProjectKnowledgeServiceIntegrationTest(unittest.IsolatedAsyncioTestCase):
                 workspace_a,
                 workspace_a,
                 workspace_a,
+                workspace_a,
+                workspace_a,
+                workspace_a,
+                workspace_a,
+                workspace_a,
+                workspace_b,
+                workspace_b,
+                workspace_b,
+                workspace_b,
+                workspace_b,
                 workspace_b,
                 workspace_b,
                 workspace_b,
@@ -229,6 +321,17 @@ class ProjectKnowledgeServiceIntegrationTest(unittest.IsolatedAsyncioTestCase):
                 actor=self.editor_actor,
                 project_id=str(self.project_a.id),
             )
+
+    async def test_documents_status_filter_is_normalized_for_upstream_contract(self) -> None:
+        await self.service.list_documents_paginated(
+            actor=self.editor_actor,
+            project_id=str(self.project_a.id),
+            query=DocumentsPageQuery(status_filter='FAILED'),
+        )
+
+        latest_call = self.upstream.json_calls[-1]
+        self.assertEqual(latest_call['path'], '/documents/paginated')
+        self.assertEqual(latest_call['payload']['status_filter'], 'failed')
 
     async def test_clear_documents_requires_admin_during_worker_execution(self) -> None:
         with self.assertRaises(ForbiddenError):

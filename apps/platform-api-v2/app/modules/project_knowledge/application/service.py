@@ -222,11 +222,15 @@ class ProjectKnowledgeService:
             project_id=project_id,
             permission=PermissionCode.PROJECT_KNOWLEDGE_READ,
         )
+        payload = query.model_dump(mode='json', exclude_none=True)
+        status_filter = payload.get('status_filter')
+        if isinstance(status_filter, str) and status_filter.strip():
+            payload['status_filter'] = status_filter.strip().lower()
         return await self._upstream.request_json(
             'POST',
             '/documents/paginated',
             workspace_key=workspace_key,
-            payload=query.model_dump(mode='json', exclude_none=True),
+            payload=payload,
         )
 
     async def get_track_status(
@@ -260,6 +264,56 @@ class ProjectKnowledgeService:
         )
         return await self._upstream.request_json(
             'GET', '/documents/pipeline_status', workspace_key=workspace_key
+        )
+
+    async def get_scan_progress(
+        self,
+        *,
+        actor: ActorContext,
+        project_id: str,
+    ) -> dict[str, Any]:
+        pipeline = await self.get_pipeline_status(actor=actor, project_id=project_id)
+        total_files = int(pipeline.get('batchs') or 0)
+        current_batch = int(pipeline.get('cur_batch') or 0)
+        progress = 0
+        if total_files > 0:
+            progress = int(min(max(current_batch, 0), total_files) / total_files * 100)
+        return {
+            'is_scanning': bool(pipeline.get('busy')),
+            'current_file': str(pipeline.get('job_name') or pipeline.get('latest_message') or ''),
+            'indexed_count': max(current_batch - 1, 0) if bool(pipeline.get('busy')) else current_batch,
+            'total_files': total_files,
+            'progress': progress,
+        }
+
+    async def reprocess_failed_documents(
+        self,
+        *,
+        actor: ActorContext,
+        project_id: str,
+    ) -> dict[str, Any]:
+        workspace_key = await self._resolve_workspace_key(
+            actor=actor,
+            project_id=project_id,
+            permission=PermissionCode.PROJECT_KNOWLEDGE_WRITE,
+        )
+        return await self._upstream.request_json(
+            'POST', '/documents/reprocess_failed', workspace_key=workspace_key
+        )
+
+    async def cancel_pipeline(
+        self,
+        *,
+        actor: ActorContext,
+        project_id: str,
+    ) -> dict[str, Any]:
+        workspace_key = await self._resolve_workspace_key(
+            actor=actor,
+            project_id=project_id,
+            permission=PermissionCode.PROJECT_KNOWLEDGE_WRITE,
+        )
+        return await self._upstream.request_json(
+            'POST', '/documents/cancel_pipeline', workspace_key=workspace_key
         )
 
     async def clear_documents(
@@ -308,6 +362,27 @@ class ProjectKnowledgeService:
             payload={'doc_ids': [document_id], 'delete_file': True, 'delete_llm_cache': False},
         )
 
+    async def get_document_detail(
+        self,
+        *,
+        actor: ActorContext,
+        project_id: str,
+        document_id: str,
+    ) -> dict[str, Any]:
+        workspace_key = await self._resolve_workspace_key(
+            actor=actor,
+            project_id=project_id,
+            permission=PermissionCode.PROJECT_KNOWLEDGE_READ,
+        )
+        payload = await self._upstream.request_json(
+            'GET',
+            f'/documents/{document_id}/detail',
+            workspace_key=workspace_key,
+        )
+        if isinstance(payload, dict) and str(payload.get('id') or '') == document_id:
+            return payload
+        raise NotFoundError(message='Knowledge document not found', code='knowledge_document_not_found')
+
     async def query(
         self,
         *,
@@ -327,6 +402,25 @@ class ProjectKnowledgeService:
             payload=request.model_dump(mode='json', exclude_none=True),
         )
 
+    async def stream_query(
+        self,
+        *,
+        actor: ActorContext,
+        project_id: str,
+        request: ProjectKnowledgeQueryRequest,
+    ):
+        workspace_key = await self._resolve_workspace_key(
+            actor=actor,
+            project_id=project_id,
+            permission=PermissionCode.PROJECT_KNOWLEDGE_READ,
+        )
+        return self._upstream.stream_bytes(
+            'POST',
+            '/query/stream',
+            workspace_key=workspace_key,
+            payload=request.model_dump(mode='json', exclude_none=True),
+        )
+
     async def list_graph_labels(
         self,
         *,
@@ -340,6 +434,25 @@ class ProjectKnowledgeService:
         )
         return await self._upstream.request_json(
             'GET', '/graph/label/list', workspace_key=workspace_key
+        )
+
+    async def list_popular_graph_labels(
+        self,
+        *,
+        actor: ActorContext,
+        project_id: str,
+        limit: int,
+    ) -> Any:
+        workspace_key = await self._resolve_workspace_key(
+            actor=actor,
+            project_id=project_id,
+            permission=PermissionCode.PROJECT_KNOWLEDGE_READ,
+        )
+        return await self._upstream.request_json(
+            'GET',
+            '/graph/label/popular',
+            workspace_key=workspace_key,
+            params={'limit': limit},
         )
 
     async def search_graph_labels(

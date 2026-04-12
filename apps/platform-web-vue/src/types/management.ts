@@ -528,6 +528,14 @@ export type KnowledgePipelineStatus = {
   [key: string]: unknown
 }
 
+export type KnowledgeDocumentsScanProgress = {
+  is_scanning: boolean
+  current_file: string
+  indexed_count: number
+  total_files: number
+  progress: number
+}
+
 export type KnowledgeQueryReference = {
   reference_id: string
   file_path: string

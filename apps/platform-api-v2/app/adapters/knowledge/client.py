@@ -201,3 +201,46 @@ class LightRagKnowledgeClient:
             status_code=502,
             message='LightRAG upstream returned an invalid health payload',
         )
+
+    async def stream_bytes(
+        self,
+        method: str,
+        path: str,
+        *,
+        workspace_key: str,
+        payload: Any = None,
+        params: Mapping[str, Any] | None = None,
+    ):
+        json_payload = dict(payload) if isinstance(payload, Mapping) else payload
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
+                async with client.stream(
+                    method=method,
+                    url=self._url(path),
+                    json=json_payload,
+                    params=dict(params) if params is not None else None,
+                    headers=self._headers(
+                        workspace_key=workspace_key,
+                        accept='application/x-ndjson',
+                    ),
+                ) as response:
+                    await self._raise_for_status(
+                        response,
+                        fallback_code='lightrag_upstream_request_failed',
+                    )
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+        except httpx.TimeoutException as exc:
+            raise UpstreamServiceError(
+                upstream='lightrag',
+                status_code=504,
+                code='lightrag_upstream_timeout',
+                message='LightRAG upstream timed out',
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise UpstreamServiceError(
+                upstream='lightrag',
+                status_code=502,
+                code='lightrag_upstream_unavailable',
+                message='LightRAG upstream is unavailable',
+            ) from exc

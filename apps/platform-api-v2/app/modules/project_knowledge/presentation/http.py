@@ -4,6 +4,7 @@ from typing import Annotated, Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import Settings
@@ -162,6 +163,39 @@ async def get_project_knowledge_pipeline_status(
     return await service.get_pipeline_status(actor=actor, project_id=project_id)
 
 
+@router.get('/documents/scan-progress')
+async def get_project_knowledge_scan_progress(
+    request: Request,
+    project_id: str,
+    actor: ActorContext = Depends(get_actor_context),
+    service: ProjectKnowledgeService = Depends(get_project_knowledge_service),
+) -> dict[str, Any]:
+    _bind_project_audit_scope(request, project_id)
+    return await service.get_scan_progress(actor=actor, project_id=project_id)
+
+
+@router.post('/documents/reprocess-failed')
+async def reprocess_failed_project_knowledge_documents(
+    request: Request,
+    project_id: str,
+    actor: ActorContext = Depends(get_actor_context),
+    service: ProjectKnowledgeService = Depends(get_project_knowledge_service),
+) -> dict[str, Any]:
+    _bind_project_audit_scope(request, project_id)
+    return await service.reprocess_failed_documents(actor=actor, project_id=project_id)
+
+
+@router.post('/documents/cancel-pipeline')
+async def cancel_project_knowledge_pipeline(
+    request: Request,
+    project_id: str,
+    actor: ActorContext = Depends(get_actor_context),
+    service: ProjectKnowledgeService = Depends(get_project_knowledge_service),
+) -> dict[str, Any]:
+    _bind_project_audit_scope(request, project_id)
+    return await service.cancel_pipeline(actor=actor, project_id=project_id)
+
+
 @router.delete('/documents', response_model=OperationView)
 async def clear_project_knowledge_documents(
     request: Request,
@@ -195,6 +229,18 @@ async def delete_project_knowledge_document(
     return await service.delete_document(actor=actor, project_id=project_id, document_id=document_id)
 
 
+@router.get('/documents/{document_id}')
+async def get_project_knowledge_document_detail(
+    request: Request,
+    project_id: str,
+    document_id: str,
+    actor: ActorContext = Depends(get_actor_context),
+    service: ProjectKnowledgeService = Depends(get_project_knowledge_service),
+) -> dict[str, Any]:
+    _bind_project_audit_scope(request, project_id)
+    return await service.get_document_detail(actor=actor, project_id=project_id, document_id=document_id)
+
+
 @router.post('/query')
 async def query_project_knowledge(
     request: Request,
@@ -207,6 +253,19 @@ async def query_project_knowledge(
     return await service.query(actor=actor, project_id=project_id, request=payload)
 
 
+@router.post('/query/stream')
+async def stream_query_project_knowledge(
+    request: Request,
+    project_id: str,
+    payload: ProjectKnowledgeQueryRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    service: ProjectKnowledgeService = Depends(get_project_knowledge_service),
+) -> StreamingResponse:
+    _bind_project_audit_scope(request, project_id)
+    stream = await service.stream_query(actor=actor, project_id=project_id, request=payload)
+    return StreamingResponse(stream, media_type='application/x-ndjson')
+
+
 @router.get('/graph/label/list')
 async def list_project_knowledge_graph_labels(
     request: Request,
@@ -216,6 +275,22 @@ async def list_project_knowledge_graph_labels(
 ) -> Any:
     _bind_project_audit_scope(request, project_id)
     return await service.list_graph_labels(actor=actor, project_id=project_id)
+
+
+@router.get('/graph/label/popular')
+async def list_project_knowledge_graph_popular_labels(
+    request: Request,
+    project_id: str,
+    limit: int = Query(default=10, ge=1, le=100),
+    actor: ActorContext = Depends(get_actor_context),
+    service: ProjectKnowledgeService = Depends(get_project_knowledge_service),
+) -> Any:
+    _bind_project_audit_scope(request, project_id)
+    return await service.list_popular_graph_labels(
+        actor=actor,
+        project_id=project_id,
+        limit=limit,
+    )
 
 
 @router.get('/graph/label/search')

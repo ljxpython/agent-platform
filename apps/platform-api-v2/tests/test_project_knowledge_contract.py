@@ -42,7 +42,12 @@ def test_project_knowledge_router_is_registered() -> None:
     paths = {route.path for route in api_router.routes}
     assert '/api/projects/{project_id}/knowledge' in paths
     assert '/api/projects/{project_id}/knowledge/documents/upload' in paths
+    assert '/api/projects/{project_id}/knowledge/documents/{document_id}' in paths
+    assert '/api/projects/{project_id}/knowledge/documents/reprocess-failed' in paths
+    assert '/api/projects/{project_id}/knowledge/documents/cancel-pipeline' in paths
     assert '/api/projects/{project_id}/knowledge/query' in paths
+    assert '/api/projects/{project_id}/knowledge/query/stream' in paths
+    assert '/api/projects/{project_id}/knowledge/graph/label/popular' in paths
 
 
 def test_project_knowledge_upload_route_uses_header_based_filename_contract() -> None:

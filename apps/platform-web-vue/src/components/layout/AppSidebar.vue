@@ -36,9 +36,10 @@ type SidebarGroup = {
 }
 
 const groups = computed(() => {
-  const knowledgeTarget = activeProjectId.value
-    ? `/workspace/projects/${activeProjectId.value}/knowledge`
-    : '/workspace/projects'
+  const resolveKnowledgePath = (suffix: 'documents' | 'retrieval' | 'graph' | 'settings') =>
+    activeProjectId.value
+      ? `/workspace/projects/${activeProjectId.value}/knowledge/${suffix}`
+      : '/workspace/projects'
   const baseGroups: SidebarGroup[] = [
     {
       id: 'workspace',
@@ -63,12 +64,6 @@ const groups = computed(() => {
           label: t('nav.assistants'),
           icon: 'assistant',
           requiredPermissions: ['project.assistant.read']
-        },
-        {
-          to: knowledgeTarget,
-          label: t('nav.knowledge'),
-          icon: 'file',
-          requiredPermissions: ['project.knowledge.read']
         },
         {
           to: '/workspace/graphs',
@@ -112,6 +107,36 @@ const groups = computed(() => {
           label: t('nav.testcase'),
           icon: 'testcase',
           requiredPermissions: ['project.testcase.read']
+        }
+      ]
+    },
+    {
+      id: 'knowledge',
+      label: 'Knowledge',
+      items: [
+        {
+          to: resolveKnowledgePath('documents'),
+          label: '知识文档',
+          icon: 'file',
+          requiredPermissions: ['project.knowledge.read']
+        },
+        {
+          to: resolveKnowledgePath('retrieval'),
+          label: '知识检索',
+          icon: 'search',
+          requiredPermissions: ['project.knowledge.read']
+        },
+        {
+          to: resolveKnowledgePath('graph'),
+          label: '知识图谱',
+          icon: 'graph',
+          requiredPermissions: ['project.knowledge.read']
+        },
+        {
+          to: resolveKnowledgePath('settings'),
+          label: '知识设置',
+          icon: 'shield',
+          requiredPermissions: ['project.knowledge.read']
         }
       ]
     },
